@@ -1,0 +1,315 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:service_api/service_api.dart';
+
+import '../../data/notification_repository.dart';
+import '../../domain/notification_channel.dart';
+import '../../domain/notification_preferences.dart';
+
+// ---------------------------------------------------------------------------
+// Repository provider (offline cache via SharedPreferences)
+// ---------------------------------------------------------------------------
+
+/// Repository provider -- must be overridden in ProviderScope.
+final notificationRepositoryProvider = Provider<NotificationRepository>(
+  (ref) => throw StateError(
+    'notificationRepositoryProvider must be overridden. '
+    'Call overrideNotificationRepository() in app bootstrap.',
+  ),
+);
+
+/// Override helper called from the app shell after DI is ready.
+Override overrideNotificationRepository(NotificationRepository repository) {
+  return notificationRepositoryProvider.overrideWithValue(repository);
+}
+
+// ---------------------------------------------------------------------------
+// Channels
+// ---------------------------------------------------------------------------
+
+/// Async state wrapper for channel operations.
+typedef ChannelsState = AsyncValue<List<NotificationChannel>>;
+
+/// Manages the list of notification channels.
+///
+/// Fetches from API first, falls back to local cache if offline.
+/// Writes go to API first, then update local cache on success.
+class ChannelsNotifier extends StateNotifier<ChannelsState> {
+  ChannelsNotifier(this._repo, this._channelApi) : super(const AsyncLoading()) {
+    _loadChannels();
+  }
+
+  final NotificationRepository _repo;
+  final ChannelApiService? _channelApi;
+
+  /// Loads channels from API, falls back to local cache.
+  Future<void> _loadChannels() async {
+    if (_channelApi == null) {
+      state = AsyncData(_repo.getChannels());
+      return;
+    }
+
+    try {
+      final response = await _channelApi!.getChannels();
+      if (response.success && response.data != null) {
+        final channels = (response.data! as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .map(NotificationChannel.fromJson)
+            .toList();
+        // Write-through to local cache
+        for (final channel in channels) {
+          await _repo.saveChannel(channel);
+        }
+        state = AsyncData(List<NotificationChannel>.unmodifiable(channels));
+        return;
+      }
+    } on DioException {
+      // Network error -- fall back to cache
+    }
+    state = AsyncData(_repo.getChannels());
+  }
+
+  /// Refreshes channels from API.
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    await _loadChannels();
+  }
+
+  /// Connects (saves) a channel via API with local cache fallback.
+  Future<void> connectChannel(NotificationChannel channel) async {
+    // Optimistic update
+    final previous = state.valueOrNull ?? [];
+    final optimistic = [
+      ...previous.where((c) => c.type != channel.type),
+      channel,
+    ];
+    state = AsyncData(List<NotificationChannel>.unmodifiable(optimistic));
+
+    // Persist to local cache
+    await _repo.saveChannel(channel);
+  }
+
+  /// Disconnects (removes) a channel by type.
+  ///
+  /// Calls API first, then updates local cache. On API failure, rolls back.
+  Future<void> disconnectChannel(String type) async {
+    final previous = state.valueOrNull ?? [];
+
+    // Optimistic update
+    final optimistic = previous.where((c) => c.type != type).toList();
+    state = AsyncData(List<NotificationChannel>.unmodifiable(optimistic));
+
+    if (_channelApi != null) {
+      try {
+        final response = await _channelApi!.disconnectChannel(type);
+        if (!response.success) {
+          // Rollback on failure
+          state = AsyncData(List<NotificationChannel>.unmodifiable(previous));
+          return;
+        }
+      } on DioException {
+        // Rollback on network error
+        state = AsyncData(List<NotificationChannel>.unmodifiable(previous));
+        return;
+      }
+    }
+
+    // Persist to local cache
+    await _repo.removeChannel(type);
+  }
+}
+
+/// Provider for the list of notification channels (async).
+final channelsProvider =
+    StateNotifierProvider<ChannelsNotifier, ChannelsState>(
+  (ref) {
+    final repo = ref.watch(notificationRepositoryProvider);
+    final channelApi = _tryRead(ref, channelApiProvider);
+    return ChannelsNotifier(repo, channelApi);
+  },
+);
+
+/// Derived provider: only connected channels.
+final connectedChannelsProvider = Provider<List<NotificationChannel>>((ref) {
+  final channelsAsync = ref.watch(channelsProvider);
+  final channels = channelsAsync.valueOrNull ?? [];
+  return List<NotificationChannel>.unmodifiable(
+    channels.where((c) => c.isConnected),
+  );
+});
+
+/// Derived provider: channels list value (non-async, for backward compat).
+final channelsListProvider = Provider<List<NotificationChannel>>((ref) {
+  final channelsAsync = ref.watch(channelsProvider);
+  return channelsAsync.valueOrNull ?? [];
+});
+
+// ---------------------------------------------------------------------------
+// Preferences
+// ---------------------------------------------------------------------------
+
+/// Manages notification delivery preferences.
+///
+/// Saves to API first, then updates local cache.
+class PreferencesNotifier extends StateNotifier<NotificationPreferences> {
+  PreferencesNotifier(this._repo, this._notifApi)
+      : super(_repo.getPreferences()) {
+    _loadFromApi();
+  }
+
+  final NotificationRepository _repo;
+  final NotificationApiService? _notifApi;
+
+  /// Load preferences from API on startup, fall back to local.
+  Future<void> _loadFromApi() async {
+    if (_notifApi == null) return;
+
+    try {
+      final response = await _notifApi!.getPreferences();
+      if (response.success && response.data != null) {
+        final prefs = NotificationPreferences.fromJson(
+          response.data! as Map<String, dynamic>,
+        );
+        await _repo.savePreferences(prefs);
+        state = prefs;
+      }
+    } on DioException {
+      // Keep local cache value
+    }
+  }
+
+  /// Updates and persists preferences -- API first, then local cache.
+  Future<void> updatePreferences(NotificationPreferences prefs) async {
+    final previous = state;
+
+    // Optimistic update
+    state = prefs;
+
+    if (_notifApi != null) {
+      try {
+        final response = await _notifApi!.updatePreferences(prefs.toJson());
+        if (!response.success) {
+          state = previous; // Rollback
+          return;
+        }
+      } on DioException {
+        state = previous; // Rollback
+        return;
+      }
+    }
+
+    await _repo.savePreferences(prefs);
+  }
+
+  /// Updates the fallback chain order.
+  Future<void> updateFallbackChain(List<String> chain) async {
+    final updated = state.copyWith(fallbackChain: chain);
+    await updatePreferences(updated);
+  }
+
+  /// Updates the escalation delay for a specific channel.
+  Future<void> updateEscalationDelay(String channelType, int minutes) async {
+    final newDelays = Map<String, int>.from(state.escalationDelays);
+    newDelays[channelType] = minutes;
+    final updated = state.copyWith(escalationDelays: newDelays);
+    await updatePreferences(updated);
+  }
+
+  /// Reloads preferences from local storage.
+  void reload() {
+    state = _repo.getPreferences();
+  }
+}
+
+/// Provider for notification preferences.
+final preferencesProvider =
+    StateNotifierProvider<PreferencesNotifier, NotificationPreferences>(
+  (ref) {
+    final repo = ref.watch(notificationRepositoryProvider);
+    final notifApi = _tryRead(ref, notificationApiProvider);
+    return PreferencesNotifier(repo, notifApi);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Quota
+// ---------------------------------------------------------------------------
+
+/// Provider for notification quota usage (fetched from API).
+final quotaProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final notifApi = _tryRead(ref, notificationApiProvider);
+  if (notifApi == null) return {};
+
+  final response = await notifApi.getQuota();
+  if (response.success && response.data != null) {
+    return response.data!;
+  }
+  return {};
+});
+
+// ---------------------------------------------------------------------------
+// History
+// ---------------------------------------------------------------------------
+
+/// Provider for delivery history log entries (API-first with local fallback).
+final historyProvider =
+    StateNotifierProvider<HistoryNotifier, AsyncValue<List<Map<String, dynamic>>>>(
+  (ref) {
+    final repo = ref.watch(notificationRepositoryProvider);
+    final notifApi = _tryRead(ref, notificationApiProvider);
+    return HistoryNotifier(repo, notifApi);
+  },
+);
+
+/// Manages delivery history with API-first, local cache fallback.
+class HistoryNotifier
+    extends StateNotifier<AsyncValue<List<Map<String, dynamic>>>> {
+  HistoryNotifier(this._repo, this._notifApi) : super(const AsyncLoading()) {
+    _load();
+  }
+
+  final NotificationRepository _repo;
+  final NotificationApiService? _notifApi;
+
+  Future<void> _load() async {
+    if (_notifApi == null) {
+      state = AsyncData(_repo.getHistory());
+      return;
+    }
+
+    try {
+      final response = await _notifApi!.getDeliveryHistory(limit: 100);
+      if (response.success && response.data != null) {
+        final entries = (response.data! as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+        state = AsyncData(List<Map<String, dynamic>>.unmodifiable(entries));
+        return;
+      }
+    } on DioException {
+      // Fall back to local
+    }
+    state = AsyncData(_repo.getHistory());
+  }
+
+  /// Refresh history from API.
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    await _load();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Safely tries to read a provider that may not exist in the scope.
+///
+/// When feature_notifications is used without service_api providers
+/// being overridden (e.g. in tests), this returns null instead of throwing.
+T? _tryRead<T>(Ref ref, Provider<T> provider) {
+  try {
+    return ref.watch(provider);
+  } catch (_) {
+    return null;
+  }
+}

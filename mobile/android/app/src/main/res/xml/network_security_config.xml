@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UNJYNX Network Security Configuration
+
+  - Blocks cleartext (HTTP) traffic by default.
+  - Allows cleartext only for localhost and Android emulator host (dev).
+  - Pins TLS certificates for the production API domain.
+  - Includes a backup pin to allow key rotation without bricking clients.
+
+  Replace the placeholder SHA-256 pins with real values before production
+  release. Generate pins with:
+    openssl s_client -servername api.unjynx.com -connect api.unjynx.com:443 \
+      | openssl x509 -pubkey -noout \
+      | openssl pkey -pubin -outform der \
+      | openssl dgst -sha256 -binary \
+      | openssl enc -base64
+-->
+<network-security-config>
+
+    <!-- Global: disallow cleartext traffic by default -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Dev: allow cleartext for localhost and emulator host -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+
+    <!-- Production API: certificate pinning -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.unjynx.com</domain>
+        <domain includeSubdomains="true">auth.unjynx.com</domain>
+        <pin-set expiration="2027-06-01">
+            <!--
+              Primary pin: SHA-256 of the leaf certificate's SubjectPublicKeyInfo.
+              PLACEHOLDER - replace with actual pin before production release.
+            -->
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <!--
+              Backup pin: SHA-256 of a backup/intermediate certificate.
+              PLACEHOLDER - replace with actual pin before production release.
+            -->
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+        </pin-set>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+</network-security-config>

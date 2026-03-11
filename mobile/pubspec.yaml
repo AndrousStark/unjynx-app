@@ -1,0 +1,74 @@
+name: unjynx_mobile
+description: "UNJYNX - Break the satisfactory. Unjynx your productivity."
+publish_to: none
+version: 0.1.0+1
+
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dio: ^5.7.0
+  drift: ^2.22.0
+  feature_billing:
+    path: ../../packages/feature_billing
+  feature_gamification:
+    path: ../../packages/feature_gamification
+  feature_home:
+    path: ../../packages/feature_home
+  feature_import_export:
+    path: ../../packages/feature_import_export
+  feature_notifications:
+    path: ../../packages/feature_notifications
+  feature_onboarding:
+    path: ../../packages/feature_onboarding
+  feature_profile:
+    path: ../../packages/feature_profile
+  feature_projects:
+    path: ../../packages/feature_projects
+  feature_settings:
+    path: ../../packages/feature_settings
+  feature_team:
+    path: ../../packages/feature_team
+  feature_todos:
+    path: ../../packages/feature_todos
+  feature_widgets:
+    path: ../../packages/feature_widgets
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.0
+  get_it: ^8.0.0
+  go_router: ^16.0.0
+  injectable: ^2.5.0
+  riverpod_annotation: ^2.6.0
+  service_api:
+    path: ../../packages/service_api
+  service_auth:
+    path: ../../packages/service_auth
+  service_database:
+    path: ../../packages/service_database
+  service_notification:
+    path: ../../packages/service_notification
+  service_sync:
+    path: ../../packages/service_sync
+  shared_preferences: ^2.3.0
+  unjynx_core:
+    path: ../../packages/core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^7.0.0
+  # NOTE: build_runner, riverpod_generator, injectable_generator temporarily
+  # removed due to analyzer 8.x incompatibility with Dart 3.11.1.
+  # Restore when riverpod_generator supports analyzer ^8.0.0.
+  # Existing .g.dart files are committed and work fine for tests.
+  # build_runner: ^2.4.0
+  # injectable_generator: ^2.7.0
+  # riverpod_generator: ^2.6.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - shorebird.yaml

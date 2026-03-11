@@ -1,0 +1,18 @@
+name: service_sync
+description: UNJYNX offline-first sync engine with Last-Write-Wins conflict resolution
+version: 0.1.0
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  unjynx_core:
+    path: ../core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^7.0.0

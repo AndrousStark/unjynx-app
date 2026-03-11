@@ -1,0 +1,26 @@
+name: feature_onboarding
+description: UNJYNX onboarding plugin - first-time user experience with intro screens
+version: 0.1.0
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.0
+  go_router: ^16.0.0
+  meta: ^1.11.0
+  shared_preferences: ^2.3.0
+
+  unjynx_core:
+    path: ../core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^7.0.0

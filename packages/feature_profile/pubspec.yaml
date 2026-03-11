@@ -1,0 +1,27 @@
+name: feature_profile
+description: UNJYNX profile plugin - user account page with stats
+version: 0.1.0
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.0
+  go_router: ^16.0.0
+
+  service_auth:
+    path: ../service_auth
+
+  unjynx_core:
+    path: ../core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^7.0.0

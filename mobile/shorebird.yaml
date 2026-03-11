@@ -1,0 +1,20 @@
+# ==============================================================================
+# UNJYNX - Shorebird OTA Configuration
+# ==============================================================================
+# Generated placeholder. Replace app_id after running:
+#   cd apps/mobile && shorebird init
+#
+# Shorebird enables over-the-air (OTA) code push updates for Flutter apps,
+# bypassing App Store / Play Store review for Dart-only changes.
+#
+# Usage:
+#   shorebird release android    # Create a new release
+#   shorebird release ios        # Create a new release
+#   shorebird patch android      # Push OTA patch to latest release
+#   shorebird patch ios          # Push OTA patch to latest release
+#
+# Docs: https://docs.shorebird.dev/
+# ==============================================================================
+
+app_id: unjynx_app_id_here
+auto_update: true

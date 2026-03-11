@@ -1,0 +1,333 @@
+import 'package:feature_billing/feature_billing.dart';
+import 'package:feature_gamification/feature_gamification.dart';
+import 'package:feature_home/feature_home.dart';
+import 'package:feature_import_export/feature_import_export.dart';
+import 'package:feature_notifications/feature_notifications.dart';
+import 'package:feature_projects/feature_projects.dart';
+import 'package:feature_team/feature_team.dart';
+import 'package:feature_todos/todo_plugin.dart';
+import 'package:feature_widgets/feature_widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:service_auth/service_auth.dart';
+import 'package:unjynx_core/core.dart';
+
+/// Creates the app router by collecting routes from all registered plugins.
+///
+/// [isOnboardingComplete] controls the redirect guard that sends first-time
+/// users to the onboarding flow.
+GoRouter createAppRouter(
+  PluginRegistry registry, {
+  required bool isOnboardingComplete,
+  bool isAuthenticated = true,
+}) {
+  // Only show nav-worthy routes (exclude onboarding from bottom nav)
+  final navRoutes = registry.allRoutes
+      .where((r) => !r.path.startsWith('/onboarding'))
+      .toList();
+
+  final allRoutes = registry.allRoutes;
+
+  final routes = <RouteBase>[
+    // Login route (full-screen, no shell)
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => LoginPage(
+        redirectTo: state.uri.queryParameters['redirect'],
+      ),
+    ),
+
+    // Forgot password route (full-screen, no shell)
+    GoRoute(
+      path: '/forgot-password',
+      builder: (context, state) => const ForgotPasswordPage(),
+    ),
+
+    // Onboarding routes (full-screen, no shell)
+    for (final route in allRoutes.where((r) => r.path.startsWith('/onboarding')))
+      GoRoute(
+        path: route.path,
+        builder: (context, state) => route.builder(),
+      ),
+
+    // Shell route with bottom navigation
+    ShellRoute(
+      builder: (context, state, child) {
+        return _AppShell(pluginRoutes: navRoutes, child: child);
+      },
+      routes: [
+        for (final route in navRoutes)
+          GoRoute(
+            path: route.path,
+            builder: (context, state) => route.builder(),
+          ),
+      ],
+    ),
+
+    // Detail routes (full-screen, outside shell/bottom nav)
+    GoRoute(
+      path: '/todos/:id',
+      builder: (context, state) => TodoDetailPage(
+        todoId: state.pathParameters['id']!,
+      ),
+    ),
+    GoRoute(
+      path: '/projects/:id',
+      builder: (context, state) => ProjectDetailPage(
+        projectId: state.pathParameters['id']!,
+      ),
+    ),
+
+    // Content Feed (full-screen, outside shell)
+    GoRoute(
+      path: '/content',
+      builder: (context, state) => const ContentFeedPage(),
+    ),
+
+    // Category Selector (full-screen, outside shell)
+    GoRoute(
+      path: '/content/categories',
+      builder: (context, state) => const CategorySelectorPage(),
+    ),
+
+    // Progress Hub (full-screen, outside shell)
+    GoRoute(
+      path: '/progress',
+      builder: (context, state) => const ProgressHubPage(),
+    ),
+
+    // Ghost Mode (full-screen, outside shell)
+    GoRoute(
+      path: '/ghost-mode',
+      builder: (context, state) => const GhostModePage(),
+    ),
+
+    // Pomodoro Focus Timer (full-screen, outside shell)
+    GoRoute(
+      path: '/pomodoro',
+      builder: (context, state) => const PomodoroPage(),
+    ),
+
+    // Time Blocking (full-screen, Pro feature, outside shell)
+    GoRoute(
+      path: '/calendar/time-blocking',
+      builder: (context, state) => const TimeBlockingPage(),
+    ),
+
+    // Rituals (full-screen, outside shell)
+    GoRoute(
+      path: '/rituals/morning',
+      builder: (context, state) => const MorningRitualPage(),
+    ),
+    GoRoute(
+      path: '/rituals/evening',
+      builder: (context, state) => const EveningReviewPage(),
+    ),
+
+    // Notification screens (J1-J6)
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationHubPage(),
+    ),
+    GoRoute(
+      path: '/notifications/channels',
+      builder: (context, state) => const ChannelSetupPage(),
+    ),
+    GoRoute(
+      path: '/notifications/escalation',
+      builder: (context, state) => const EscalationChainPage(),
+    ),
+    GoRoute(
+      path: '/notifications/quiet-hours',
+      builder: (context, state) => const QuietHoursPage(),
+    ),
+    GoRoute(
+      path: '/notifications/test',
+      builder: (context, state) => const TestNotificationPage(),
+    ),
+    GoRoute(
+      path: '/notifications/history',
+      builder: (context, state) => const NotificationHistoryPage(),
+    ),
+
+    // Gamification screens (I2-I4)
+    GoRoute(
+      path: '/gamification/dashboard',
+      builder: (context, state) => const ProgressDashboardPage(),
+    ),
+    GoRoute(
+      path: '/gamification/accountability',
+      builder: (context, state) => const AccountabilityPage(),
+    ),
+    GoRoute(
+      path: '/gamification/game-mode',
+      builder: (context, state) => const GameModePage(),
+    ),
+
+    // Billing screens (M2)
+    GoRoute(
+      path: '/billing',
+      builder: (context, state) => const BillingPage(),
+    ),
+    GoRoute(
+      path: '/billing/compare',
+      builder: (context, state) => const PlanComparisonPage(),
+    ),
+
+    // Team screens (N1-N5)
+    GoRoute(
+      path: '/team',
+      builder: (context, state) => const TeamDashboardPage(),
+    ),
+    GoRoute(
+      path: '/team/members',
+      builder: (context, state) => const TeamMembersPage(),
+    ),
+    GoRoute(
+      path: '/team/shared-project',
+      builder: (context, state) => const SharedProjectPage(),
+    ),
+    GoRoute(
+      path: '/team/reports',
+      builder: (context, state) => const TeamReportsPage(),
+    ),
+    GoRoute(
+      path: '/team/standup',
+      builder: (context, state) => const AsyncStandupPage(),
+    ),
+
+    // Import/Export screens
+    GoRoute(
+      path: '/import',
+      builder: (context, state) => const ImportPage(),
+    ),
+    GoRoute(
+      path: '/export',
+      builder: (context, state) => const ExportPage(),
+    ),
+
+    // Widget configuration
+    GoRoute(
+      path: '/widgets',
+      builder: (context, state) => const WidgetConfigPage(),
+    ),
+  ];
+
+  // If no plugins registered yet, add a placeholder
+  if (navRoutes.isEmpty) {
+    routes.add(
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const _EmptyHomePage(),
+      ),
+    );
+  }
+
+  final defaultLocation = navRoutes.isNotEmpty ? navRoutes.first.path : '/';
+
+  return GoRouter(
+    initialLocation: isOnboardingComplete ? defaultLocation : '/onboarding',
+    redirect: (context, state) {
+      final path = state.uri.path;
+      final goingToOnboarding = path.startsWith('/onboarding');
+      final goingToLogin = path == '/login';
+      final goingToForgotPassword = path == '/forgot-password';
+      final goingToAuthFlow = goingToLogin || goingToForgotPassword;
+
+      // Onboarding guard (first priority)
+      if (!isOnboardingComplete && !goingToOnboarding) {
+        return '/onboarding';
+      }
+      if (isOnboardingComplete && goingToOnboarding) {
+        return defaultLocation;
+      }
+
+      // Auth guard (second priority)
+      if (!isAuthenticated && !goingToAuthFlow && !goingToOnboarding) {
+        return '/login?redirect=$path';
+      }
+      if (isAuthenticated && goingToLogin) {
+        return defaultLocation;
+      }
+
+      return null;
+    },
+    routes: routes,
+  );
+}
+
+/// App shell with bottom navigation bar.
+class _AppShell extends StatelessWidget {
+  const _AppShell({
+    required this.pluginRoutes,
+    required this.child,
+  });
+
+  final List<PluginRoute> pluginRoutes;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: child,
+      bottomNavigationBar: pluginRoutes.length > 1
+          ? NavigationBar(
+              destinations: [
+                for (final route in pluginRoutes)
+                  NavigationDestination(
+                    icon: Icon(route.icon),
+                    label: route.label,
+                  ),
+              ],
+              onDestinationSelected: (index) {
+                GoRouter.of(context).go(pluginRoutes[index].path);
+              },
+              selectedIndex: _currentIndex(context),
+            )
+          : null,
+    );
+  }
+
+  int _currentIndex(BuildContext context) {
+    final location = GoRouterState.of(context).uri.path;
+    final index =
+        pluginRoutes.indexWhere((r) => location.startsWith(r.path));
+    return index >= 0 ? index : 0;
+  }
+}
+
+/// Placeholder when no plugins are loaded.
+class _EmptyHomePage extends StatelessWidget {
+  const _EmptyHomePage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.bolt, size: 64, color: Color(0xFFFFD700)),
+            SizedBox(height: 16),
+            Text(
+              'UNJYNX',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFF5F5F7),
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Break the satisfactory.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Color(0xFFA0A0B0),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

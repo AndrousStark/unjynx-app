@@ -1,0 +1,23 @@
+name: service_notification
+description: UNJYNX notification service - awesome_notifications adapter implementing NotificationPort
+version: 0.1.0
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  awesome_notifications: ^0.10.0
+  flutter:
+    sdk: flutter
+
+  unjynx_core:
+    path: ../core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^7.0.0

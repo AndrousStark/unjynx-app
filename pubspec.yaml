@@ -1,0 +1,70 @@
+name: unjynx
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+workspace:
+  - apps/mobile
+  - packages/core
+  - packages/feature_billing
+  - packages/feature_gamification
+  - packages/feature_home
+  - packages/feature_import_export
+  - packages/feature_notifications
+  - packages/feature_onboarding
+  - packages/feature_profile
+  - packages/feature_projects
+  - packages/feature_settings
+  - packages/feature_team
+  - packages/feature_widgets
+  - packages/feature_todos
+  - packages/service_api
+  - packages/service_auth
+  - packages/service_database
+  - packages/service_notification
+  - packages/service_sync
+
+dev_dependencies:
+  melos: ^7.0.0
+
+melos:
+  repository: https://github.com/metaminds/unjynx
+
+  command:
+    bootstrap:
+      usePubspecOverrides: true
+
+  scripts:
+    analyze:
+      run: dart analyze --fatal-infos
+      exec:
+        concurrency: 5
+      packageFilters:
+        flutter: true
+
+    test:
+      run: flutter test --coverage
+      exec:
+        concurrency: 3
+      packageFilters:
+        dirExists: test
+
+    format:
+      run: dart format --set-exit-if-changed .
+      exec:
+        concurrency: 5
+
+    build_runner:
+      run: dart run build_runner build --delete-conflicting-outputs
+      exec:
+        concurrency: 1
+      packageFilters:
+        dependsOn: build_runner
+
+    clean:
+      run: flutter clean
+      exec:
+        concurrency: 5
+      packageFilters:
+        flutter: true
