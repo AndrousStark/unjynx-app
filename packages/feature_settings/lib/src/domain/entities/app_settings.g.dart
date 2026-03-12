@@ -16,6 +16,22 @@ _AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => _AppSettings(
   defaultReminderMinutes:
       (json['defaultReminderMinutes'] as num?)?.toInt() ?? 15,
   autoArchiveDays: (json['autoArchiveDays'] as num?)?.toInt() ?? 7,
+  offlineMode: json['offlineMode'] as bool? ?? true,
+  ghostModeEnabled: json['ghostModeEnabled'] as bool? ?? false,
+  smartSuggestionsEnabled:
+      json['smartSuggestionsEnabled'] as bool? ?? true,
+  proactiveInsightsEnabled:
+      json['proactiveInsightsEnabled'] as bool? ?? true,
+  pomodoroWorkMinutes:
+      (json['pomodoroWorkMinutes'] as num?)?.toInt() ?? 25,
+  pomodoroBreakMinutes:
+      (json['pomodoroBreakMinutes'] as num?)?.toInt() ?? 5,
+  morningRitualTime: json['morningRitualTime'] as String? ?? '07:00',
+  eveningRitualTime: json['eveningRitualTime'] as String? ?? '21:00',
+  contentDeliveryTime:
+      json['contentDeliveryTime'] as String? ?? '08:00',
+  dateFormat: json['dateFormat'] as String? ?? 'DD/MM/YYYY',
+  timeFormat: json['timeFormat'] as String? ?? '12-hour',
 );
 
 Map<String, dynamic> _$AppSettingsToJson(_AppSettings instance) =>
@@ -28,4 +44,15 @@ Map<String, dynamic> _$AppSettingsToJson(_AppSettings instance) =>
       'quietHoursEnd': instance.quietHoursEnd,
       'defaultReminderMinutes': instance.defaultReminderMinutes,
       'autoArchiveDays': instance.autoArchiveDays,
+      'offlineMode': instance.offlineMode,
+      'ghostModeEnabled': instance.ghostModeEnabled,
+      'smartSuggestionsEnabled': instance.smartSuggestionsEnabled,
+      'proactiveInsightsEnabled': instance.proactiveInsightsEnabled,
+      'pomodoroWorkMinutes': instance.pomodoroWorkMinutes,
+      'pomodoroBreakMinutes': instance.pomodoroBreakMinutes,
+      'morningRitualTime': instance.morningRitualTime,
+      'eveningRitualTime': instance.eveningRitualTime,
+      'contentDeliveryTime': instance.contentDeliveryTime,
+      'dateFormat': instance.dateFormat,
+      'timeFormat': instance.timeFormat,
     };

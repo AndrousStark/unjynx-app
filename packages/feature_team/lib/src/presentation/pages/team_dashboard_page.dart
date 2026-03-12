@@ -43,8 +43,15 @@ class TeamDashboardPage extends ConsumerWidget {
           ),
         ),
         child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(membersProvider);
+              ref.invalidate(teamActivityProvider);
+              ref.invalidate(teamReportProvider);
+            },
+            color: ux.gold,
+            child: CustomScrollView(
+              slivers: [
               // Header
               SliverToBoxAdapter(
                 child: Padding(
@@ -270,6 +277,7 @@ class TeamDashboardPage extends ConsumerWidget {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
+          ),
           ),
         ),
       ),

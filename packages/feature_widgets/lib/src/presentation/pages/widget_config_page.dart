@@ -1,19 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../widgets/widget_preview_card.dart';
 
-/// Provider tracking which widgets are enabled.
+/// SharedPreferences key for persisted widget states.
+const _prefsKey = 'unjynx_enabled_widgets';
+
+/// Default widget enabled states.
+const _defaults = <HomeWidgetType, bool>{
+  HomeWidgetType.todayTasks: true,
+  HomeWidgetType.dailyProgress: true,
+  HomeWidgetType.quickAdd: true,
+  HomeWidgetType.streakCounter: false,
+  HomeWidgetType.upcomingDeadlines: false,
+};
+
+/// Notifier that persists widget toggle states via SharedPreferences.
+class EnabledWidgetsNotifier extends AsyncNotifier<Map<HomeWidgetType, bool>> {
+  @override
+  Future<Map<HomeWidgetType, bool>> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_prefsKey);
+    if (saved == null) return Map.unmodifiable(_defaults);
+
+    final result = Map<HomeWidgetType, bool>.from(_defaults);
+    for (final entry in saved) {
+      final parts = entry.split(':');
+      if (parts.length != 2) continue;
+      final type = HomeWidgetType.values.where(
+        (t) => t.name == parts[0],
+      );
+      if (type.isNotEmpty) {
+        result[type.first] = parts[1] == '1';
+      }
+    }
+    return Map.unmodifiable(result);
+  }
+
+  /// Toggle a widget type and persist immediately.
+  Future<void> toggle(HomeWidgetType type, {required bool enabled}) async {
+    final current = Map<HomeWidgetType, bool>.from(
+      state.valueOrNull ?? _defaults,
+    );
+    current[type] = enabled;
+    state = AsyncData(Map.unmodifiable(current));
+
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = current.entries
+        .map((e) => '${e.key.name}:${e.value ? '1' : '0'}')
+        .toList();
+    await prefs.setStringList(_prefsKey, encoded);
+  }
+}
+
+/// Provider tracking which widgets are enabled (persisted).
 final enabledWidgetsProvider =
-    StateProvider<Map<HomeWidgetType, bool>>((_) => {
-          HomeWidgetType.todayTasks: true,
-          HomeWidgetType.dailyProgress: true,
-          HomeWidgetType.quickAdd: true,
-          HomeWidgetType.streakCounter: false,
-          HomeWidgetType.upcomingDeadlines: false,
-        });
+    AsyncNotifierProvider<EnabledWidgetsNotifier, Map<HomeWidgetType, bool>>(
+  EnabledWidgetsNotifier.new,
+);
 
 /// Widget Configuration page.
 ///
@@ -28,7 +75,8 @@ class WidgetConfigPage extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final ux = context.unjynx;
     final isLight = context.isLightMode;
-    final enabledWidgets = ref.watch(enabledWidgetsProvider);
+    final enabledWidgetsAsync = ref.watch(enabledWidgetsProvider);
+    final enabledWidgets = enabledWidgetsAsync.valueOrNull ?? _defaults;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Home Screen Widgets')),
@@ -83,11 +131,10 @@ class WidgetConfigPage extends ConsumerWidget {
                 isProOnly: isProOnly,
                 onToggle: (value) {
                   HapticFeedback.selectionClick();
-                  final updated = Map<HomeWidgetType, bool>.from(
-                    ref.read(enabledWidgetsProvider),
-                  );
-                  updated[type] = value;
-                  ref.read(enabledWidgetsProvider.notifier).state = updated;
+                  ref.read(enabledWidgetsProvider.notifier).toggle(
+                        type,
+                        enabled: value,
+                      );
                 },
               ),
             );

@@ -79,15 +79,15 @@ class GameModePage extends ConsumerWidget {
           const SizedBox(height: 20),
 
           // Active challenges
-          _ActiveChallengesSection(ref: ref),
+          const _ActiveChallengesSection(),
           const SizedBox(height: 20),
 
           // Achievements grid
-          _AchievementsSection(ref: ref),
+          const _AchievementsSection(),
           const SizedBox(height: 20),
 
           // Leaderboard
-          _LeaderboardSection(ref: ref),
+          const _LeaderboardSection(),
           const SizedBox(height: 40),
         ],
         ),
@@ -100,13 +100,11 @@ class GameModePage extends ConsumerWidget {
 // Active Challenges
 // ---------------------------------------------------------------------------
 
-class _ActiveChallengesSection extends StatelessWidget {
-  const _ActiveChallengesSection({required this.ref});
-
-  final WidgetRef ref;
+class _ActiveChallengesSection extends ConsumerWidget {
+  const _ActiveChallengesSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -211,13 +209,11 @@ class _ActiveChallengesSection extends StatelessWidget {
 // Achievements Grid
 // ---------------------------------------------------------------------------
 
-class _AchievementsSection extends StatelessWidget {
-  const _AchievementsSection({required this.ref});
-
-  final WidgetRef ref;
+class _AchievementsSection extends ConsumerWidget {
+  const _AchievementsSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -364,13 +360,11 @@ class _AchievementsSection extends StatelessWidget {
 // Leaderboard
 // ---------------------------------------------------------------------------
 
-class _LeaderboardSection extends StatelessWidget {
-  const _LeaderboardSection({required this.ref});
-
-  final WidgetRef ref;
+class _LeaderboardSection extends ConsumerWidget {
+  const _LeaderboardSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final scope = ref.watch(leaderboardScopeProvider);
@@ -426,6 +420,10 @@ class _LeaderboardSection extends StatelessWidget {
                   ButtonSegment(
                     value: LeaderboardPeriod.thisMonth,
                     label: Text('Month'),
+                  ),
+                  ButtonSegment(
+                    value: LeaderboardPeriod.allTime,
+                    label: Text('All'),
                   ),
                 ],
                 selected: {period},

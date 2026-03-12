@@ -347,6 +347,33 @@ class TodoSyncRepository implements TodoRepository {
           )
           .toList();
     }
+    if (filter.dateRange != null) {
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final tomorrowStart = todayStart.add(const Duration(days: 1));
+      result = switch (filter.dateRange!) {
+        DateRange.today => result
+            .where((t) =>
+                t.dueDate != null &&
+                !t.dueDate!.isBefore(todayStart) &&
+                t.dueDate!.isBefore(tomorrowStart))
+            .toList(),
+        DateRange.upcoming => result
+            .where((t) =>
+                t.dueDate != null &&
+                !t.dueDate!.isBefore(tomorrowStart))
+            .toList(),
+        DateRange.overdue => result
+            .where((t) =>
+                t.dueDate != null &&
+                t.dueDate!.isBefore(todayStart) &&
+                t.status != TodoStatus.completed)
+            .toList(),
+        DateRange.noDate => result
+            .where((t) => t.dueDate == null)
+            .toList(),
+      };
+    }
 
     result.sort(
       (a, b) => _compareBySort(a, b, filter.sortBy, filter.ascending),

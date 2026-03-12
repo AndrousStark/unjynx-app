@@ -48,7 +48,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
         ),
         child: SafeArea(
-          child: StaggeredColumn(
+          child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
               // Skip button
@@ -56,18 +56,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 alignment: Alignment.topRight,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: TextButton(
-                    onPressed: _completeOnboarding,
-                    child: Text(
-                      _isLastPage ? '' : 'Skip',
-                      style: TextStyle(
-                        // Light needs higher opacity for readability
-                        color: colorScheme.onSurfaceVariant
-                            .withValues(alpha: isLight ? 0.65 : 0.5),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
+                  child: _isLastPage
+                      ? const SizedBox(height: 48)
+                      : TextButton(
+                          onPressed: _completeOnboarding,
+                          child: Text(
+                            'Skip',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant
+                                  .withValues(alpha: isLight ? 0.65 : 0.5),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
                 ),
               ),
 
@@ -133,8 +134,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           backgroundColor: _isLastPage
                               ? ux.gold
                               : colorScheme.primary,
-                          // Light: dark text on gold/primary for contrast
-                          // Dark: white/black text for contrast
                           foregroundColor: _isLastPage
                               ? (isLight
                                   ? const Color(0xFF1A0533)

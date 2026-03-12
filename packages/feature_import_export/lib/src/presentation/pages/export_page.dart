@@ -215,18 +215,56 @@ class ExportPage extends ConsumerWidget {
     );
   }
 
+  // TODO(export): Wire to real export API endpoint once backend export
+  //  streaming is implemented in Phase 6+.
   Future<void> _startExport(BuildContext context, WidgetRef ref) async {
     ref.read(exportLoadingProvider.notifier).state = true;
 
-    // Phase 4: Real export via API
-    await Future<void>.delayed(const Duration(seconds: 1));
+    try {
+      // Attempt real export via the existing exportProvider
+      final result = await ref.read(exportProvider.future);
 
-    ref.read(exportLoadingProvider.notifier).state = false;
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Export ready! Check your downloads.')),
-      );
+      if (context.mounted) {
+        if (result != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Export ready! Check your downloads.'),
+            ),
+          );
+        } else {
+          // exportProvider returned null (API unavailable)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Export via web admin panel coming soon. Full data export '
+                'will be available at launch.',
+              ),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      // API not wired yet - show honest message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Export via web admin panel coming soon. Full data export '
+              'will be available at launch.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } finally {
+      ref.read(exportLoadingProvider.notifier).state = false;
     }
   }
 }

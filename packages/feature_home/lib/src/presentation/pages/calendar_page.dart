@@ -243,7 +243,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         task.dueDate!.day,
       );
 
-      final color = _priorityToColor(task.priority);
+      final color = unjynxPriorityColor(context, task.priority);
       final existing = dots[dateKey];
       if (existing == null) {
         dots[dateKey] = [color];
@@ -256,20 +256,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     return Map.unmodifiable(dots);
   }
 
-  Color _priorityToColor(String priority) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
-
-    return switch (priority) {
-      'urgent' => colorScheme.error,
-      'high' => context.isLightMode
-          ? const Color(0xFFE53E3E)
-          : const Color(0xFFFF8787),
-      'medium' => ux.warning,
-      'low' => colorScheme.primary,
-      _ => colorScheme.onSurfaceVariant,
-    };
-  }
 }
 
 // ---------------------------------------------------------------------------

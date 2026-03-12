@@ -366,8 +366,14 @@ class _CreateEditProjectPageState
         ref.invalidate(projectByIdProvider(widget.projectId!));
       }
     } else {
+      final description = _descriptionController.text.trim();
       final createProject = ref.read(createProjectProvider);
-      await createProject(name: name, color: _color, icon: _icon);
+      await createProject(
+        name: name,
+        description: description.isEmpty ? null : description,
+        color: _color,
+        icon: _icon,
+      );
     }
 
     ref.invalidate(projectListProvider);

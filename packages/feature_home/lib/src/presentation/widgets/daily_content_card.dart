@@ -27,11 +27,11 @@ class DailyContentCard extends ConsumerWidget {
     return contentAsync.when(
       data: (content) => content != null
           ? PressableScale(
-              onTap: () => context.go('/content'),
+              onTap: () => context.push('/content'),
               child: _ContentCard(content: content),
             )
           : const SizedBox.shrink(),
-      loading: () => const _ContentShimmer(),
+      loading: () => const UnjynxShimmerBox(height: 200, borderRadius: 16),
       error: (_, __) => const SizedBox.shrink(),
     );
   }
@@ -246,65 +246,3 @@ class _CategoryBadge extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Loading shimmer
-// ---------------------------------------------------------------------------
-
-class _ContentShimmer extends StatelessWidget {
-  const _ContentShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isLight = context.isLightMode;
-    final shimmerAlpha = isLight ? 0.5 : 0.4;
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Category placeholder
-          Container(
-            width: 100,
-            height: 22,
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh
-                  .withValues(alpha: shimmerAlpha),
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Quote placeholder lines
-          for (var i = 0; i < 3; i++) ...[
-            if (i > 0) const SizedBox(height: 8),
-            Container(
-              height: 16,
-              width: i == 2 ? 180 : double.infinity,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh
-                    .withValues(alpha: shimmerAlpha),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          // Author placeholder
-          Container(
-            width: 140,
-            height: 14,
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh
-                  .withValues(alpha: shimmerAlpha),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

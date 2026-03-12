@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../providers/project_providers.dart';
@@ -180,6 +181,44 @@ class ProjectDetailPage extends ConsumerWidget {
                       ],
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // View Tasks action
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: isLight
+                      ? BorderSide(
+                          color: colorScheme.primary.withValues(alpha: 0.12),
+                        )
+                      : BorderSide.none,
+                ),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.checklist_rounded,
+                    color: displayColor,
+                  ),
+                  title: const Text('View Tasks'),
+                  subtitle: Text(
+                    'See all tasks in this project',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right_rounded,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    GoRouter.of(context).push(
+                      '/todos?projectId=$projectId',
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 12),

@@ -133,11 +133,21 @@ class _UploadStep extends ConsumerWidget {
 
           // Upload area
           GestureDetector(
-            onTap: () async {
-              // Phase 4: Use file_picker to select file
-              await ref
-                  .read(importFlowProvider.notifier)
-                  .uploadFile('placeholder.csv');
+            onTap: () {
+              // TODO(import): Integrate file_picker package for native file
+              //  selection once app is published.
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'File picker coming soon - use the web admin panel '
+                    'to import data',
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
             },
             child: Container(
               height: 180,

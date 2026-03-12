@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Port for user onboarding preferences (identity, goals, channels, content).
 ///
 /// Implementations: Drift adapter (local), API adapter (remote sync).
@@ -66,12 +68,19 @@ class UserPreferences {
       identical(this, other) ||
       other is UserPreferences &&
           identity == other.identity &&
-          notificationPermission == other.notificationPermission &&
-          contentDeliverAt == other.contentDeliverAt;
+          listEquals(goals, other.goals) &&
+          mapEquals(channelPrefs, other.channelPrefs) &&
+          listEquals(contentCategories, other.contentCategories) &&
+          contentDeliverAt == other.contentDeliverAt &&
+          notificationPermission == other.notificationPermission;
 
   @override
-  int get hashCode =>
-      identity.hashCode ^
-      notificationPermission.hashCode ^
-      contentDeliverAt.hashCode;
+  int get hashCode => Object.hash(
+        identity,
+        Object.hashAll(goals),
+        Object.hashAll(channelPrefs.entries),
+        Object.hashAll(contentCategories),
+        contentDeliverAt,
+        notificationPermission,
+      );
 }

@@ -13,6 +13,8 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.6.0
+  go_router: ^16.0.0
+  shared_preferences: ^2.3.0
 
   unjynx_core:
     path: ../core

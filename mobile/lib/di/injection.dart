@@ -11,6 +11,7 @@ import 'package:feature_team/feature_team.dart';
 import 'package:feature_todos/todo_plugin.dart';
 import 'package:feature_widgets/feature_widgets.dart';
 import 'package:get_it/get_it.dart';
+import 'package:service_api/service_api.dart';
 import 'package:service_auth/service_auth.dart';
 import 'package:service_database/service_database.dart';
 import 'package:service_notification/service_notification.dart';
@@ -19,6 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unjynx_core/core.dart';
 
 import 'package:unjynx_mobile/config/app_config.dart';
+import 'package:unjynx_mobile/sync/api_sync_remote_adapter.dart';
 import 'package:unjynx_mobile/sync/drift_sync_local_adapter.dart';
 
 /// Global GetIt instance.
@@ -72,20 +74,39 @@ Future<void> configureDependencies() async {
     ..registerSingleton<OnboardingRepository>(onboardingRepo)
     ..registerSingleton<SettingsRepository>(settingsRepo);
 
-  // 4. Feature datasources + repositories
+  // 4. API client + services (real backend when auth is configured)
+  final authPort = getIt<AuthPort>();
+  final apiClient = ApiClient(auth: authPort, config: AppConfig.apiConfig);
+  getIt.registerSingleton<ApiClient>(apiClient);
+
+  final taskApi = TaskApiService(apiClient);
+  final projectApi = ProjectApiService(apiClient);
+  final syncApi = SyncApiService(apiClient);
+  getIt
+    ..registerSingleton<TaskApiService>(taskApi)
+    ..registerSingleton<ProjectApiService>(projectApi)
+    ..registerSingleton<SyncApiService>(syncApi);
+
+  // Feature datasources + repositories (offline-first with real API sync)
   final todoDatasource = TodoDriftDatasource(getIt<AppDatabase>());
-  // Use TodoSyncRepository (offline-first with optional API). Pass null API
-  // service here — pure offline mode. The SyncEngine handles remote sync.
-  final todoRepository = TodoSyncRepository(todoDatasource, null);
+  final todoRepository = TodoSyncRepository(todoDatasource, taskApi);
 
   final projectDatasource = ProjectDriftDatasource(getIt<AppDatabase>());
-  // Use ProjectSyncRepository (offline-first with optional API). Pass null API
-  // service here — pure offline mode. The SyncEngine handles remote sync.
-  final projectRepository = ProjectSyncRepository(projectDatasource, null);
+  final projectRepository = ProjectSyncRepository(projectDatasource, projectApi);
 
-  // Sync infrastructure — local adapter for the SyncEngine
+  // Sync infrastructure — local + remote adapters for the SyncEngine
   final syncLocal = DriftSyncLocalAdapter(dbPort.db, prefs);
-  getIt.registerSingleton<SyncLocalPort>(syncLocal);
+  final syncRemote = ApiSyncRemoteAdapter(syncApi);
+  final syncEngine = SyncEngine(
+    local: syncLocal,
+    remote: syncRemote,
+    eventBus: eventBus,
+    entityTypes: const ['task', 'project'],
+  );
+  getIt
+    ..registerSingleton<SyncLocalPort>(syncLocal)
+    ..registerSingleton<SyncRemotePort>(syncRemote)
+    ..registerSingleton<SyncEngine>(syncEngine);
 
   getIt
     ..registerSingleton<TodoRepository>(todoRepository)

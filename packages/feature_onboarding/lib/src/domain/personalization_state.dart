@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Immutable state for the personalization flow (B2 onboarding).
@@ -33,6 +34,7 @@ class PersonalizationState {
   PersonalizationState copyWith({
     int? currentStep,
     String? identity,
+    bool clearIdentity = false,
     Set<String>? goals,
     Map<String, bool>? channelPrefs,
     List<String>? contentCategories,
@@ -40,7 +42,7 @@ class PersonalizationState {
   }) {
     return PersonalizationState(
       currentStep: currentStep ?? this.currentStep,
-      identity: identity ?? this.identity,
+      identity: clearIdentity ? null : (identity ?? this.identity),
       goals: goals ?? this.goals,
       channelPrefs: channelPrefs ?? this.channelPrefs,
       contentCategories: contentCategories ?? this.contentCategories,
@@ -54,10 +56,9 @@ class PersonalizationState {
       other is PersonalizationState &&
           currentStep == other.currentStep &&
           identity == other.identity &&
-          goals.length == other.goals.length &&
-          goals.containsAll(other.goals) &&
-          channelPrefs.length == other.channelPrefs.length &&
-          contentCategories.length == other.contentCategories.length &&
+          setEquals(goals, other.goals) &&
+          mapEquals(channelPrefs, other.channelPrefs) &&
+          listEquals(contentCategories, other.contentCategories) &&
           contentDeliverAt == other.contentDeliverAt;
 
   @override

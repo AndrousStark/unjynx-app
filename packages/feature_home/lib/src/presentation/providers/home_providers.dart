@@ -244,6 +244,22 @@ final rescheduleTaskCallbackProvider =
 );
 
 // ---------------------------------------------------------------------------
+// Task completion toggle
+// ---------------------------------------------------------------------------
+
+/// Callback to toggle a task's completion status.
+///
+/// Override in app bootstrap with a real implementation backed by
+/// TaskApiService.updateTask(). Receives the task ID and the new
+/// completion state (true = completed, false = incomplete).
+final toggleTaskCompletionCallbackProvider =
+    Provider<Future<void> Function(String taskId, {required bool completed})>(
+  (ref) => (String taskId, {required bool completed}) async {
+    // No-op stub. Override at app bootstrap.
+  },
+);
+
+// ---------------------------------------------------------------------------
 // Tasks
 // ---------------------------------------------------------------------------
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:unjynx_core/core.dart';
 
 /// Preview card for a home screen widget type.
@@ -25,7 +27,28 @@ class WidgetPreviewCard extends StatelessWidget {
     final ux = context.unjynx;
     final isLight = context.isLightMode;
 
-    return Card(
+    return GestureDetector(
+      onTap: isProOnly
+          ? () {
+              HapticFeedback.lightImpact();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'Upgrade to Pro to unlock this widget',
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  action: SnackBarAction(
+                    label: 'Upgrade',
+                    onPressed: () => GoRouter.of(context).push('/billing'),
+                  ),
+                ),
+              );
+            }
+          : null,
+      child: Card(
       margin: EdgeInsets.zero,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -189,6 +212,7 @@ class WidgetPreviewCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
       ),
     );

@@ -1,6 +1,8 @@
 import 'package:feature_home/src/presentation/providers/home_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:unjynx_core/core.dart';
 
 /// Preview of the next 3 upcoming tasks after today.
@@ -35,7 +37,10 @@ class UpcomingPreview extends ConsumerWidget {
           data: (tasks) =>
               tasks.isEmpty ? const _EmptyState() : _UpcomingList(tasks: tasks),
           loading: () => const _UpcomingShimmer(),
-          error: (_, __) => const _EmptyState(),
+          error: (error, _) => _ErrorState(
+            error: error,
+            onRetry: () => ref.invalidate(homeUpcomingTasksProvider),
+          ),
         ),
       ],
     );
@@ -82,7 +87,12 @@ class _UpcomingCard extends StatelessWidget {
 
     final isLight = context.isLightMode;
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        GoRouter.of(context).push('/todos/${task.id}');
+      },
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         // Light: white bg with subtle purple border; Dark: surfaceContainer
@@ -134,6 +144,7 @@ class _UpcomingCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -210,6 +221,47 @@ class _EmptyState extends StatelessWidget {
             color: colorScheme.onSurfaceVariant,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Error state
+// ---------------------------------------------------------------------------
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      child: Column(
+        children: [
+          Text(
+            'Failed to load upcoming tasks',
+            style: TextStyle(
+              fontSize: 14,
+              color: colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: Icon(Icons.refresh, size: 18, color: colorScheme.primary),
+            label: Text(
+              'Retry',
+              style: TextStyle(color: colorScheme.primary),
+            ),
+          ),
+        ],
       ),
     );
   }

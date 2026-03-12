@@ -5,6 +5,7 @@ import 'package:unjynx_core/core.dart';
 /// channel setup flows.
 List<Widget> buildPhoneSetupUI({
   required TextEditingController controller,
+  required TextEditingController otpController,
   required bool otpSent,
   required ColorScheme colorScheme,
   required TextTheme textTheme,
@@ -56,6 +57,7 @@ List<Widget> buildPhoneSetupUI({
     if (otpSent) ...[
       const SizedBox(height: 12),
       TextField(
+        controller: otpController,
         keyboardType: TextInputType.number,
         maxLength: 6,
         decoration: InputDecoration(

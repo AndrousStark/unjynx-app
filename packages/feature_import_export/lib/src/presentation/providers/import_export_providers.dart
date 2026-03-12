@@ -20,7 +20,7 @@ import '../../domain/models/import_preview.dart';
 T? _tryRead<T>(Ref ref, Provider<T> provider) {
   try {
     return ref.watch(provider);
-  } catch (_) {
+  } on StateError {
     return null;
   }
 }

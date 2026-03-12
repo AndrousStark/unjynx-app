@@ -247,29 +247,47 @@ class _AsyncStandupPageState extends ConsumerState<AsyncStandupPage> {
     setState(() => _isSubmitting = true);
     HapticFeedback.mediumImpact();
 
-    final entry = StandupEntry(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      userId: 'current-user',
-      name: 'You',
-      doneYesterday: done,
-      plannedToday: planned,
-      blockers: blockers,
-      submittedAt: DateTime.now(),
-    );
-
-    final teamId = ref.read(currentTeamProvider)?.id;
-    ref.read(standupProvider.notifier).submitStandup(entry, teamId: teamId);
-
-    _doneController.clear();
-    _plannedController.clear();
-    _blockerController.clear();
-
-    setState(() => _isSubmitting = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Standup submitted!')),
+    try {
+      final entry = StandupEntry(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: 'current-user',
+        name: 'You',
+        doneYesterday: done,
+        plannedToday: planned,
+        blockers: blockers,
+        submittedAt: DateTime.now(),
       );
+
+      final teamId = ref.read(currentTeamProvider)?.id;
+      await ref
+          .read(standupProvider.notifier)
+          .submitStandup(entry, teamId: teamId);
+
+      _doneController.clear();
+      _plannedController.clear();
+      _blockerController.clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Standup submitted!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to submit standup: $e'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 

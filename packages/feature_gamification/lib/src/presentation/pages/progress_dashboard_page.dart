@@ -72,7 +72,7 @@ class ProgressDashboardPage extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
             // Trend range selector
-          _TrendRangeSelector(ref: ref),
+          const _TrendRangeSelector(),
           const SizedBox(height: 16),
 
           // 1. Completion Trend
@@ -144,13 +144,11 @@ class ProgressDashboardPage extends ConsumerWidget {
 // Trend range selector
 // ---------------------------------------------------------------------------
 
-class _TrendRangeSelector extends StatelessWidget {
-  const _TrendRangeSelector({required this.ref});
-
-  final WidgetRef ref;
+class _TrendRangeSelector extends ConsumerWidget {
+  const _TrendRangeSelector();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(trendRangeProvider);
 
     return SizedBox(

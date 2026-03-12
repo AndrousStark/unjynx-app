@@ -420,8 +420,16 @@ class _CommentSection extends StatelessWidget {
                     color: colorScheme.primary,
                   ),
                   onPressed: () {
-                    // Phase 4: Submit comment
-                    controller.clear();
+                    HapticFeedback.lightImpact();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Comments coming soon'),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    );
                   },
                 ),
               ],

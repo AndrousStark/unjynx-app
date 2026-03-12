@@ -3,10 +3,17 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Firebase — applied only when google-services.json exists
+    id("com.google.gms.google-services") apply false
+}
+
+// Conditionally apply google-services plugin when config file exists
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.metaminds.unjynx.unjynx_mobile"
+    namespace = "com.metaminds.unjynx"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +28,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.metaminds.unjynx.unjynx_mobile"
+        applicationId = "com.metaminds.unjynx"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

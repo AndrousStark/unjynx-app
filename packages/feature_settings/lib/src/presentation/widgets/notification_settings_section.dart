@@ -30,6 +30,26 @@ class NotificationSettingsSection extends ConsumerWidget {
             notifier.update(
               (s) => s.copyWith(notificationsEnabled: value),
             );
+            if (!value) {
+              // Inform user that notifications are now disabled
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Notifications disabled. All scheduled alerts are paused.',
+                  ),
+                ),
+              );
+            } else {
+              // Inform user that notifications are re-enabled
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Notifications enabled. '
+                    'Ensure permissions are granted in system settings.',
+                  ),
+                ),
+              );
+            }
           },
         ),
         const Divider(height: 1),

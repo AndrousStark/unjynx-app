@@ -184,10 +184,15 @@ class ChannelSetupPage extends ConsumerWidget {
 
     if (result == null) return;
 
+    // For push channels, use the real FCM device token instead of placeholder
+    final identifier = type == 'push'
+        ? (ref.read(devicePushTokenProvider) ?? result.identifier)
+        : result.identifier;
+
     await connectChannelViaApi(
       ref,
       type,
-      result.identifier,
+      identifier,
       displayName: result.displayName,
     );
   }

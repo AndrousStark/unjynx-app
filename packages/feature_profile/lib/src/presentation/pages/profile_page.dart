@@ -87,7 +87,7 @@ class ProfilePage extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          const ActivityHeatmap(),
+                          const ActivityHeatmap(),  // Pass activityData when wired to API
                         ],
                       ),
                     ),
@@ -122,7 +122,13 @@ class ProfilePage extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          const ConnectedChannelsRow(),
+                          ConnectedChannelsRow(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              GoRouter.of(context)
+                                  .push('/notifications/channels');
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -227,6 +233,9 @@ class ProfilePage extends ConsumerWidget {
       if (confirmed == true) {
         final auth = ref.read(authPortProvider);
         await auth.signOut();
+        if (context.mounted) {
+          GoRouter.of(context).go('/login');
+        }
       }
     });
   }

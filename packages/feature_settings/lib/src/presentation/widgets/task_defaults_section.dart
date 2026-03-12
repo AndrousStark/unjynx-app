@@ -56,23 +56,23 @@ class TaskDefaultsSection extends ConsumerWidget {
           },
         ),
         const Divider(height: 1),
-        // Date format placeholder
         ListTile(
           title: const Text('Date Format'),
-          subtitle: const Text('DD/MM/YYYY'),
+          subtitle: Text(settings.dateFormat),
           trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
           onTap: () {
             HapticFeedback.selectionClick();
+            _showDateFormatPicker(context, notifier, settings);
           },
         ),
         const Divider(height: 1),
-        // Time format placeholder
         ListTile(
           title: const Text('Time Format'),
-          subtitle: const Text('12-hour'),
+          subtitle: Text(settings.timeFormat),
           trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
           onTap: () {
             HapticFeedback.selectionClick();
+            _showTimeFormatPicker(context, notifier, settings);
           },
         ),
       ],
@@ -141,6 +141,92 @@ class TaskDefaultsSection extends ConsumerWidget {
     ).then((selected) {
       if (selected != null) {
         notifier.update((s) => s.copyWith(autoArchiveDays: selected));
+      }
+    });
+  }
+
+  void _showDateFormatPicker(
+    BuildContext context,
+    SettingsNotifier notifier,
+    AppSettings settings,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const formats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
+    showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Date Format',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            for (final fmt in formats)
+              ListTile(
+                title: Text(
+                  fmt,
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                selected: settings.dateFormat == fmt,
+                trailing: settings.dateFormat == fmt
+                    ? Icon(Icons.check, color: colorScheme.primary)
+                    : null,
+                onTap: () => Navigator.of(context).pop(fmt),
+              ),
+          ],
+        ),
+      ),
+    ).then((selected) {
+      if (selected != null) {
+        notifier.update((s) => s.copyWith(dateFormat: selected));
+      }
+    });
+  }
+
+  void _showTimeFormatPicker(
+    BuildContext context,
+    SettingsNotifier notifier,
+    AppSettings settings,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const formats = ['12-hour', '24-hour'];
+    showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Time Format',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            for (final fmt in formats)
+              ListTile(
+                title: Text(
+                  fmt,
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                selected: settings.timeFormat == fmt,
+                trailing: settings.timeFormat == fmt
+                    ? Icon(Icons.check, color: colorScheme.primary)
+                    : null,
+                onTap: () => Navigator.of(context).pop(fmt),
+              ),
+          ],
+        ),
+      ),
+    ).then((selected) {
+      if (selected != null) {
+        notifier.update((s) => s.copyWith(timeFormat: selected));
       }
     });
   }

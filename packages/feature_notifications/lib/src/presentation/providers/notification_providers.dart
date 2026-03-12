@@ -7,6 +7,16 @@ import '../../domain/notification_channel.dart';
 import '../../domain/notification_preferences.dart';
 
 // ---------------------------------------------------------------------------
+// Device push token (overridden at bootstrap with real FCM token)
+// ---------------------------------------------------------------------------
+
+/// The device's FCM/APNs push token for server-side push notifications.
+///
+/// Override at app bootstrap with the real token from [FcmTokenManager].
+/// Returns null when Firebase is not configured.
+final devicePushTokenProvider = StateProvider<String?>((ref) => null);
+
+// ---------------------------------------------------------------------------
 // Repository provider (offline cache via SharedPreferences)
 // ---------------------------------------------------------------------------
 
@@ -309,7 +319,7 @@ class HistoryNotifier
 T? _tryRead<T>(Ref ref, Provider<T> provider) {
   try {
     return ref.watch(provider);
-  } catch (_) {
+  } on StateError {
     return null;
   }
 }

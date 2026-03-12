@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:service_api/service_api.dart';
 
+import '../../data/revenuecat_manager.dart';
 import '../../domain/models/plan_info.dart';
 import '../../domain/models/subscription.dart';
 
@@ -11,16 +12,24 @@ import '../../domain/models/subscription.dart';
 T? _tryRead<T>(Ref ref, Provider<T> provider) {
   try {
     return ref.watch(provider);
-  } catch (_) {
+  } on StateError {
     return null;
   }
 }
 
 /// Current user's subscription.
 ///
-/// Fetches from the billing API; falls back to [Subscription.free] when the
-/// API is unavailable (offline, tests, or backend not yet deployed).
+/// Checks RevenueCat entitlements first (instant, works offline), then
+/// falls back to the billing API. Returns [Subscription.free] when
+/// neither source is available.
 final subscriptionProvider = FutureProvider<Subscription>((ref) async {
+  // RevenueCat is the source of truth for subscription status
+  if (RevenueCatManager.isInitialized) {
+    final sub = await RevenueCatManager.getSubscription();
+    if (sub.isPaid) return sub;
+  }
+
+  // Fallback to backend API
   final api = _tryRead(ref, billingApiProvider);
   if (api == null) return Subscription.free;
 
@@ -74,6 +83,13 @@ final isProProvider = Provider<AsyncValue<bool>>((ref) {
         (sub) => sub.plan != PlanType.free,
       );
 });
+
+/// Restore previous purchases.
+Future<Subscription> restorePurchases(WidgetRef ref) async {
+  final sub = await RevenueCatManager.restorePurchases();
+  ref.invalidate(subscriptionProvider);
+  return sub;
+}
 
 /// Annual billing toggle state.
 final isAnnualBillingProvider = StateProvider<bool>((ref) => true);

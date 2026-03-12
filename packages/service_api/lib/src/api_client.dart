@@ -145,6 +145,32 @@ class ErrorInterceptor extends Interceptor {
     final response = err.response;
     if (response != null) {
       final data = response.data;
+      final message = data is Map<String, dynamic>
+          ? ((data['error'] ?? data['detail'] ?? err.message ?? 'Unknown error')
+              as String)
+          : (err.message ?? 'Unknown error');
+      final type =
+          data is Map<String, dynamic> ? data['type'] as String? : null;
+      final errors = data is Map<String, dynamic>
+          ? data['errors'] as Map<String, dynamic>?
+          : null;
+
+      // 401 Unauthorized — signal callers to clear auth and redirect.
+      if (response.statusCode == 401) {
+        handler.reject(
+          DioException(
+            requestOptions: err.requestOptions,
+            response: err.response,
+            error: AuthExpiredException(
+              message: message,
+              type: type,
+              errors: errors,
+            ),
+          ),
+        );
+        return;
+      }
+
       if (data is Map<String, dynamic>) {
         handler.reject(
           DioException(
@@ -152,13 +178,9 @@ class ErrorInterceptor extends Interceptor {
             response: err.response,
             error: ApiException(
               statusCode: response.statusCode ?? 500,
-              message: (data['error'] ??
-                      data['detail'] ??
-                      err.message ??
-                      'Unknown error')
-                  as String,
-              type: data['type'] as String?,
-              errors: data['errors'] as Map<String, dynamic>?,
+              message: message,
+              type: type,
+              errors: errors,
             ),
           ),
         );

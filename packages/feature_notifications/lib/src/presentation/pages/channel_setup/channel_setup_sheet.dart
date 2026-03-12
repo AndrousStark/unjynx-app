@@ -30,11 +30,13 @@ class ChannelSetupSheet extends StatefulWidget {
 
 class _ChannelSetupSheetState extends State<ChannelSetupSheet> {
   final _controller = TextEditingController();
+  final _otpController = TextEditingController();
   bool _otpSent = false;
 
   @override
   void dispose() {
     _controller.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -190,6 +192,7 @@ class _ChannelSetupSheetState extends State<ChannelSetupSheet> {
         ),
       'whatsapp' || 'sms' => buildPhoneSetupUI(
           controller: _controller,
+          otpController: _otpController,
           otpSent: _otpSent,
           colorScheme: colorScheme,
           textTheme: textTheme,
@@ -231,6 +234,20 @@ class _ChannelSetupSheetState extends State<ChannelSetupSheet> {
   void _onSubmit() {
     HapticFeedback.mediumImpact();
 
+    // Validate input before proceeding
+    final validationError = _validateInput();
+    if (validationError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(validationError),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
     // For phone channels, handle OTP flow
     if ((widget.channelType == 'whatsapp' || widget.channelType == 'sms') &&
         !_otpSent) {
@@ -238,9 +255,14 @@ class _ChannelSetupSheetState extends State<ChannelSetupSheet> {
       return;
     }
 
-    final identifier = _controller.text.isNotEmpty
-        ? _controller.text.trim()
-        : _defaultIdentifier(widget.channelType);
+    // When OTP has been sent, read from the OTP controller
+    final identifier =
+        (widget.channelType == 'whatsapp' || widget.channelType == 'sms') &&
+                _otpSent
+            ? _otpController.text.trim()
+            : _controller.text.isNotEmpty
+                ? _controller.text.trim()
+                : _defaultIdentifier(widget.channelType);
 
     Navigator.of(context).pop(
       ChannelSetupResult(
@@ -250,6 +272,53 @@ class _ChannelSetupSheetState extends State<ChannelSetupSheet> {
             : _defaultDisplayName(widget.channelType),
       ),
     );
+  }
+
+  /// Returns an error message if validation fails, or null if input is valid.
+  String? _validateInput() {
+    final text = _controller.text.trim();
+
+    switch (widget.channelType) {
+      case 'whatsapp' || 'sms':
+        if (!_otpSent) {
+          // Validating phone number before sending OTP
+          if (text.isEmpty) {
+            return 'Please enter a phone number';
+          }
+          final digitsOnly = text.replaceAll(RegExp(r'[^0-9]'), '');
+          if (digitsOnly.length < 10) {
+            return 'Phone number must have at least 10 digits';
+          }
+        } else {
+          // Validating OTP after it was sent
+          final otp = _otpController.text.trim();
+          if (otp.isEmpty || otp.length != 6) {
+            return 'Please enter the 6-digit OTP';
+          }
+        }
+        return null;
+
+      case 'email':
+        if (text.isEmpty || !text.contains('@') || !text.contains('.')) {
+          return 'Please enter a valid email address';
+        }
+        return null;
+
+      case 'telegram':
+        if (text.isEmpty) {
+          return 'Please enter your Telegram verification code';
+        }
+        return null;
+
+      case 'instagram':
+        if (text.isEmpty) {
+          return 'Please enter your Instagram username';
+        }
+        return null;
+
+      default:
+        return null;
+    }
   }
 
   String _defaultIdentifier(String type) {

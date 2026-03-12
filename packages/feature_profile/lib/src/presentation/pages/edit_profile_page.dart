@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../providers/profile_providers.dart';
@@ -28,6 +29,23 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     final user = ref.read(currentUserProvider).valueOrNull;
     _nameController = TextEditingController(text: user?.name ?? '');
     _bioController = TextEditingController();
+    _loadPersistedProfile();
+  }
+
+  Future<void> _loadPersistedProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedName = prefs.getString('unjynx_profile_name');
+    final savedBio = prefs.getString('unjynx_profile_bio');
+    if (mounted) {
+      setState(() {
+        if (savedName != null && savedName.isNotEmpty) {
+          _nameController.text = savedName;
+        }
+        if (savedBio != null) {
+          _bioController.text = savedBio;
+        }
+      });
+    }
   }
 
   @override
@@ -150,7 +168,15 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               title: const Text('Take Photo'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Use image_picker camera.
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Photo upload coming soon'),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
               },
             ),
             ListTile(
@@ -158,7 +184,15 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               title: const Text('Choose from Gallery'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Use image_picker gallery.
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Photo upload coming soon'),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
               },
             ),
             ListTile(
@@ -175,24 +209,72 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     );
   }
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     HapticFeedback.mediumImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Profile saved (server sync coming soon)'),
-        backgroundColor: context.unjynx.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-    setState(() => _hasChanges = false);
+
+    final name = _nameController.text.trim();
+    final bio = _bioController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Name cannot be empty'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Persist to SharedPreferences as fallback storage.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('unjynx_profile_name', name);
+      await prefs.setString('unjynx_profile_bio', bio);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Profile saved successfully'),
+            backgroundColor: context.unjynx.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        setState(() => _hasChanges = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save profile: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _exportData() {
+    HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Data export initiated...'),
+      SnackBar(
+        content: const Text(
+          'Data export will be available in a future update.',
+        ),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }
@@ -243,7 +325,19 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             onPressed: () {
               if (controller.text == 'DELETE') {
                 Navigator.of(context).pop();
-                // TODO: Call delete account API.
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      'Account deletion will be available after launch. '
+                      'Contact support@unjynx.me',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
               }
             },
             style: TextButton.styleFrom(foregroundColor: colorScheme.error),
@@ -269,7 +363,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       builder: (context) => _TimezonePicker(
         currentTimezone: currentTz,
         onSelected: (tz) {
-          ref.read(timezoneProvider.notifier).state = tz;
+          ref.read(timezoneProvider.notifier).setTimezone(tz);
           setState(() => _hasChanges = true);
           Navigator.of(context).pop();
         },

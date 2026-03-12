@@ -34,6 +34,11 @@ class IntegrationsSection extends StatelessWidget {
           trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
           onTap: () {
             HapticFeedback.lightImpact();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Calendar sync coming in Phase 9'),
+              ),
+            );
           },
         ),
         const Divider(height: 1),
@@ -44,6 +49,11 @@ class IntegrationsSection extends StatelessWidget {
           trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
           onTap: () {
             HapticFeedback.lightImpact();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Calendar sync coming in Phase 9'),
+              ),
+            );
           },
         ),
       ],

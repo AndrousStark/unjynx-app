@@ -1,5 +1,6 @@
 import 'package:feature_home/src/presentation/providers/home_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unjynx_core/core.dart';
@@ -25,7 +26,9 @@ class TodayTasksSection extends ConsumerWidget {
       children: [
         // --- Header with task count badge ---
         tasksAsync.when(
-          data: (tasks) => _SectionHeader(taskCount: tasks.length),
+          data: (tasks) => _SectionHeader(
+            taskCount: tasks.where((t) => !t.isCompleted).length,
+          ),
           loading: () => const _SectionHeader(taskCount: 0),
           error: (_, __) => const _SectionHeader(taskCount: 0),
         ),
@@ -167,7 +170,7 @@ class _TaskGroups extends StatelessWidget {
 // Task group (label + task rows)
 // ---------------------------------------------------------------------------
 
-class _TaskGroup extends StatelessWidget {
+class _TaskGroup extends ConsumerWidget {
   const _TaskGroup({
     required this.label,
     required this.labelColor,
@@ -179,7 +182,7 @@ class _TaskGroup extends StatelessWidget {
   final List<HomeTask> tasks;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -197,7 +200,15 @@ class _TaskGroup extends StatelessWidget {
         // Task rows
         for (var i = 0; i < tasks.length; i++) ...[
           if (i > 0) const SizedBox(height: 6),
-          _TaskRow(task: tasks[i]),
+          _TaskRow(
+            task: tasks[i],
+            onToggle: () {
+              final toggle =
+                  ref.read(toggleTaskCompletionCallbackProvider);
+              toggle(tasks[i].id, completed: !tasks[i].isCompleted);
+              ref.invalidate(homeTodayTasksProvider);
+            },
+          ),
         ],
       ],
     );
@@ -209,9 +220,10 @@ class _TaskGroup extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _TaskRow extends StatelessWidget {
-  const _TaskRow({required this.task});
+  const _TaskRow({required this.task, this.onToggle});
 
   final HomeTask task;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -251,9 +263,15 @@ class _TaskRow extends StatelessWidget {
         child: Row(
           children: [
             // --- Circular checkbox ---
-            _CircularCheckbox(
-              isCompleted: task.isCompleted,
-              priority: task.priority,
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onToggle?.call();
+              },
+              child: _CircularCheckbox(
+                isCompleted: task.isCompleted,
+                priority: task.priority,
+              ),
             ),
             const SizedBox(width: 12),
 

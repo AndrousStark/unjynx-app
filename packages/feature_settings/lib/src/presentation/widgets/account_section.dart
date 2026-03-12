@@ -45,7 +45,7 @@ class AccountSection extends StatelessWidget {
           onTap: () {
             HapticFeedback.mediumImpact();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Coming in Phase 5')),
+              const SnackBar(content: Text('Coming soon')),
             );
           },
         ),

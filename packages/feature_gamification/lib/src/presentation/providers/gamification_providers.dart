@@ -16,7 +16,7 @@ import '../../domain/models/xp_data.dart';
 T? _tryRead<T>(Ref ref, Provider<T> provider) {
   try {
     return ref.watch(provider);
-  } catch (_) {
+  } on StateError {
     return null;
   }
 }
@@ -218,13 +218,52 @@ final sharedGoalsProvider = FutureProvider<List<SharedGoal>>((ref) async {
 /// Completion trend data points: (dayOffset, completedCount).
 final completionTrendProvider =
     FutureProvider<List<(int, double)>>((ref) async {
-  // TODO: Wire to ProgressApiService when chart endpoints exist.
+  final api = _tryRead(ref, progressApiProvider);
+  if (api != null) {
+    try {
+      final response = await api.getHeatmap();
+      if (response.success && response.data != null) {
+        final entries = response.data!['entries'] as List?;
+        if (entries != null) {
+          return List.unmodifiable(
+            entries.asMap().entries.map((e) => (
+              e.key,
+              (e.value['count'] as num?)?.toDouble() ?? 0.0,
+            )),
+          );
+        }
+      }
+    } on DioException {
+      // Fall through to mock data.
+    }
+  }
+  // Fallback mock data when API unavailable.
   return List.generate(30, (i) => (i, (i * 1.5 + 3).toDouble()));
 });
 
 /// Productivity by day of week: (dayName, avgTasks).
 final productivityByDayProvider =
     FutureProvider<List<(String, double)>>((ref) async {
+  final api = _tryRead(ref, progressApiProvider);
+  if (api != null) {
+    try {
+      final response = await api.getInsights();
+      if (response.success && response.data != null) {
+        final byDay = response.data!['productivityByDay'] as List?;
+        if (byDay != null) {
+          return List.unmodifiable(
+            byDay.map((e) => (
+              e['day'] as String? ?? '',
+              (e['avg'] as num?)?.toDouble() ?? 0.0,
+            )),
+          );
+        }
+      }
+    } on DioException {
+      // Fall through to mock data.
+    }
+  }
+  // Fallback mock data when API unavailable.
   return [
     ('Mon', 8.0),
     ('Tue', 12.0),
@@ -239,7 +278,27 @@ final productivityByDayProvider =
 /// Productivity by hour heatmap: (hour, dayOfWeek, intensity 0.0-1.0).
 final productivityByHourProvider =
     FutureProvider<List<(int, int, double)>>((ref) async {
-  // Generate 24h x 7d heatmap data.
+  final api = _tryRead(ref, progressApiProvider);
+  if (api != null) {
+    try {
+      final response = await api.getInsights();
+      if (response.success && response.data != null) {
+        final byHour = response.data!['productivityByHour'] as List?;
+        if (byHour != null) {
+          return List.unmodifiable(
+            byHour.map((e) => (
+              e['hour'] as int? ?? 0,
+              e['day'] as int? ?? 0,
+              (e['intensity'] as num?)?.toDouble() ?? 0.0,
+            )),
+          );
+        }
+      }
+    } on DioException {
+      // Fall through to mock data.
+    }
+  }
+  // Fallback mock data: generate 24h x 7d heatmap.
   final data = <(int, int, double)>[];
   for (int h = 0; h < 24; h++) {
     for (int d = 0; d < 7; d++) {
@@ -257,6 +316,26 @@ final productivityByHourProvider =
 /// Category breakdown: (categoryName, count).
 final categoryBreakdownProvider =
     FutureProvider<List<(String, double)>>((ref) async {
+  final api = _tryRead(ref, progressApiProvider);
+  if (api != null) {
+    try {
+      final response = await api.getInsights();
+      if (response.success && response.data != null) {
+        final categories = response.data!['categoryBreakdown'] as List?;
+        if (categories != null) {
+          return List.unmodifiable(
+            categories.map((e) => (
+              e['name'] as String? ?? '',
+              (e['count'] as num?)?.toDouble() ?? 0.0,
+            )),
+          );
+        }
+      }
+    } on DioException {
+      // Fall through to mock data.
+    }
+  }
+  // Fallback mock data when API unavailable.
   return [
     ('Work', 45.0),
     ('Personal', 28.0),

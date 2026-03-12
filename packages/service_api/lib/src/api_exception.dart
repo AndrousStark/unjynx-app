@@ -39,3 +39,24 @@ class ApiException implements Exception {
   @override
   String toString() => 'ApiException($statusCode): $message';
 }
+
+/// Thrown when the server returns 401 Unauthorized.
+///
+/// Callers should catch this to clear cached auth state and redirect to
+/// the login screen. Because interceptors don't have access to Riverpod,
+/// the exception is thrown and caught at the call-site level.
+class AuthExpiredException extends ApiException {
+  const AuthExpiredException({
+    String message = 'Session expired. Please sign in again.',
+    String? type,
+    Map<String, dynamic>? errors,
+  }) : super(
+          statusCode: 401,
+          message: message,
+          type: type,
+          errors: errors,
+        );
+
+  @override
+  String toString() => 'AuthExpiredException: $message';
+}

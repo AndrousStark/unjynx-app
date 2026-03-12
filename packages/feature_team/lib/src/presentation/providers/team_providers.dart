@@ -19,7 +19,7 @@ import '../../domain/models/team_report.dart';
 T? _tryRead<T>(Ref ref, Provider<T> provider) {
   try {
     return ref.watch(provider);
-  } catch (_) {
+  } on StateError {
     return null;
   }
 }

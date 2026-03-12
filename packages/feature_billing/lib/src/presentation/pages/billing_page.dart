@@ -24,7 +24,6 @@ class BillingPage extends ConsumerWidget {
       body: ref.watch(subscriptionProvider).when(
             data: (subscription) => _BillingContent(
               subscription: subscription,
-              ref: ref,
             ),
             loading: () => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -78,17 +77,15 @@ class BillingPage extends ConsumerWidget {
   }
 }
 
-class _BillingContent extends StatelessWidget {
+class _BillingContent extends ConsumerWidget {
   const _BillingContent({
     required this.subscription,
-    required this.ref,
   });
 
   final Subscription subscription;
-  final WidgetRef ref;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final isLight = context.isLightMode;
@@ -116,7 +113,7 @@ class _BillingContent extends StatelessWidget {
 
           // 7-day free trial toggle
           if (!subscription.isPaid) ...[
-            _FreeTrialToggle(ref: ref),
+            const _FreeTrialToggle(),
             const SizedBox(height: 16),
           ],
 
@@ -229,11 +226,17 @@ class _BillingContent extends StatelessWidget {
   }
 
   void _selectPlan(BuildContext context, String planName) {
+    // RevenueCat not yet integrated — show coming soon
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Plan upgrade to $planName coming soon!'),
+        content: Text(
+          'Upgrade to $planName coming soon! '
+          'RevenueCat integration pending.',
+        ),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }
@@ -320,13 +323,11 @@ class _AnnualSavingsBanner extends StatelessWidget {
 // Free trial toggle
 // ---------------------------------------------------------------------------
 
-class _FreeTrialToggle extends StatelessWidget {
-  const _FreeTrialToggle({required this.ref});
-
-  final WidgetRef ref;
+class _FreeTrialToggle extends ConsumerWidget {
+  const _FreeTrialToggle();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final enabled = ref.watch(freeTrialEnabledProvider);
@@ -422,7 +423,7 @@ class _ManageSubscriptionSection extends StatelessWidget {
 
     showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: colorScheme.surface,
         title: Text(
           'Cancel Subscription?',
@@ -437,16 +438,31 @@ class _ManageSubscriptionSection extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Keep Plan'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             style: TextButton.styleFrom(foregroundColor: colorScheme.error),
             child: const Text('Cancel'),
           ),
         ],
       ),
-    );
+    ).then((confirmed) {
+      if (confirmed == true && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Cancellation request submitted. Your plan remains active '
+              'until the end of the current billing period.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    });
   }
 }

@@ -32,6 +32,12 @@ class AppConfig {
     defaultValue: 'unjynx-mobile',
   );
 
+  /// RevenueCat public API key (from RevenueCat dashboard).
+  static const String revenueCatApiKey = String.fromEnvironment(
+    'REVENUECAT_API_KEY',
+    defaultValue: '',
+  );
+
   /// Whether real auth is configured.
   static bool get isAuthConfigured =>
       logtoEndpoint.isNotEmpty && logtoAppId.isNotEmpty;

@@ -37,6 +37,33 @@ class TodoRepositoryImpl implements TodoRepository {
             )
             .toList();
       }
+      if (filter.dateRange != null) {
+        final now = DateTime.now();
+        final todayStart = DateTime(now.year, now.month, now.day);
+        final tomorrowStart = todayStart.add(const Duration(days: 1));
+        items = switch (filter.dateRange!) {
+          DateRange.today => items
+              .where((t) =>
+                  t.dueDate != null &&
+                  !t.dueDate!.isBefore(todayStart) &&
+                  t.dueDate!.isBefore(tomorrowStart))
+              .toList(),
+          DateRange.upcoming => items
+              .where((t) =>
+                  t.dueDate != null &&
+                  !t.dueDate!.isBefore(tomorrowStart))
+              .toList(),
+          DateRange.overdue => items
+              .where((t) =>
+                  t.dueDate != null &&
+                  t.dueDate!.isBefore(todayStart) &&
+                  t.status != TodoStatus.completed)
+              .toList(),
+          DateRange.noDate => items
+              .where((t) => t.dueDate == null)
+              .toList(),
+        };
+      }
 
       items.sort((a, b) => _compareBySort(a, b, filter.sortBy, filter.ascending));
     }

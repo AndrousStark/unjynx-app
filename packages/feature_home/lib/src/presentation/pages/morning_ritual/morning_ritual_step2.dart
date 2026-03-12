@@ -22,9 +22,7 @@ class GratitudeStep extends StatelessWidget {
           Icon(
             Icons.favorite_rounded,
             size: 44,
-            color: context.isLightMode
-                ? const Color(0xFFE53E3E)
-                : const Color(0xFFFF8787),
+            color: unjynxPriorityColor(context, 'urgent'),
           ),
           const SizedBox(height: 24),
 

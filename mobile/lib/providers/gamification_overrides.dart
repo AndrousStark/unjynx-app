@@ -2,6 +2,7 @@ import 'package:feature_gamification/feature_gamification.dart';
 import 'package:feature_projects/feature_projects.dart';
 import 'package:feature_todos/todo_plugin.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unjynx_core/core.dart';
 
 // ---------------------------------------------------------------------------
 // Gamification chart data — computed from local Drift database.

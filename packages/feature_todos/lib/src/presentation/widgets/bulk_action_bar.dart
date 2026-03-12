@@ -101,7 +101,7 @@ class BulkActionBar extends StatelessWidget {
                 color: ux.success,
                 onTap: () {
                   HapticFeedback.mediumImpact();
-                  onCompleteAll();
+                  _confirmComplete(context);
                 },
               ),
               const SizedBox(width: 8),
@@ -181,6 +181,49 @@ class BulkActionBar extends StatelessWidget {
       },
     ).then((selected) {
       if (selected != null) onChangePriority(selected);
+    });
+  }
+
+  void _confirmComplete(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        final ux = context.unjynx;
+        return AlertDialog(
+          backgroundColor: cs.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Complete tasks?',
+            style: TextStyle(color: cs.onSurface),
+          ),
+          content: Text(
+            'Are you sure you want to mark $selectedCount tasks as completed?',
+            style: TextStyle(color: cs.onSurfaceVariant),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: cs.onSurfaceVariant),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(
+                'Complete',
+                style: TextStyle(color: ux.success),
+              ),
+            ),
+          ],
+        );
+      },
+    ).then((confirmed) {
+      if (confirmed == true) {
+        HapticFeedback.heavyImpact();
+        onCompleteAll();
+      }
     });
   }
 

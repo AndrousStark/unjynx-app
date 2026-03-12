@@ -214,7 +214,7 @@ class _NotificationPermissionPageState
     await complete();
 
     if (mounted) {
-      context.go('/');
+      context.go('/home');
     }
   }
 }

@@ -94,7 +94,7 @@ class _StreakContent extends StatelessWidget {
 
         // --- "day streak" label ---
         Text(
-          streak.currentStreak == 1 ? 'day streak' : 'day streak',
+          streak.currentStreak == 1 ? 'day streak' : 'days streak',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),

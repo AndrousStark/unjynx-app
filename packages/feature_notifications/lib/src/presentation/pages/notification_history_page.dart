@@ -125,14 +125,17 @@ class _NotificationHistoryPageState
 
               // History list
               Expanded(
-                child: filteredHistory.isEmpty
-                    ? _EmptyHistoryState(isLight: isLight)
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          await ref.read(historyProvider.notifier).refresh();
-                        },
-                        color: ux.gold,
-                        child: ListView.separated(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await ref.read(historyProvider.notifier).refresh();
+                  },
+                  color: ux.gold,
+                  child: filteredHistory.isEmpty
+                      ? SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: _EmptyHistoryState(isLight: isLight),
+                        )
+                      : ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           itemCount: filteredHistory.length,
                           separatorBuilder: (_, __) =>
@@ -144,7 +147,7 @@ class _NotificationHistoryPageState
                             return DeliveryLogTile(entry: entry);
                           },
                         ),
-                      ),
+                ),
               ),
             ],
           ),

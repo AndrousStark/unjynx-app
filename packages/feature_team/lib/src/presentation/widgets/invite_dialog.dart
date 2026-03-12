@@ -135,29 +135,24 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
                   children: [
                     Expanded(
                       child: Text(
-                        'https://unjynx.app/invite/UNJYNX-...',
+                        'Invite links will be generated when teams are active',
                         style: textTheme.bodySmall?.copyWith(
                           fontSize: 13,
-                          color: colorScheme.onSurface,
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.copy_rounded, size: 18),
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        Clipboard.setData(
-                          const ClipboardData(
-                            text: 'https://unjynx.app/invite/DEMO',
-                          ),
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Link copied!')),
-                        );
-                      },
+                      icon: Icon(
+                        Icons.copy_rounded,
+                        size: 18,
+                        color: colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.3),
+                      ),
+                      onPressed: null,
                     ),
                   ],
                 ),
@@ -268,13 +263,19 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
       setState(() => _isSending = true);
       HapticFeedback.mediumImpact();
 
-      final team = ref.read(currentTeamProvider);
-      if (team != null) {
-        await ref.read(invitesProvider.notifier).sendInvite(
-              email: email,
-              role: _selectedRole,
-              teamId: team.id,
-            );
+      try {
+        final team = ref.read(currentTeamProvider);
+        if (team != null) {
+          await ref.read(invitesProvider.notifier).sendInvite(
+                email: email,
+                role: _selectedRole,
+                teamId: team.id,
+              );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isSending = false);
+        }
       }
     }
 

@@ -1,7 +1,7 @@
 name: unjynx_mobile
 description: "UNJYNX - Break the satisfactory. Unjynx your productivity."
 publish_to: none
-version: 0.1.0+1
+version: 0.5.0+1
 
 resolution: workspace
 
@@ -35,6 +35,8 @@ dependencies:
     path: ../../packages/feature_todos
   feature_widgets:
     path: ../../packages/feature_widgets
+  # firebase_core: ^3.12.0    # Re-enable after creating Firebase project
+  # firebase_messaging: ^15.2.0  # Re-enable after downloading google-services.json
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.6.0

@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unjynx_core/core.dart';
 import 'package:uuid/uuid.dart';
 
@@ -39,6 +41,8 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
 
   static const _uuid = Uuid();
 
+  static String _subtaskPrefsKey(String todoId) => 'subtasks_$todoId';
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +55,50 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
     _completionScale = Tween<double>(begin: 1, end: 0.85).animate(
       CurvedAnimation(parent: _completionAnimCtrl, curve: Curves.elasticOut),
     );
+    _loadSubtasksFromPrefs();
+  }
+
+  Future<void> _loadSubtasksFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_subtaskPrefsKey(widget.todoId));
+    if (json == null || json.isEmpty) return;
+
+    try {
+      final decoded = jsonDecode(json) as List<dynamic>;
+      final loaded = decoded
+          .cast<Map<String, dynamic>>()
+          .map((m) => Subtask(
+                id: m['id'] as String,
+                todoId: m['todoId'] as String,
+                title: m['title'] as String,
+                isCompleted: m['isCompleted'] as bool? ?? false,
+                sortOrder: m['sortOrder'] as int? ?? 0,
+                createdAt: DateTime.parse(m['createdAt'] as String),
+              ))
+          .toList();
+      if (mounted) {
+        setState(() => _subtasks = loaded);
+      }
+    } on Exception catch (_) {
+      // Corrupted data; start fresh.
+    }
+  }
+
+  Future<void> _saveSubtasksToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(
+      _subtasks
+          .map((s) => {
+                'id': s.id,
+                'todoId': s.todoId,
+                'title': s.title,
+                'isCompleted': s.isCompleted,
+                'sortOrder': s.sortOrder,
+                'createdAt': s.createdAt.toIso8601String(),
+              })
+          .toList(),
+    );
+    await prefs.setString(_subtaskPrefsKey(widget.todoId), encoded);
   }
 
   @override
@@ -332,6 +380,7 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
         ),
       ];
     });
+    _saveSubtasksToPrefs();
 
     _logActivity(
       todoId: widget.todoId,
@@ -350,24 +399,29 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
         return s;
       }).toList();
     });
+    _saveSubtasksToPrefs();
   }
 
   void _deleteSubtask(Subtask subtask) {
     setState(() {
       _subtasks = _subtasks.where((s) => s.id != subtask.id).toList();
     });
+    _saveSubtasksToPrefs();
   }
 
   void _reorderSubtasks(int oldIndex, int newIndex) {
     setState(() {
-      if (newIndex > oldIndex) newIndex--;
-      final item = _subtasks.removeAt(oldIndex);
-      _subtasks.insert(newIndex, item);
+      final adjustedNewIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+      final reordered = List<Subtask>.from(_subtasks);
+      final item = reordered[oldIndex];
+      reordered.removeAt(oldIndex);
+      reordered.insert(adjustedNewIndex, item);
       _subtasks = [
-        for (var i = 0; i < _subtasks.length; i++)
-          _subtasks[i].copyWith(sortOrder: i),
+        for (var i = 0; i < reordered.length; i++)
+          reordered[i].copyWith(sortOrder: i),
       ];
     });
+    _saveSubtasksToPrefs();
   }
 
   // -- Helpers ----------------------------------------------------------------
@@ -389,7 +443,10 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
     required ActivityType type,
     required String description,
   }) {
-    _activityLog.insert(0, _makeEntry(todoId, type, description, DateTime.now()));
+    final entry = _makeEntry(todoId, type, description, DateTime.now());
+    setState(() {
+      _activityLog = [entry, ..._activityLog];
+    });
   }
 
   void _showComingSoon(String message) {

@@ -21,9 +21,11 @@ GoRouter createAppRouter(
   required bool isOnboardingComplete,
   bool isAuthenticated = true,
 }) {
-  // Only show nav-worthy routes (exclude onboarding from bottom nav)
+  // Only show nav-worthy routes in bottom bar:
+  // - Exclude onboarding routes
+  // - Exclude utility routes (sortOrder < 0) like /projects/create, /profile/edit
   final navRoutes = registry.allRoutes
-      .where((r) => !r.path.startsWith('/onboarding'))
+      .where((r) => !r.path.startsWith('/onboarding') && r.sortOrder >= 0)
       .toList();
 
   final allRoutes = registry.allRoutes;
@@ -51,12 +53,16 @@ GoRouter createAppRouter(
       ),
 
     // Shell route with bottom navigation
+    // Include all non-onboarding plugin routes in shell (so they render with
+    // the bottom nav), but only show navRoutes (sortOrder >= 0) in the bar.
     ShellRoute(
       builder: (context, state, child) {
         return _AppShell(pluginRoutes: navRoutes, child: child);
       },
       routes: [
-        for (final route in navRoutes)
+        for (final route in allRoutes.where(
+          (r) => !r.path.startsWith('/onboarding'),
+        ))
           GoRoute(
             path: route.path,
             builder: (context, state) => route.builder(),
@@ -227,6 +233,26 @@ GoRouter createAppRouter(
 
   return GoRouter(
     initialLocation: isOnboardingComplete ? defaultLocation : '/onboarding',
+    errorBuilder: (context, state) => Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Color(0xFFFFD700)),
+            const SizedBox(height: 16),
+            Text(
+              'Page not found',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => GoRouter.of(context).go(defaultLocation),
+              child: const Text('Go Home'),
+            ),
+          ],
+        ),
+      ),
+    ),
     redirect: (context, state) {
       final path = state.uri.path;
       final goingToOnboarding = path.startsWith('/onboarding');
@@ -290,8 +316,13 @@ class _AppShell extends StatelessWidget {
 
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    final index =
-        pluginRoutes.indexWhere((r) => location.startsWith(r.path));
+    // Exact match first, then prefix match (skip '/' to avoid false positives)
+    var index = pluginRoutes.indexWhere((r) => r.path == location);
+    if (index < 0) {
+      index = pluginRoutes.indexWhere(
+        (r) => r.path != '/' && location.startsWith(r.path),
+      );
+    }
     return index >= 0 ? index : 0;
   }
 }
@@ -302,28 +333,26 @@ class _EmptyHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final colorScheme = Theme.of(context).colorScheme;
+    return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.bolt, size: 64, color: Color(0xFFFFD700)),
-            SizedBox(height: 16),
+            Icon(Icons.bolt, size: 64, color: colorScheme.primary),
+            const SizedBox(height: 16),
             Text(
               'UNJYNX',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFF5F5F7),
-              ),
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Break the satisfactory.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Color(0xFFA0A0B0),
-              ),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
             ),
           ],
         ),
