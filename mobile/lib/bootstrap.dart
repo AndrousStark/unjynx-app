@@ -11,6 +11,7 @@ import 'package:unjynx_core/core.dart';
 import 'package:unjynx_mobile/app.dart';
 import 'package:unjynx_mobile/config/app_config.dart';
 import 'package:unjynx_mobile/di/injection.dart';
+import 'package:unjynx_mobile/providers/gamification_overrides.dart';
 import 'package:unjynx_mobile/providers/home_api_overrides.dart';
 
 /// Bootstrap the UNJYNX application.
@@ -57,6 +58,8 @@ Future<void> bootstrap() async {
         apiConfigProvider.overrideWithValue(AppConfig.apiConfig),
         // Wire all home-screen providers to real API + Drift data
         ...homeApiOverrides(),
+        // Wire gamification chart providers to real local task data
+        ...gamificationOverrides(),
       ],
       child: UnjynxApp(registry: registry),
     ),
