@@ -2,24 +2,34 @@ import 'package:service_api/service_api.dart';
 
 /// App-wide configuration from compile-time environment variables.
 ///
-/// Set via: flutter run --dart-define=API_BASE_URL=https://api.unjynx.com
-/// Or: flutter build apk --dart-define=API_BASE_URL=https://api.unjynx.com
+/// Production defaults are baked in. Override for local dev:
+///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000 \
+///               --dart-define=LOGTO_ENDPOINT=http://10.0.2.2:3001 \
+///               --dart-define=LOGTO_APP_ID=your-dev-app-id
 class AppConfig {
   AppConfig._();
 
+  /// Compile-time environment flag: 'production' or 'development'.
+  static const String env = String.fromEnvironment(
+    'ENV',
+    defaultValue: 'production',
+  );
+
+  static bool get isProduction => env == 'production';
+
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000',
+    defaultValue: 'https://api.unjynx.me',
   );
 
   static const String logtoEndpoint = String.fromEnvironment(
     'LOGTO_ENDPOINT',
-    defaultValue: '',
+    defaultValue: 'https://auth.unjynx.me',
   );
 
   static const String logtoAppId = String.fromEnvironment(
     'LOGTO_APP_ID',
-    defaultValue: '',
+    defaultValue: 'unjynx-mobile',
   );
 
   /// Whether real auth is configured.
