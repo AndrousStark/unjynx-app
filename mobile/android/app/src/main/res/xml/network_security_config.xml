@@ -7,9 +7,12 @@
   - Pins TLS certificates for the production API domain.
   - Includes a backup pin to allow key rotation without bricking clients.
 
-  Replace the placeholder SHA-256 pins with real values before production
-  release. Generate pins with:
-    openssl s_client -servername api.unjynx.com -connect api.unjynx.com:443 \
+  SHA-256 certificate pins for production domains.
+  Primary: leaf certificate SPKI hash.
+  Backup: Let's Encrypt E7 intermediate certificate SPKI hash.
+
+  To regenerate the primary pin:
+    openssl s_client -servername api.unjynx.me -connect api.unjynx.me:443 \
       | openssl x509 -pubkey -noout \
       | openssl pkey -pubin -outform der \
       | openssl dgst -sha256 -binary \
@@ -33,19 +36,13 @@
 
     <!-- Production API: certificate pinning -->
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">api.unjynx.com</domain>
-        <domain includeSubdomains="true">auth.unjynx.com</domain>
+        <domain includeSubdomains="true">api.unjynx.me</domain>
+        <domain includeSubdomains="true">auth.unjynx.me</domain>
         <pin-set expiration="2027-06-01">
-            <!--
-              Primary pin: SHA-256 of the leaf certificate's SubjectPublicKeyInfo.
-              PLACEHOLDER - replace with actual pin before production release.
-            -->
-            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
-            <!--
-              Backup pin: SHA-256 of a backup/intermediate certificate.
-              PLACEHOLDER - replace with actual pin before production release.
-            -->
-            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+            <!-- Primary pin: SHA-256 of the leaf certificate's SPKI -->
+            <pin digest="SHA-256">9WU70+kePZ7zIW1TPwYKzWR9dR9Q5XTbTo3N3UT2ZeE=</pin>
+            <!-- Backup pin: SHA-256 of Let's Encrypt E7 intermediate SPKI -->
+            <pin digest="SHA-256">y7xVm0TVJNahMr2sZydE2jQH8SquXV9yLF9seROHHHU=</pin>
         </pin-set>
         <trust-anchors>
             <certificates src="system" />

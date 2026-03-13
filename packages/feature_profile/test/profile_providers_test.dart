@@ -70,11 +70,11 @@ void main() {
       expect(tz, 'Asia/Kolkata');
     });
 
-    test('can be updated', () {
+    test('can be updated via setTimezone', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      container.read(timezoneProvider.notifier).state = 'America/New_York';
+      await container.read(timezoneProvider.notifier).setTimezone('America/New_York');
 
       expect(container.read(timezoneProvider), 'America/New_York');
     });

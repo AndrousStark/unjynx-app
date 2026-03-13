@@ -1,44 +1,45 @@
-# Flutter/Dart
-**/build/
-**/.dart_tool/
-**/.packages
-**/.flutter-plugins
-**/.flutter-plugins-dependencies
-**/pubspec.lock
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.iml
+.packages
+.pub-cache/
+.pub/
+pubspec.lock
+!mobile/pubspec.lock
+
+# Code generation
+*.g.dart
+*.freezed.dart
+*.gr.dart
+*.config.dart
+*.inject.dart
+*.mocks.dart
 
 # IDE
-.idea/
 .vscode/
-*.iml
+.idea/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Environment
-.env
-.env.local
+# Testing
+coverage/
+test-results/
 
-# Generated (keep .g.dart and .freezed.dart - build_runner temporarily disabled)
-# *.g.dart
-# *.freezed.dart
+# Release signing
+key.properties
+*.jks
+*.keystore
+.signing/
+*.p8
+*.p12
+*.mobileprovision
 
-# Android
-**/android/.gradle/
-**/android/local.properties
-**/android/key.properties
-**/android/app/debug/
-**/android/app/profile/
-**/android/app/release/
-
-# iOS
-**/ios/Pods/
-**/ios/.symlinks/
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/app.flx
-**/ios/Flutter/app.zip
-**/ios/Flutter/engine/
-**/ios/ServiceDefinitions.json
-**/ios/Runner/GeneratedPluginRegistrant.*
+# Misc
+*.log
+*.tmp
+.claude/
