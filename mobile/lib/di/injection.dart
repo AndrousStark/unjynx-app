@@ -43,9 +43,18 @@ Future<void> configureDependencies() async {
       PluginRegistry(eventBus: eventBus),
     );
 
-  // 2. Infrastructure
+  // 2. Infrastructure — run independent async init in parallel
   final dbPort = DriftDatabasePort();
-  await dbPort.initialize();
+  final notificationPort = AwesomeNotificationPort();
+
+  final results = await Future.wait([
+    dbPort.initialize(),          // [0]
+    notificationPort.initialize(), // [1]
+    SharedPreferences.getInstance(), // [2]
+  ]);
+
+  final prefs = results[2] as SharedPreferences;
+
   getIt
     ..registerSingleton<DatabasePort>(dbPort)
     ..registerSingleton<AppDatabase>(dbPort.db)
@@ -60,12 +69,7 @@ Future<void> configureDependencies() async {
           : MockAuthPort(),
     );
 
-  final notificationPort = AwesomeNotificationPort();
-  await notificationPort.initialize();
   getIt.registerSingleton<NotificationPort>(notificationPort);
-
-  // 3. Shared preferences + lightweight repos
-  final prefs = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(prefs);
 
   final onboardingRepo = OnboardingRepository(prefs);
@@ -89,10 +93,10 @@ Future<void> configureDependencies() async {
 
   // Feature datasources + repositories (offline-first with real API sync)
   final todoDatasource = TodoDriftDatasource(getIt<AppDatabase>());
-  final todoRepository = TodoSyncRepository(todoDatasource, taskApi);
+  final todoRepository = TodoSyncRepository(todoDatasource, taskApi, eventBus: eventBus);
 
   final projectDatasource = ProjectDriftDatasource(getIt<AppDatabase>());
-  final projectRepository = ProjectSyncRepository(projectDatasource, projectApi);
+  final projectRepository = ProjectSyncRepository(projectDatasource, projectApi, eventBus: eventBus);
 
   // Sync infrastructure — local + remote adapters for the SyncEngine
   final syncLocal = DriftSyncLocalAdapter(dbPort.db, prefs);
@@ -123,10 +127,18 @@ Future<void> configureDependencies() async {
     // Secondary feature plugins (not in bottom nav)
     ..registerSingleton<NotificationPlugin>(NotificationPlugin())
     ..registerSingleton<GamificationPlugin>(GamificationPlugin())
-    ..registerSingleton<BillingPlugin>(BillingPlugin())
-    ..registerSingleton<TeamPlugin>(TeamPlugin())
-    ..registerSingleton<ImportExportPlugin>(ImportExportPlugin())
-    ..registerSingleton<WidgetsPlugin>(WidgetsPlugin());
+    ..registerSingleton<BillingPlugin>(BillingPlugin());
+
+  // Incomplete features — gated behind compile-time flags
+  if (AppConfig.featureTeam) {
+    getIt.registerSingleton<TeamPlugin>(TeamPlugin());
+  }
+  if (AppConfig.featureImportExport) {
+    getIt.registerSingleton<ImportExportPlugin>(ImportExportPlugin());
+  }
+  if (AppConfig.featureWidgets) {
+    getIt.registerSingleton<WidgetsPlugin>(WidgetsPlugin());
+  }
 }
 
 /// Nav-visible plugins in display order.

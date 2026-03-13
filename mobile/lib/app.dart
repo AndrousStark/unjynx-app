@@ -46,7 +46,23 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
     // Watch auth state reactively. MockAuthPort always returns true,
     // LogtoAuthPort will return actual state when wired.
     final authAsync = ref.watch(isAuthenticatedProvider);
-    final isAuthenticated = authAsync.valueOrNull ?? true;
+
+    // Show a neutral loading screen while auth state resolves to avoid
+    // flashing authenticated UI to unauthenticated users.
+    if (authAsync.isLoading) {
+      return MaterialApp(
+        title: 'UNJYNX',
+        debugShowCheckedModeBanner: false,
+        theme: UnjynxTheme.light,
+        darkTheme: UnjynxTheme.dark,
+        themeMode: themeMode,
+        home: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    final isAuthenticated = authAsync.valueOrNull ?? false;
 
     // Rebuild router if onboarding or auth state changed
     if (!_initialized ||

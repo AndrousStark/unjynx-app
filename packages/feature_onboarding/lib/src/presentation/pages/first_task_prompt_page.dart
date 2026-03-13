@@ -130,9 +130,10 @@ class _FirstTaskPromptPageState extends ConsumerState<FirstTaskPromptPage>
   ) {
     final inputNotEmpty = _textController.text.trim().isNotEmpty;
 
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       children: [
-        const Spacer(),
+        const SizedBox(height: 48),
 
         // Title
         Text(
@@ -284,8 +285,9 @@ class _FirstTaskPromptPageState extends ConsumerState<FirstTaskPromptPage>
           ),
         ),
 
-        const Spacer(),
+        const SizedBox(height: 48),
       ],
+    ),
     );
   }
 

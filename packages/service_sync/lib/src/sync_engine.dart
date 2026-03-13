@@ -35,6 +35,8 @@ class SyncEngine {
 
   SyncStatus _status = SyncStatus.idle;
   Timer? _periodicTimer;
+  Timer? _debounceSyncTimer;
+  StreamSubscription<AppEvent>? _mutationSub;
 
   SyncEngine({
     required SyncLocalPort local,
@@ -51,16 +53,39 @@ class SyncEngine {
   /// Current sync status.
   SyncStatus get status => _status;
 
-  /// Start periodic sync (every [interval]).
+  /// Start periodic sync (every [interval]) and event-driven sync.
+  ///
+  /// Event-driven sync triggers ~2 seconds after the last data mutation
+  /// (TaskCreated, TaskUpdated, etc.), debouncing rapid successive edits.
   void startPeriodicSync({Duration interval = const Duration(minutes: 5)}) {
     _periodicTimer?.cancel();
     _periodicTimer = Timer.periodic(interval, (_) => sync());
+    _startEventDrivenSync();
   }
 
-  /// Stop periodic sync.
+  /// Stop periodic and event-driven sync.
   void stopPeriodicSync() {
     _periodicTimer?.cancel();
     _periodicTimer = null;
+    _mutationSub?.cancel();
+    _mutationSub = null;
+    _debounceSyncTimer?.cancel();
+    _debounceSyncTimer = null;
+  }
+
+  /// Listen for data mutation events and trigger debounced sync.
+  void _startEventDrivenSync() {
+    _mutationSub?.cancel();
+    _mutationSub = _eventBus.stream.where((e) =>
+        e is TaskCreated ||
+        e is TaskUpdated ||
+        e is TaskDeleted ||
+        e is TaskCompleted ||
+        e is ProjectCreated ||
+        e is ProjectArchived).listen((_) {
+      _debounceSyncTimer?.cancel();
+      _debounceSyncTimer = Timer(const Duration(seconds: 2), () => sync());
+    });
   }
 
   /// Perform a full sync cycle for all entity types.
@@ -203,8 +228,7 @@ class SyncEngine {
 
   /// Dispose the sync engine.
   void dispose() {
-    _periodicTimer?.cancel();
-    _periodicTimer = null;
+    stopPeriodicSync();
   }
 }
 

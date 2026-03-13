@@ -1,4 +1,4 @@
-package com.metaminds.unjynx.unjynx_mobile
+package com.metaminds.unjynx
 
 import io.flutter.embedding.android.FlutterActivity
 

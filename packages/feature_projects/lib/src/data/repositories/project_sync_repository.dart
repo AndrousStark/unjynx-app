@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:service_api/service_api.dart';
 import 'package:service_database/service_database.dart';
+import 'package:unjynx_core/events/event_bus.dart';
+import 'package:unjynx_core/events/app_events.dart';
 import 'package:unjynx_core/models/project.dart';
 import 'package:unjynx_core/utils/result.dart';
 import 'package:uuid/uuid.dart';
@@ -23,10 +25,12 @@ import '../datasources/project_drift_datasource.dart';
 /// When [_projectApi] is null, this behaves identically to
 /// [ProjectDriftRepository] (pure local mode).
 class ProjectSyncRepository implements ProjectRepository {
-  ProjectSyncRepository(this._datasource, this._projectApi);
+  ProjectSyncRepository(this._datasource, this._projectApi, {EventBus? eventBus})
+      : _eventBus = eventBus;
 
   final ProjectDriftDatasource _datasource;
   final ProjectApiService? _projectApi;
+  final EventBus? _eventBus;
   static const _uuid = Uuid();
 
   // ---------------------------------------------------------------------------
@@ -99,6 +103,7 @@ class ProjectSyncRepository implements ProjectRepository {
       );
 
       final created = await _datasource.getById(id);
+      _eventBus?.publish(ProjectCreated(projectId: id, name: name));
 
       // Fire-and-forget push to API.
       _backgroundCreateProject(id, name, description, color, icon);
@@ -142,6 +147,7 @@ class ProjectSyncRepository implements ProjectRepository {
   Future<Result<void>> archive(String id) async {
     try {
       await _datasource.archive(id);
+      _eventBus?.publish(ProjectArchived(projectId: id));
 
       // Fire-and-forget archive on API (uses delete endpoint).
       _backgroundArchiveProject(id);

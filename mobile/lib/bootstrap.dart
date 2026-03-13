@@ -30,24 +30,22 @@ Future<void> bootstrap() async {
 
   final registry = getIt<PluginRegistry>();
 
-  // Register all plugins (nav + utility) — isolate failures so one
+  // Register all plugins in parallel — isolate failures so one
   // bad plugin doesn't crash the app
-  for (final plugin in [...allPlugins, ...utilityPlugins]) {
-    try {
-      await registry.register(plugin);
-    } on Exception catch (e, stackTrace) {
-      debugPrint(
-        'Failed to register plugin "${plugin.id}": $e',
-      );
-      debugPrintStack(stackTrace: stackTrace);
-    }
-  }
+  await Future.wait(
+    [...allPlugins, ...utilityPlugins].map((plugin) async {
+      try {
+        await registry.register(plugin);
+      } on Exception catch (e, stackTrace) {
+        debugPrint(
+          'Failed to register plugin "${plugin.id}": $e',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }),
+  );
 
   final notificationPort = getIt<NotificationPort>();
-
-  // Start background sync engine (uses default 5-minute interval)
-  final syncEngine = getIt<SyncEngine>();
-  syncEngine.startPeriodicSync();
 
   runApp(
     ProviderScope(
@@ -76,6 +74,10 @@ Future<void> bootstrap() async {
 
   // --- Post-runApp initialization (non-blocking) ---
   // These run after the first frame so the user sees the app immediately.
+
+  // Start background sync engine (deferred to avoid blocking first frame)
+  final syncEngine = getIt<SyncEngine>();
+  syncEngine.startPeriodicSync();
 
   // Request notification permission (shows system dialog OVER the app UI)
   unawaited(() async {

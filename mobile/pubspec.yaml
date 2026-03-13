@@ -44,6 +44,7 @@ dependencies:
   go_router: ^16.0.0
   injectable: ^2.5.0
   riverpod_annotation: ^2.6.0
+  sentry_flutter: ^9.0.0
   service_api:
     path: ../../packages/service_api
   service_auth:
@@ -59,18 +60,31 @@ dependencies:
     path: ../../packages/core
 
 dev_dependencies:
+  build_runner: ^2.12.2
   flutter_test:
     sdk: flutter
+  injectable_generator: ^2.12.1
   very_good_analysis: ^7.0.0
-  # NOTE: build_runner, riverpod_generator, injectable_generator temporarily
-  # removed due to analyzer 8.x incompatibility with Dart 3.11.1.
-  # Restore when riverpod_generator supports analyzer ^8.0.0.
-  # Existing .g.dart files are committed and work fine for tests.
-  # build_runner: ^2.4.0
-  # injectable_generator: ^2.7.0
-  # riverpod_generator: ^2.6.0
+  # NOTE: riverpod_generator requires Riverpod 3+ (breaking migration).
+  # Re-enable after completing Riverpod 2 → 3 migration (see issue #10).
+  # riverpod_generator: ^4.0.3
 
 flutter:
   uses-material-design: true
   assets:
     - shorebird.yaml
+  fonts:
+    - family: BebasNeue
+      fonts:
+        - asset: google_fonts/BebasNeue-Regular.ttf
+    - family: Outfit
+      fonts:
+        - asset: google_fonts/Outfit-Variable.ttf
+    - family: PlayfairDisplay
+      fonts:
+        - asset: google_fonts/PlayfairDisplay-Variable.ttf
+        - asset: google_fonts/PlayfairDisplay-Italic-Variable.ttf
+          style: italic
+    - family: DMSans
+      fonts:
+        - asset: google_fonts/DMSans-Variable.ttf
