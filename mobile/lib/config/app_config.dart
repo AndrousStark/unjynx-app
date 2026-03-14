@@ -32,6 +32,12 @@ class AppConfig {
     defaultValue: 'unjynx-mobile',
   );
 
+  /// Sentry DSN for crash reporting (from sentry.io project settings).
+  static const String sentryDsn = String.fromEnvironment(
+    'SENTRY_DSN',
+    defaultValue: '',
+  );
+
   /// RevenueCat public API key (from RevenueCat dashboard).
   static const String revenueCatApiKey = String.fromEnvironment(
     'REVENUECAT_API_KEY',
@@ -41,6 +47,24 @@ class AppConfig {
   /// Whether real auth is configured.
   static bool get isAuthConfigured =>
       logtoEndpoint.isNotEmpty && logtoAppId.isNotEmpty;
+
+  // --- Feature flags for incomplete features ---
+  // Enable via: flutter run --dart-define=FEATURE_TEAM=true
+
+  static const bool featureTeam = bool.fromEnvironment(
+    'FEATURE_TEAM',
+    defaultValue: false,
+  );
+
+  static const bool featureImportExport = bool.fromEnvironment(
+    'FEATURE_IMPORT_EXPORT',
+    defaultValue: false,
+  );
+
+  static const bool featureWidgets = bool.fromEnvironment(
+    'FEATURE_WIDGETS',
+    defaultValue: false,
+  );
 
   /// API config for the service_api package.
   static ApiConfig get apiConfig => ApiConfig(baseUrl: apiBaseUrl);

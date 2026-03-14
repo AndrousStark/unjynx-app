@@ -5,7 +5,7 @@ environment:
   sdk: ^3.9.0
 
 workspace:
-  - apps/mobile
+  - mobile
   - packages/core
   - packages/feature_billing
   - packages/feature_gamification

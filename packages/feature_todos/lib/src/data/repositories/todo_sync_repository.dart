@@ -6,6 +6,8 @@ import 'package:feature_todos/src/domain/entities/todo.dart';
 import 'package:feature_todos/src/domain/entities/todo_filter.dart';
 import 'package:feature_todos/src/domain/repositories/todo_repository.dart';
 import 'package:service_api/service_api.dart';
+import 'package:unjynx_core/events/event_bus.dart';
+import 'package:unjynx_core/events/app_events.dart';
 import 'package:unjynx_core/utils/result.dart';
 import 'package:uuid/uuid.dart';
 
@@ -21,10 +23,12 @@ import 'package:uuid/uuid.dart';
 /// When [_taskApi] is null, this behaves identically to
 /// [TodoDriftRepository] (pure local mode).
 class TodoSyncRepository implements TodoRepository {
-  TodoSyncRepository(this._datasource, this._taskApi);
+  TodoSyncRepository(this._datasource, this._taskApi, {EventBus? eventBus})
+      : _eventBus = eventBus;
 
   final TodoDriftDatasource _datasource;
   final TaskApiService? _taskApi;
+  final EventBus? _eventBus;
   static const _uuid = Uuid();
 
   // ---------------------------------------------------------------------------
@@ -93,6 +97,7 @@ class TodoSyncRepository implements TodoRepository {
       );
 
       await _datasource.upsert(dto);
+      _eventBus?.publish(TaskCreated(taskId: id, title: title, dueDate: dueDate));
 
       // Fire-and-forget push to API.
       _backgroundCreateTask(id, dto);
@@ -113,6 +118,7 @@ class TodoSyncRepository implements TodoRepository {
 
       final updated = todo.copyWith(updatedAt: DateTime.now().toUtc());
       await _datasource.upsert(TodoMapper.fromDomain(updated));
+      _eventBus?.publish(TaskUpdated(taskId: todo.id, changes: {'title': todo.title}));
 
       // Fire-and-forget push to API.
       _backgroundUpdateTask(updated);
@@ -132,6 +138,7 @@ class TodoSyncRepository implements TodoRepository {
       }
 
       await _datasource.delete(id);
+      _eventBus?.publish(TaskDeleted(taskId: id));
 
       // Fire-and-forget delete on API.
       _backgroundDeleteTask(id);
@@ -162,6 +169,11 @@ class TodoSyncRepository implements TodoRepository {
       );
 
       await _datasource.upsert(TodoMapper.fromDomain(updated));
+      if (!isAlreadyCompleted) {
+        _eventBus?.publish(TaskCompleted(taskId: id, title: todo.title));
+      } else {
+        _eventBus?.publish(TaskUpdated(taskId: id, changes: {'status': 'pending'}));
+      }
 
       // Fire-and-forget complete/uncomplete on API.
       _backgroundCompleteTask(id, isAlreadyCompleted);
