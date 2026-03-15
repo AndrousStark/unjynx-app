@@ -1,0 +1,1573 @@
+const fs = require('fs');
+const path = require('path');
+
+const outFile = path.join(__dirname, 'EXPANSION-P2-ALL.doc');
+
+const content = `
+================================================================================
+  PHASE 2 EXPANSION: ALL MISSING SCREEN SPECIFICATIONS
+================================================================================
+  Covers: B2, B3, B4, D2, D4, D5, D6, E1, E3, E4, F1, F2, G1,
+          H1, H2, H3, H4, I1 + NLP Parser + Content Strategy + Design System
+================================================================================
+
+
+SCREEN B2: PERSONALIZATION FLOW (Free — 4 steps with progress bar)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Collects user identity, goals, channel preferences, and daily content
+    selection during onboarding. Seeds initial templates, content, and feature
+    visibility. 4-step sequential flow with top progress bar. Data stored
+    locally first, synced to backend when online.
+
+  FRONTEND (Flutter):
+    Package: feature_onboarding
+    Route: /onboarding/personalize (go_router, 4 sub-routes via PageView)
+    Key Widgets:
+      - PersonalizationPageView — PageView with 4 pages, progress bar at top
+      - IdentitySelector — Grid of 8 visual cards (Student, Professional, etc.)
+      - GoalChipSelector — Multi-select chips for 8 goal types
+      - ChannelToggleList — List of 8 channels with toggle switches + tier badges
+      - ContentCategoryGrid — Scrollable grid of 10 categories with preview
+      - ProgressBarWidget — 4-segment gold progress bar at top
+    State Management:
+      - onboardingStateProvider (StateNotifier) — tracks current step + selections
+      - identityProvider — selected identity card
+      - goalsProvider — Set<String> of selected goals
+      - channelPrefsProvider — Map<ChannelType, bool>
+      - contentCategoryProvider — selected categories (Free: 1, Pro: all 10)
+    Packages (pub.dev):
+      - flutter_animate ^4.5.0 — card entrance animations
+    Drift Tables (local):
+      - user_preferences — stores identity, goals, content prefs locally
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      PUT /api/v1/users/me/preferences
+        Request: { identity: string, goals: string[], channels: object,
+                   contentCategories: string[], deliveryTime: string }
+        Response: { success: true, templatesSeeded: number }
+        Auth: JWT required
+        Notes: Seeds default project templates based on identity selection.
+               Auto-suggests "Ancient Indian Wisdom" for India locale.
+
+    Business Logic:
+      - Identity selection maps to template sets (Professional -> work templates)
+      - Goals seed initial feature visibility flags
+      - Channel prefs stored but connections happen separately (J1-J6)
+      - Content category selection limited by plan (Free: 1, Pro: 10)
+
+  DATA FLOW:
+    User swipes through 4 steps → selections stored in onboardingStateProvider
+    → on "Finish", writes to Drift user_preferences table → PUT /users/me/preferences
+    → backend seeds templates and returns count → navigate to B3
+
+  INTERACTIONS & ANIMATIONS:
+    - Page transitions: slide-left with fade (300ms, easeInOut)
+    - Card selection: scale to 1.05 + gold border glow (200ms, spring)
+    - Chip toggle: color fill + slight bounce (150ms)
+    - Progress bar segment fill: gold wipe left-to-right (250ms, easeOut)
+    - Channel "Pro" badge: subtle shimmer on locked channels
+
+  DSA / ALGORITHMS:
+    - Template seeding: HashMap<Identity, List<Template>> O(1) lookup
+    - Locale detection: Platform.localeName for auto-suggest logic
+
+  TESTS (target count):
+    - Unit: 6 (identity mapping, goal validation, category limits per plan)
+    - Widget: 8 (each step renders, progress bar updates, Pro badges shown)
+    - Integration: 2 (full flow completion, preferences sync to backend)
+
+
+SCREEN B3: FIRST TASK PROMPT (Free)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Prompts user to create their first task using natural language input.
+    NLP parser (rule-based, NOT AI) extracts title, date, time, priority.
+    Successful creation triggers "curse broken" animation and first progress
+    ring movement. Critical first-use delight moment.
+
+  FRONTEND (Flutter):
+    Package: feature_onboarding
+    Route: /onboarding/first-task
+    Key Widgets:
+      - NlpTaskInput — TextField with real-time NLP parsing overlay
+      - VoiceInputButton — Microphone icon, speech_to_text integration
+      - ParsedPreview — Shows extracted fields (title, date, time, priority)
+      - CurseBreakAnimation — Lottie animation on task creation success
+    State Management:
+      - nlpInputProvider (StateNotifier) — raw text + parsed result
+      - firstTaskProvider (AsyncNotifier) — handles task creation
+    Packages (pub.dev):
+      - speech_to_text ^7.0.0 — voice input
+      - intl ^0.19.0 — date/time parsing for locale-aware formats
+    Drift Tables (local):
+      - todos — first task inserted here
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      POST /api/v1/tasks/parse
+        Request: { text: "Buy milk Monday 9am" }
+        Response: { title: "Buy milk", dueDate: "2026-03-10",
+                    dueTime: "09:00", priority: null, project: null,
+                    confidence: 0.85 }
+        Auth: JWT required
+        Notes: Uses chrono-node for date extraction. V1 rule-based only.
+               Client-side Dart regex runs first; backend is fallback.
+
+    Business Logic:
+      - Regex patterns: dates (tomorrow, Monday, March 15, next week),
+        times (9am, at 3:30, morning=9:00, evening=18:00),
+        priorities (urgent/!=P1, high=P2, low=P4),
+        projects (#ProjectName, "in Shopping")
+      - Confidence score based on number of fields parsed
+      - Client-side parsing preferred (lower latency), backend fallback
+
+  DATA FLOW:
+    User types/speaks → Dart NLP regex parses in real-time → ParsedPreview
+    shows extracted fields → user confirms/edits → POST /api/v1/tasks
+    → task created → CurseBreakAnimation plays → navigate to Home
+
+  INTERACTIONS & ANIMATIONS:
+    - Real-time parsing: Fields highlight as detected (200ms fade-in)
+    - Voice input: Microphone icon pulses while recording (1s sine cycle)
+    - Submit: "Curse broken" Lottie animation (chains shatter, gold dust, 1.5s)
+    - Progress ring: First nudge forward with extra-warm glow (400ms spring)
+    - Haptic: strong impact on curse break moment
+
+  DSA / ALGORITHMS:
+    - NLP Parser: Finite State Machine (regex-based tokenizer)
+      Token types: DATE, TIME, PRIORITY, PROJECT, TEXT
+      Greedy matching: longest match first, remaining = title
+    - chrono-node (backend): Recursive descent parser for date expressions
+
+  TESTS (target count):
+    - Unit: 12 (NLP parser: 8 pattern tests, 4 edge cases)
+    - Widget: 4 (input field, voice button, parsed preview, animation)
+    - Integration: 2 (full task creation flow, voice input flow)
+
+
+SCREEN B4: NOTIFICATION PERMISSION (Free)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Custom pre-permission screen before OS notification dialog. Explains
+    why notifications matter in UNJYNX context. If denied, shows persistent
+    banner on Home with Settings shortcut. Triggered after first task creation.
+
+  FRONTEND (Flutter):
+    Package: feature_onboarding
+    Route: /onboarding/notifications
+    Key Widgets:
+      - PermissionExplainerCard — "UNJYNX needs to notify you to break the curse"
+      - BenefitsList — 3 bullet points of notification benefits
+      - EnableButton — Gold CTA "Enable Notifications"
+      - SkipButton — Muted "Not now" link
+      - DeniedBanner — Persistent Home banner if permission denied
+    State Management:
+      - notificationPermissionProvider (AsyncNotifier) — permission status
+    Packages (pub.dev):
+      - permission_handler ^11.3.0 — request notification permission
+      - awesome_notifications ^0.9.0 — local notification scheduling
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      POST /api/v1/devices
+        Request: { fcmToken: string, platform: "android"|"ios", timezone: string }
+        Response: { deviceId: string }
+        Auth: JWT required
+        Notes: Registers device for push notifications. FCM token from Firebase.
+
+  DATA FLOW:
+    Screen shown → user taps Enable → permission_handler requests OS permission
+    → if granted: get FCM token → POST /devices → navigate to Home
+    → if denied: store flag in Drift → show DeniedBanner on Home
+
+  INTERACTIONS & ANIMATIONS:
+    - Card entrance: fade-up + scale from 0.9 (400ms, easeOut)
+    - Bell icon: gentle swing animation (2s loop)
+    - Enable button: gold pulse glow on idle (3s cycle)
+    - Permission granted: checkmark + confetti burst (600ms)
+
+  DSA / ALGORITHMS:
+    - None specific
+
+  TESTS (target count):
+    - Unit: 3 (permission states: granted, denied, not-determined)
+    - Widget: 4 (explainer card, granted flow, denied banner, skip flow)
+    - Integration: 1 (full permission flow)
+
+
+SCREEN D2: TASK DETAIL SCREEN (Free — full screen, scrollable)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Full task editing screen with all fields: info section, rich description,
+    subtasks with drag reorder, activity log, attachments (Pro), AI section
+    (v1: rule-based templates for decomposition), and bottom actions. The most
+    complex single screen in the app.
+
+  FRONTEND (Flutter):
+    Package: feature_todos
+    Route: /tasks/:id (go_router with pathParameters)
+    Key Widgets:
+      - TaskDetailAppBar — back arrow + inline-editable title + 3-dot menu
+      - CompletionButton — large animated checkbox (gold fill on tap)
+      - InfoSection — tappable fields: project, due date, priority, duration,
+        recurrence, tags, labels, reminder settings
+      - RichDescriptionEditor — Markdown editor (flutter_quill)
+      - SubtaskList — ReorderableListView with inline add, progress bar
+      - ActivityLog — Collapsible timeline (created, edited, completed)
+      - AttachmentGrid — Pro: photo/file thumbnails (image_picker + MinIO)
+      - AiDecomposeSection — "Break this down" button (v1: template-based)
+      - BottomActions — Duplicate, Move, Add to ritual, Delete
+    State Management:
+      - taskDetailProvider(taskId) (AsyncNotifier) — loads task + subtasks
+      - subtaskListProvider(taskId) — manages subtask ordering
+      - taskEditProvider (StateNotifier) — tracks unsaved edits
+    Packages (pub.dev):
+      - flutter_quill ^10.0.0 — rich text description editor
+      - image_picker ^1.1.0 — attachment selection (Pro)
+      - reorderable_grid ^1.0.0 — subtask drag reorder
+    Drift Tables (local):
+      - todos — main task data
+      - subtasks — subtask items with sort_order
+      - attachments — file metadata (path, mime, size)
+      - activity_log — local change log
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/tasks/:id
+        Response: { task: TaskFull, subtasks: Subtask[], attachments: Attachment[],
+                    activityLog: Activity[] }
+        Auth: JWT required
+
+      PATCH /api/v1/tasks/:id
+        Request: { title?, description?, dueDate?, priority?, projectId?,
+                   estimatedMinutes?, tags?, labels?, reminderSettings? }
+        Response: { task: TaskFull }
+        Notes: Field-level LWW merge. Each field has its own timestamp.
+
+      POST /api/v1/tasks/:id/subtasks
+        Request: { title: string, sortOrder: number }
+        Response: { subtask: Subtask }
+
+      PATCH /api/v1/tasks/:id/subtasks/reorder
+        Request: { orderedIds: string[] }
+        Response: { success: true }
+
+      POST /api/v1/tasks/:id/decompose
+        Request: { templateId?: string }
+        Response: { subtasks: Subtask[] }
+        Notes: V1: template-based decomposition (maps task title keywords to
+               pre-built subtask templates). V2: Claude AI decomposition.
+
+      POST /api/v1/tasks/:id/attachments
+        Request: multipart/form-data { file }
+        Response: { attachment: Attachment }
+        Notes: Pro only. Uploads to MinIO S3. Max 100MB/task.
+
+    Business Logic:
+      - Inline title editing: debounced PATCH (500ms after last keystroke)
+      - Subtask completion updates parent progress (completed/total)
+      - Activity log: server-side audit trail + client-side optimistic display
+      - Template decomposition: keyword matching → subtask template injection
+      - Attachment quota: 100MB per task (Pro), rejected for Free tier
+
+  DATA FLOW:
+    Tap task card → go_router pushes /tasks/:id → taskDetailProvider loads from
+    Drift (instant) + fetches latest from API (background) → user edits fields
+    → debounced PATCH calls → Drift updated optimistically → API syncs
+
+  INTERACTIONS & ANIMATIONS:
+    - Completion button: checkbox spring (1.3x overshoot), gold fill, haptic medium
+    - Field tap: inline picker slides up (250ms easeOut)
+    - Subtask drag: elevation increase + shadow (200ms), drop with spring
+    - Subtask complete: strikethrough wipe left-to-right (200ms)
+    - Subtask progress bar: smooth fill animation (300ms easeInOut)
+    - "Break this down" button: pulse glow on first visit (tutorial hint)
+    - Description editor: smooth expand from collapsed (300ms)
+
+  DSA / ALGORITHMS:
+    - Subtask reorder: Array with sortOrder field, O(n) reindex on drop
+    - Template matching: Trie-based keyword search for decomposition templates
+    - Debounced save: Sliding window (500ms) to batch field edits
+    - Field-level LWW: Per-field timestamps for offline conflict resolution
+
+  TESTS (target count):
+    - Unit: 10 (field validation, subtask reorder, LWW merge, decomposition)
+    - Widget: 12 (each section renders, edit flows, Pro/Free gating)
+    - Integration: 4 (full edit flow, subtask CRUD, attachment upload, decompose)
+
+
+SCREEN D4: KANBAN BOARD (Pro)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Drag-and-drop board with configurable columns (Status, Priority, or Custom).
+    Cards show task preview (title, priority flag, assignee avatar for team,
+    due date). Team plan adds swimlanes by assignee and WIP limits per column.
+
+  FRONTEND (Flutter):
+    Package: feature_todos
+    Route: /tasks/kanban (or embedded in D3 via view toggle)
+    Key Widgets:
+      - KanbanBoard — Horizontal scrollable columns with drag support
+      - KanbanColumn — Column with header (name, count, collapse toggle)
+      - KanbanCard — Compact task preview (title, priority, due, assignee)
+      - ColumnConfigSheet — Bottom sheet to configure column grouping
+      - AddTaskInline — Per-column inline task creation
+    State Management:
+      - kanbanBoardProvider (AsyncNotifier) — loads tasks grouped by column key
+      - kanbanConfigProvider — column grouping mode (status/priority/custom)
+      - dragStateProvider — tracks currently dragged card for haptic feedback
+    Packages (pub.dev):
+      - drag_and_drop_lists ^0.4.1 — cross-list drag and drop
+      - flutter_reorderable_grid_view — alternative for grid layout
+    Drift Tables (local):
+      - todos — task data with status/priority fields for grouping
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/tasks?view=kanban&groupBy=status
+        Response: { columns: [{ name: string, tasks: Task[], count: number }] }
+
+      PATCH /api/v1/tasks/:id/move
+        Request: { column: string, sortOrder: number }
+        Response: { task: Task }
+        Notes: Moves task to new column (updates status or priority field)
+
+    Business Logic:
+      - Column types: status (Pending/In Progress/Done), priority (P1-P4), custom
+      - WIP limits (Team): configurable per column, warning when exceeded
+      - Drag between columns updates the grouping field on the task
+      - Card count displayed in column header
+
+  DATA FLOW:
+    View toggle → kanbanBoardProvider groups tasks by selected column key
+    → renders KanbanBoard → user drags card → drop triggers PATCH /tasks/:id/move
+    → Drift updated optimistically → column counts recalculated
+
+  INTERACTIONS & ANIMATIONS:
+    - Card pickup: scale 1.05 + elevated shadow (200ms spring)
+    - Card drag: follows finger with 10ms lag, other cards shift with spring
+    - Card drop: snap to position (250ms spring), column count updates
+    - Column collapse: smooth height animation (300ms easeInOut)
+    - WIP limit exceeded: column header turns amber with warning icon
+
+  DSA / ALGORITHMS:
+    - Grouping: HashMap<ColumnKey, List<Task>> for O(1) column access
+    - Sort within column: merge sort by sortOrder (stable sort preserves order)
+    - WIP validation: O(1) count check per column
+
+  TESTS (target count):
+    - Unit: 6 (grouping logic, WIP limits, move validation)
+    - Widget: 6 (board renders, drag-drop, column config, inline add)
+    - Integration: 2 (drag between columns persists, team WIP limits)
+
+
+SCREEN D5: RECURRING TASK BUILDER (Free)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Visual RRULE builder with no technical jargon. Presets for common patterns
+    (daily, weekdays, weekly, monthly, yearly). Custom mode with natural language.
+    Calendar preview showing next 5 occurrences. End conditions configurable.
+
+  FRONTEND (Flutter):
+    Package: feature_todos
+    Route: /tasks/:id/recurrence (or bottom sheet from D2)
+    Key Widgets:
+      - PresetChips — Quick presets: Daily, Weekdays, Weekly, etc.
+      - CustomBuilder — "Every [N] [day/week/month/year] on [days] at [time]"
+      - AfterCompletionToggle — "N days after last completion" mode
+      - CalendarPreview — Shows next 5 occurrences with date chips
+      - EndConditionSelector — Never / After N occurrences / Until date
+    State Management:
+      - recurrenceProvider (StateNotifier) — current RRULE being built
+      - previewDatesProvider (computed) — next 5 dates from RRULE expansion
+    Packages (pub.dev):
+      - rrule ^0.3.0 — RRULE parsing, serialization, occurrence expansion
+    Drift Tables (local):
+      - recurring_rules — RRULE string + next_occurrence + metadata
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      POST /api/v1/tasks/:id/recurrence
+        Request: { rrule: string, afterCompletion: boolean, endDate?: string,
+                   maxOccurrences?: number }
+        Response: { recurringRule: RecurringRule, nextOccurrences: string[] }
+        Notes: rrule.js validates and expands the rule server-side
+
+      GET /api/v1/tasks/:id/recurrence/preview?count=5
+        Response: { dates: string[] }
+
+    Business Logic:
+      - RRULE stored as RFC 5545 string (e.g. "FREQ=WEEKLY;BYDAY=MO,WE,FR")
+      - "After completion" mode: RRULE not calendar-fixed, triggers N days after
+        task.completedAt (uses DTSTART relative to completion)
+      - Next occurrence pre-computed and cached for notification scheduling
+      - On task completion: expand next occurrence, create next instance
+
+  DATA FLOW:
+    User selects preset or builds custom → recurrenceProvider generates RRULE
+    → previewDatesProvider expands next 5 → user confirms → POST /recurrence
+    → backend validates → stores recurring_rule → BullMQ schedules notifications
+
+  INTERACTIONS & ANIMATIONS:
+    - Preset chip selection: gold fill + slight bounce (150ms)
+    - Custom builder: number spinner with spring physics
+    - Day-of-week buttons: toggle fill with haptic tick
+    - Preview dates: stagger fade-in (50ms delay between each, 200ms each)
+    - Calendar preview: mini calendar with gold dots on occurrence dates
+
+  DSA / ALGORITHMS:
+    - RRULE Expansion: Finite State Machine (RFC 5545 state machine)
+      States: FREQ → INTERVAL → BYDAY/BYMONTHDAY → UNTIL/COUNT → EMIT
+    - Occurrence cache: sorted array of next N dates for O(1) next access
+    - After-completion: relative recurrence uses task.completedAt as DTSTART
+
+  TESTS (target count):
+    - Unit: 10 (RRULE generation for each preset, custom mode, after-completion,
+                end conditions, preview expansion)
+    - Widget: 6 (preset chips, custom builder, preview calendar, end condition)
+    - Integration: 2 (full recurrence creation, after-completion trigger)
+
+
+SCREEN D6: TASK TEMPLATES (Free: 5 built-in, Pro: unlimited custom)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Browse and use pre-built task templates. Each template has pre-filled fields
+    and subtasks. Users can save any task as a custom template (Pro). Categories:
+    Personal, Professional. Industry-specific templates added in v2 modes.
+
+  FRONTEND (Flutter):
+    Package: feature_todos
+    Route: /templates (or bottom sheet from D1 quick create)
+    Key Widgets:
+      - TemplateBrowser — Tabbed list: Built-in / My Templates
+      - TemplateCard — Name, description, subtask count, category badge
+      - TemplatePreview — Expandable preview of all template fields
+      - SaveAsTemplateSheet — "Save current task as template" (Pro)
+      - UseTemplateButton — Creates new task pre-filled from template
+    State Management:
+      - templateListProvider (AsyncNotifier) — fetches template library
+      - myTemplatesProvider — user's custom templates
+      - templatePreviewProvider(id) — expanded template details
+    Packages (pub.dev):
+      - (no special packages, uses standard Flutter widgets)
+    Drift Tables (local):
+      - task_templates — cached template data (built-in + custom)
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/templates?category=personal&builtIn=true
+        Response: { templates: Template[], total: number }
+
+      GET /api/v1/templates/:id
+        Response: { template: TemplateFull, subtaskTemplates: SubtaskTemplate[] }
+
+      POST /api/v1/templates
+        Request: { name, description, fields: object, subtasks: object[] }
+        Response: { template: Template }
+        Auth: JWT + Pro plan required
+        Notes: Free users can USE 5 built-in templates but not CREATE.
+
+      POST /api/v1/tasks/from-template/:templateId
+        Request: { overrides?: { dueDate?, projectId?, priority? } }
+        Response: { task: Task, subtasks: Subtask[] }
+        Notes: Creates task pre-filled from template with optional overrides
+
+    Business Logic:
+      - Built-in templates: seeded in DB, not editable by users
+      - Custom templates: user-created, stored per user
+      - Free: can use 5 built-in, cannot create custom
+      - Pro: unlimited custom + all built-in
+      - Template fields: title, description, priority, tags, subtasks, duration
+
+  DATA FLOW:
+    User taps template icon in D1 → templateListProvider loads → user browses
+    → taps template → TemplatePreview shows details → "Use" button
+    → POST /tasks/from-template → task created with pre-filled data
+
+  INTERACTIONS & ANIMATIONS:
+    - Template card tap: expand preview with smooth height animation (300ms)
+    - "Use" button: task card materializes with spring animation (400ms)
+    - Category tab switch: underline slides (250ms easeInOut)
+    - Pro badge on locked templates: subtle shimmer
+
+  DSA / ALGORITHMS:
+    - Template matching: full-text search with Trie for quick filtering
+    - Keyword-based template suggestion: inverted index of keywords → template IDs
+
+  TESTS (target count):
+    - Unit: 6 (template CRUD, tier gating, from-template creation)
+    - Widget: 6 (browser, card, preview, save sheet, Pro gating)
+    - Integration: 2 (use template creates task, save task as template)
+
+
+SCREEN E1: PROJECT LIST SCREEN (Tab 2 — Free: 10 projects, Pro: unlimited)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Project browser with collapsible sections: Favorites, Active, Shared With
+    Me (team), Archived. Each project card shows color dot, name, task count,
+    progress bar, member avatars. Long press for quick actions.
+
+  FRONTEND (Flutter):
+    Package: feature_projects
+    Route: /projects (bottom tab 2)
+    Key Widgets:
+      - ProjectListScreen — Scaffold with search + create button
+      - CollapsibleSection — Expandable section header with project list
+      - ProjectCard — Color dot, icon, name, progress bar, member avatars
+      - ProjectSearchBar — Full-text search with debounced filtering
+      - QuickActionsSheet — Archive, Delete, Share, Edit (long press)
+    State Management:
+      - projectListProvider (AsyncNotifier) — all projects grouped by section
+      - favoriteProjectsProvider — filtered favorites
+      - projectSearchProvider — search query + filtered results
+    Packages (pub.dev):
+      - flutter_slidable ^3.1.0 — swipe actions on project cards
+    Drift Tables (local):
+      - projects — project data with is_favorite, is_archived, color, icon
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/projects?section=active&sort=lastModified
+        Response: { projects: Project[], total: number }
+        Notes: Groups by: favorites (is_favorite), active, shared, archived
+
+      POST /api/v1/projects/:id/favorite
+        Request: { isFavorite: boolean }
+        Response: { project: Project }
+
+      POST /api/v1/projects/:id/archive
+        Response: { project: Project }
+
+    Business Logic:
+      - Free: max 10 active projects (archived don't count)
+      - Shared section only visible for Team plan users
+      - Sort: last modified (default), alphabetical, task count
+      - Long press: context menu with Archive, Delete, Share, Edit
+
+  DATA FLOW:
+    Tab 2 selected → projectListProvider loads from Drift → grouped into sections
+    → user taps project → navigates to /projects/:id (E2)
+    → long press → QuickActionsSheet with context actions
+
+  INTERACTIONS & ANIMATIONS:
+    - Section collapse: smooth height + rotate chevron (250ms)
+    - Project card press: scale 0.98 + shadow (200ms)
+    - Favorite star: fills gold with bounce (200ms spring)
+    - Swipe actions: rubber-band physics with color reveal
+
+  DSA / ALGORITHMS:
+    - Grouping: multi-key sort (is_favorite DESC, lastModified DESC)
+    - Search: trigram matching on project name (pg_trgm on backend, local prefix match)
+    - Pagination: cursor-based for large project lists
+
+  TESTS (target count):
+    - Unit: 6 (grouping, search, favorites, quota enforcement)
+    - Widget: 6 (sections render, cards, search, quick actions)
+    - Integration: 2 (full browse + filter flow, favorite toggle syncs)
+
+
+SCREEN E3: CREATE / EDIT PROJECT SHEET (Free: within 10 limit)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Bottom sheet for creating or editing a project. Fields: name, description,
+    color picker (18 colors + custom hex), icon picker (200+ Material icons),
+    default view, template selection, visibility, due date. Team plan adds
+    member management.
+
+  FRONTEND (Flutter):
+    Package: feature_projects
+    Route: /projects/create or /projects/:id/edit (modal sheet)
+    Key Widgets:
+      - ProjectFormSheet — Scrollable bottom sheet with form fields
+      - ColorPickerGrid — 18 preset colors + custom hex input
+      - IconPickerGrid — Searchable grid of 200+ Material Symbols
+      - VisibilitySelector — Personal / Team / Public (Team plan only)
+      - TemplatePicker — Optional project template (v1: basic, v2: industry)
+    State Management:
+      - projectFormProvider (StateNotifier) — form state (name, color, icon, etc.)
+      - colorPickerProvider — selected color
+      - iconSearchProvider — search query for icon filtering
+    Packages (pub.dev):
+      - flex_color_picker ^3.5.0 — color picker with custom hex support
+      - material_symbols_icons ^4.2700.0 — full Material Symbols icon set
+    Drift Tables (local):
+      - projects — project record created/updated
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      POST /api/v1/projects
+        Request: { name, description?, color, icon, defaultView?, visibility?,
+                   templateId?, dueDate? }
+        Response: { project: Project }
+        Notes: Validates name uniqueness per user. Free: enforces 10 project limit.
+
+      PATCH /api/v1/projects/:id
+        Request: { name?, description?, color?, icon?, ... }
+        Response: { project: Project }
+
+    Business Logic:
+      - Color: hex string stored in DB, rendered as Color in Flutter
+      - Icon: Material Symbols icon name stored as string
+      - Visibility defaults to Personal for Free, configurable for Team
+      - Project limit: 10 active for Free (returns 402 if exceeded)
+
+  DATA FLOW:
+    "+" button → ProjectFormSheet opens → user fills fields → POST /projects
+    → Drift inserts locally → API syncs → sheet closes → project list refreshes
+
+  INTERACTIONS & ANIMATIONS:
+    - Sheet entrance: slide-up from bottom (300ms spring)
+    - Color selection: circle scales + gold ring (200ms)
+    - Icon selection: icon bounces into selected slot (250ms spring)
+    - Create button: loading shimmer while API call, success checkmark (400ms)
+
+  DSA / ALGORITHMS:
+    - Icon search: prefix-based filtering on icon name strings
+    - Color distance: Euclidean distance in LAB color space for "similar colors"
+
+  TESTS (target count):
+    - Unit: 4 (validation, color parsing, limit enforcement)
+    - Widget: 6 (form renders, color picker, icon picker, edit pre-fills)
+    - Integration: 2 (create flow, edit flow)
+
+
+SCREEN E4: WORKSPACE SCREEN (Team plan only)
+Phase: 4 (deferred to Phase 4 with other Team features)
+─────────────────────────────────────────
+
+  PURPOSE:
+    Organization-level container for Team plan. Shows workspace name, team
+    members with online status, projects grid, activity feed, and quick stats.
+    Entry point for team management.
+
+  FRONTEND (Flutter):
+    Package: feature_projects (or feature_teams)
+    Route: /workspace/:workspaceId
+    Key Widgets:
+      - WorkspaceHeader — Name + company logo + member count
+      - MemberAvatarRow — Online/offline status indicators
+      - ProjectGrid — Grid of project cards with progress
+      - ActivityFeed — Recent team actions (who did what, when)
+      - QuickStatsBar — Total tasks, completion rate, active members
+    State Management:
+      - workspaceProvider(id) (AsyncNotifier) — workspace data + members
+      - teamActivityProvider — real-time activity feed via WebSocket
+      - workspaceStatsProvider — computed aggregates
+    Drift Tables (local):
+      - teams — team metadata
+      - team_members — member records with role, last_active
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/workspaces/:id
+        Response: { workspace: Workspace, members: Member[], projects: Project[],
+                    stats: { totalTasks, completionRate, activeMembers } }
+
+      GET /api/v1/workspaces/:id/activity?limit=20
+        Response: { activities: Activity[] }
+        Notes: Real-time updates via WebSocket subscription
+
+    Business Logic:
+      - Workspace is auto-created when Team plan is purchased
+      - Members: Owner, Admin, Member, Viewer (Guest) roles
+      - Online status: heartbeat every 30s via WebSocket, offline after 60s
+      - Stats computed from materialized view (refreshed every 5 min)
+
+  TESTS (target count):
+    - Unit: 4 (stats computation, online status logic)
+    - Widget: 4 (workspace renders, member row, activity feed)
+    - Integration: 2 (workspace load, activity real-time updates)
+
+
+SCREEN F1: CALENDAR VIEW (Tab 4 — Free: basic, Pro: full + sync)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Full calendar with Day/3-Day/Week/Month views. Tasks displayed as color-coded
+    blocks at scheduled times. Tap empty slot to quick-create with pre-filled time.
+    Drag to reschedule. Calendar sync (Google/Apple/Outlook) shown as ghost blocks.
+    Pro features: time blocking mode, "find free time" helper.
+
+  FRONTEND (Flutter):
+    Package: feature_calendar
+    Route: /calendar (bottom tab 4)
+    Key Widgets:
+      - CalendarScreen — Scaffold with segmented view control at top
+      - UnjynxDayView — calendar_view DayView with custom event tiles
+      - UnjynxWeekView — calendar_view WeekView with compact task chips
+      - UnjynxMonthView — calendar_view MonthView with task count heatmap
+      - ViewSegmentControl — Day / 3-Day / Week / Month toggle
+      - TaskEventTile — Custom event tile: title + project color + priority
+      - GhostEventTile — Semi-transparent external calendar events
+      - EmptySlotOverlay — Tap-to-create with pre-filled time
+    State Management:
+      - calendarViewProvider (StateNotifier) — current view mode
+      - calendarEventsProvider (AsyncNotifier) — tasks + synced events for date range
+      - externalCalendarProvider — Google/Apple calendar events (via OAuth)
+      - selectedDateProvider — currently focused date
+    Packages (pub.dev):
+      - calendar_view ^2.2.0 — core calendar widget (Day, Week, Month views)
+      - googleapis ^14.0.0 — Google Calendar API for sync (Pro)
+    Drift Tables (local):
+      - todos — tasks with due_date and due_time for calendar placement
+      - calendar_events — cached external calendar events
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/calendar/events?start=2026-03-01&end=2026-03-31
+        Response: { tasks: Task[], externalEvents: CalendarEvent[] }
+        Notes: Merges internal tasks + synced external calendar events
+
+      POST /api/v1/calendar/sync
+        Request: { provider: "google"|"apple"|"outlook", authCode: string }
+        Response: { events: CalendarEvent[], syncedCalendarId: string }
+        Notes: Free: 1 calendar. Pro: unlimited.
+
+      PATCH /api/v1/tasks/:id/reschedule
+        Request: { dueDate: string, dueTime: string }
+        Response: { task: Task }
+        Notes: Drag-to-reschedule endpoint
+
+    Business Logic:
+      - Day view: 24h timeline (startHour: 6, endHour: 22)
+      - Task blocks: positioned at dueTime, height = estimatedMinutes
+      - Color coding: project color for task blocks
+      - External events: Google Calendar API (OAuth), Apple CalDAV, Outlook API
+      - Free: 1 synced calendar, Pro: unlimited
+      - Drag reschedule: updates dueDate + dueTime with debounce
+
+  DATA FLOW:
+    Tab 4 selected → calendarEventsProvider loads tasks for visible date range
+    → calendar_view renders → user taps empty slot → Quick Create with pre-filled
+    time → user drags task → PATCH /reschedule → Drift + API updated
+
+  INTERACTIONS & ANIMATIONS:
+    - View switch: crossfade between views (300ms easeInOut)
+    - Task block tap: scale 1.02 + shadow elevation (150ms)
+    - Drag to reschedule: block follows finger, time slot highlights (gold)
+    - Month view: tap day zooms to day view (shared element transition, 400ms)
+    - Live time indicator: red line moves in real-time (DayView)
+    - Heatmap dots: color intensity by task count (month view custom cell)
+
+  DSA / ALGORITHMS:
+    - Event placement: Interval tree for overlapping event detection
+    - Calendar sync: OAuth 2.0 PKCE flow for Google/Apple/Outlook
+    - Date range queries: B-tree index on due_date for efficient range scans
+    - "Find free time" (v1): gap finder algorithm — scan sorted events, find
+      gaps >= minDuration. O(n) where n = events in day.
+
+  TESTS (target count):
+    - Unit: 8 (event placement, overlap detection, gap finder, date range queries)
+    - Widget: 8 (all 4 views render, event tiles, drag, empty slot)
+    - Integration: 3 (calendar sync flow, reschedule persists, month→day zoom)
+
+
+SCREEN F2: TIME BLOCKING SCREEN (Pro)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Visual drag-and-drop scheduler. Left panel: unscheduled tasks (draggable).
+    Right panel: day timeline. Drag tasks onto timeline to create time blocks.
+    Blocks snap to 15-min increments. Color-coded by project/energy level.
+    V1: "Auto-schedule remaining" uses rule-based priority+energy sorting.
+
+  FRONTEND (Flutter):
+    Package: feature_calendar
+    Route: /calendar/time-blocking
+    Key Widgets:
+      - TimeBlockingScreen — Split view: left unscheduled, right timeline
+      - UnscheduledTaskPanel — Scrollable list of tasks without scheduled time
+      - TimelinePanel — DayView with drop targets every 15 min
+      - TimeBlock — Draggable task block on timeline
+      - AutoScheduleButton — "Auto-schedule remaining" (v1: rule-based)
+    State Management:
+      - unscheduledTasksProvider — tasks with no dueTime
+      - timeBlocksProvider (StateNotifier) — current day's time blocks
+      - autoScheduleProvider — rule-based scheduling algorithm
+    Packages (pub.dev):
+      - calendar_view ^2.2.0 — timeline rendering
+      - drag_and_drop_lists ^0.4.1 — cross-panel drag support
+    Drift Tables (local):
+      - todos — tasks updated with scheduled time blocks
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      POST /api/v1/calendar/time-blocks
+        Request: { taskId, startTime, endTime }
+        Response: { timeBlock: TimeBlock }
+
+      POST /api/v1/calendar/auto-schedule
+        Request: { date: string, taskIds: string[] }
+        Response: { scheduledBlocks: TimeBlock[] }
+        Notes: V1 rule-based: sorts by priority (P1 first), then energy match
+               (high-energy tasks → user's peak hours from progress data),
+               then duration fit. V2: Claude AI scheduling.
+
+    Business Logic:
+      - Snap to 15-min grid: round start/end to nearest 15 min
+      - Overlap prevention: reject block if overlaps existing
+      - Auto-schedule (v1): Greedy algorithm — highest priority first,
+        placed in first available slot matching energy level
+      - Energy mapping: user's peak hours from completion history
+
+  DATA FLOW:
+    Open time blocking → load unscheduled tasks + existing blocks
+    → user drags task to timeline → snaps to 15-min grid → POST /time-blocks
+    → or taps "Auto-schedule" → POST /auto-schedule → blocks placed
+
+  INTERACTIONS & ANIMATIONS:
+    - Drag from panel: card lifts with shadow, timeline highlights valid slots
+    - Drop on timeline: block snaps into position (200ms spring)
+    - 15-min snap: subtle tick haptic on each snap point
+    - Auto-schedule: blocks cascade into place with stagger (100ms between each)
+    - Overlap rejected: block bounces back with error haptic
+
+  DSA / ALGORITHMS:
+    - Greedy scheduling: sort tasks by priority, place in first available gap
+    - Gap detection: scan sorted time blocks, find gaps >= task duration, O(n)
+    - Energy matching: HashMap<Hour, EnergyLevel> from user's completion history
+    - Snap grid: Math.round(minutes / 15) * 15
+
+  TESTS (target count):
+    - Unit: 6 (snap logic, overlap detection, greedy scheduler, energy match)
+    - Widget: 6 (split view, drag-drop, auto-schedule, block rendering)
+    - Integration: 2 (full time blocking flow, auto-schedule populates)
+
+
+SCREEN G1: GHOST MODE (Free — core USP, never paywalled)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Ultra-minimal anti-overwhelm mode. Shows ONLY the single most important
+    task. Dark purple gradient background (ALWAYS, regardless of system theme).
+    Breathing text animation. No navigation, no tabs, no badges, no distractions.
+    Activated via double-tap Home tab, Quick Actions, or Settings toggle.
+
+  FRONTEND (Flutter):
+    Package: feature_ghost_mode (or embedded in feature_todos)
+    Route: /ghost-mode (go_router, replaces entire nav stack)
+    Key Widgets:
+      - UnjynxGhostModeScreen — Full-screen custom component
+        - Container (full screen, deep purple gradient bg)
+        - ExitButton (top-right, muted "Exit Ghost Mode")
+        - AnimatedText (task title, centered, breathing pulse 1.0→1.02, 3s sine)
+        - SubText ("This is all that matters right now.", lavender mist)
+        - LargeCompleteButton (96dp, gold gradient, "Done")
+      - GhostModeTransition — Fade-out all UI → gradient in → task in
+    State Management:
+      - ghostModeProvider (StateNotifier) — active state + current task
+      - mostImportantTaskProvider — computes: highest priority → earliest due
+      - ghostModeTimerProvider — optional auto-exit timer (configurable)
+    Packages (pub.dev):
+      - (no special packages — pure Flutter + CustomPainter for gradient)
+    Drift Tables (local):
+      - todos — reads most important task, marks complete
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      (No dedicated Ghost Mode endpoints — uses existing task CRUD)
+      PATCH /api/v1/tasks/:id  (mark complete)
+      GET /api/v1/tasks?sort=priority,dueDate&limit=1  (next most important)
+
+    Business Logic:
+      - "Most important" = highest priority → earliest due date → oldest created
+      - On completion: fetch next most important task, or show "all done" zen state
+      - Ghost Mode state tracked client-side only (not synced)
+      - Focus time counted: Ghost Mode session duration → focus_minutes in progress
+
+  DATA FLOW:
+    Double-tap Home tab → ghostModeProvider activates → GhostModeTransition plays
+    → mostImportantTaskProvider loads top task from Drift → AnimatedText displays
+    → user taps "Done" → task completed (same as D2) → next task slides in
+    → if no tasks remain → "Peace. You've conquered the day." zen screen
+
+  INTERACTIONS & ANIMATIONS:
+    - Enter (from any theme):
+      Frame 0-400ms: All UI fades out (staggered from edges inward)
+      Frame 200ms: Background crossfades to deep purple gradient
+      Frame 400ms: Single task fades in (centered, large, breathing)
+      Frame 400ms: Haptic soft notification pattern
+    - Breathing text: scale 1.0 → 1.02, 3s sine cycle, continuous
+    - Complete: calm gold shimmer (NOT confetti), haptic soft tap
+    - Next task: slides up from below (300ms spring)
+    - All done: zen garden illustration fades in, "Peace" text
+    - Exit (to original theme):
+      Reverse of enter — bg crossfades back, UI elements fade in from edges
+
+    CRITICAL: Ghost Mode ALWAYS uses dark mode aesthetics:
+      - Deep purple gradient bg (#0F0A1A → #1A0533)
+      - Snow white text (#F8FAFC)
+      - Gold completion button (#FFD700)
+      - Even if system theme is light mode
+
+  DSA / ALGORITHMS:
+    - Task priority queue: min-heap by (priority ASC, dueDate ASC, createdAt ASC)
+    - Focus time tracking: simple timer (start on enter, stop on exit)
+
+  TESTS (target count):
+    - Unit: 6 (most important selection, completion flow, all-done state,
+               focus time tracking, auto-exit timer)
+    - Widget: 6 (screen renders, breathing animation, complete flow,
+                  next task transition, zen state, exit transition)
+    - Integration: 2 (full ghost mode session, focus time logged to progress)
+
+
+SCREEN H1: DAILY CONTENT FEED (Free: 1 category, Pro: all 10)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Main content viewing screen. Today's content card (beautiful typography)
+    with source/author, category badge, save/share actions. Scrollable content
+    history below. "Explore categories" button links to H2.
+
+  FRONTEND (Flutter):
+    Package: feature_content (new package)
+    Route: /content or accessed via Home card tap
+    Key Widgets:
+      - UnjynxContentCard — Quote with Playfair Display font, author, category
+      - ContentHistoryList — Previous daily content (scrollable, last 30)
+      - SaveButton — Heart icon, fills red on tap
+      - ShareButton — Opens share sheet with branded image card
+      - ExploreCategoriesButton — Links to H2
+    State Management:
+      - dailyContentProvider (AsyncNotifier) — today's content for user's categories
+      - contentHistoryProvider — paginated past content
+      - savedContentProvider — user's saved/liked content
+    Packages (pub.dev):
+      - google_fonts ^6.2.0 — Playfair Display for quotes
+      - share_plus ^9.0.0 — share content as image card
+      - screenshot ^3.0.0 — capture content card as image for sharing
+    Drift Tables (local):
+      - daily_content — cached content (last 30 per category)
+      - saved_content — user's saved items
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/content/daily
+        Response: { content: DailyContent[] }  (one per subscribed category)
+        Notes: Returns today's content. Cached per user. Rotates daily.
+
+      GET /api/v1/content/history?category=stoic&page=1
+        Response: { content: DailyContent[], total: number }
+
+      POST /api/v1/content/:id/save
+        Response: { saved: true }
+
+      GET /api/v1/content/:id/share-card
+        Response: { imageUrl: string }  (branded card PNG, 9:16 for Stories)
+        Notes: Server-generated image with brand colors + quote + attribution
+
+    Business Logic:
+      - Content rotation: seeded PRNG per user (deterministic daily shuffle)
+      - Free: 1 category, receives 1 daily content
+      - Pro: up to 10 categories, receives 1 per category daily
+      - Share card: server-rendered PNG with midnight purple bg + gold text
+      - Content cache: 30 days locally, older content fetched from API
+
+  DATA FLOW:
+    Home card tapped → dailyContentProvider loads today's content from Drift
+    → if stale, fetches from API → UnjynxContentCard renders with Playfair Display
+    → user swipes left → next content from different category
+    → user taps Share → screenshot package captures card → share_plus opens sheet
+
+  INTERACTIONS & ANIMATIONS:
+    - Card entrance: fade-up + scale from 0.95 (300ms easeOut)
+    - Swipe left: next content slides in from right (300ms spring)
+    - Save tap: heart fills red with scale overshoot (200ms spring)
+    - Share tap: card lifts + share sheet slides up (250ms)
+    - Category badge: small chip with category icon + name
+
+  DSA / ALGORITHMS:
+    - Content rotation: seeded PRNG (Mulberry32) using userId + date as seed
+      Ensures same user sees same content on same day across devices
+    - LRU cache: last 30 items per category in Drift, evicts oldest on new fetch
+
+  TESTS (target count):
+    - Unit: 6 (rotation algorithm, cache eviction, save/unsave, tier gating)
+    - Widget: 6 (card renders, swipe, save, share, history list)
+    - Integration: 2 (daily rotation works, share card generated)
+
+
+SCREEN H2: CONTENT CATEGORY SELECTOR (Free: 1, Pro: all 10)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    Grid of 10 curated content categories with custom icons, taglines, and
+    sample quote previews. Tap to preview 3 samples before enabling. Delivery
+    time configuration. Auto-suggests "Ancient Indian Wisdom" for India locale.
+
+  FRONTEND (Flutter):
+    Package: feature_content
+    Route: /content/categories
+    Key Widgets:
+      - CategoryGrid — 2-column grid of 10 category cards
+      - CategoryCard — Custom icon + name + tagline + toggle
+      - CategoryPreview — 3 sample quotes on tap (before enabling)
+      - DeliveryTimePicker — "Deliver at" time picker (defaults to 7:00 AM)
+      - LocaleAutoSuggest — Auto-selects India wisdom for Indian users
+    State Management:
+      - contentCategoriesProvider (AsyncNotifier) — all 10 categories + user selections
+      - deliveryTimeProvider — content delivery time preference
+    Drift Tables (local):
+      - content_categories — cached category metadata + user selection state
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/content/categories
+        Response: { categories: Category[] }  (10 items with icon, name, tagline,
+                    sampleCount, isEnabled for this user)
+
+      PUT /api/v1/content/categories/preferences
+        Request: { enabledCategories: string[], deliveryTime: "07:00" }
+        Response: { success: true }
+        Notes: Free: max 1 category. Pro: up to 10.
+
+      GET /api/v1/content/categories/:id/preview
+        Response: { samples: DailyContent[] }  (3 random samples)
+
+    Business Logic:
+      - 10 categories: Stoic, Indian, Growth, Dark Humor, Anime, Gratitude,
+        Warrior, Poetic, Productivity, Comeback
+      - Auto-suggest India: if locale starts with "hi" or "en_IN", pre-select Indian
+      - Delivery time stored per user, BullMQ schedules content push at that time
+      - Content depth: 300-2000+ pieces per category (admin seeded)
+
+  DATA FLOW:
+    H1 "Explore" tapped → categoriesProvider loads → user taps category
+    → preview loads 3 samples → user enables → PUT /preferences → Drift updated
+    → BullMQ delivery job rescheduled for new category set
+
+  TESTS (target count):
+    - Unit: 4 (locale auto-suggest, tier limits, delivery time validation)
+    - Widget: 6 (grid renders, card toggle, preview, time picker)
+    - Integration: 2 (category selection flow, delivery time update)
+
+
+SCREEN H3: MORNING RITUAL (Free: basic, Pro: full with smart prioritization)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    5-step sequential morning ritual (5-10 min). Steps: mood check-in,
+    gratitude prompt, daily content, day preview (top 3 tasks), intention
+    setting, motivational send-off. Warm sunrise gradient transition between
+    steps. Ritual streak tracked.
+
+  FRONTEND (Flutter):
+    Package: feature_content (or feature_rituals)
+    Route: /rituals/morning
+    Key Widgets:
+      - RitualPageView — PageView with 5-6 steps, progress bar
+      - MoodSlider — 5-point emoji slider (drained → energized)
+      - GratitudeInput — Text/voice input for gratitude prompt
+      - DailyContentStep — Today's quote with reflection
+      - DayPreview — Top 3 tasks with time estimates
+      - IntentionInput — "What will make today great?" free text
+      - SendOffAnimation — "Go Break the Curse!" with sunrise gradient
+    State Management:
+      - morningRitualProvider (StateNotifier) — current step + responses
+      - todayTopTasksProvider — top 3 tasks by priority for preview
+      - ritualStreakProvider — morning ritual completion streak
+    Packages (pub.dev):
+      - speech_to_text ^7.0.0 — voice input for gratitude
+      - lottie ^3.0.0 — sunrise animation
+    Drift Tables (local):
+      - rituals — ritual completion records (date, type, mood, gratitude, intention)
+      - ritual_streaks — streak counter for ritual completion
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      POST /api/v1/rituals/morning
+        Request: { mood: 1-5, gratitude: string, intention: string,
+                   completedAt: string }
+        Response: { ritual: Ritual, streakCount: number, xpAwarded?: number }
+        Notes: Awards 25 XP if Game Mode on (tracked server-side)
+
+      GET /api/v1/rituals/morning/preview
+        Response: { tasks: Task[3], content: DailyContent, streakCount: number }
+        Notes: Pre-fetches data needed for all ritual steps
+
+    Business Logic:
+      - Free: Steps 1-4 (mood, gratitude, content, preview)
+      - Pro: Full ritual + smart task prioritization (v1: rule-based)
+      - Ritual streak: separate from task streak, tracked independently
+      - XP: 25 XP silently added if Game Mode enabled (not shown in ritual flow)
+      - Morning ritual trigger: scheduled notification + Quick Actions button
+
+  DATA FLOW:
+    User opens ritual → morningRitualProvider initializes → fetches preview data
+    → user swipes through 5 steps → each step response stored in state
+    → on final step "Go Break the Curse!" → POST /rituals/morning
+    → Drift records ritual → streak updated → navigate to Home
+
+  INTERACTIONS & ANIMATIONS:
+    - Between steps: current card slides left + fades, next slides from right
+    - Progress bar: gold segment fills (250ms easeOut)
+    - Background gradient: slowly shifts deep purple → warm sunrise tones
+    - Mood slider: emoji scales on selection (200ms spring)
+    - Send-off: sunrise gradient fills screen bottom-to-top (600ms)
+    - Completion: warm glow + ritual streak increments
+    - Haptic: gentle pulse on each step completion
+
+  DSA / ALGORITHMS:
+    - Smart task prioritization (v1 rule-based): weighted score =
+      (priority * 40) + (dueUrgency * 30) + (energyMatch * 20) + (deferCount * 10)
+      Top 3 by score shown in preview.
+
+  TESTS (target count):
+    - Unit: 6 (mood validation, streak logic, XP award, priority scoring)
+    - Widget: 8 (each step renders, transitions, progress bar, send-off)
+    - Integration: 2 (full ritual flow, streak persists)
+
+
+SCREEN H4: EVENING REVIEW (Free: basic recap, Pro: smart tomorrow plan)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    6-step evening review (3-5 min). Steps: day recap (completed vs planned),
+    wins celebration, carry forward (reschedule/drop incomplete), reflection,
+    tomorrow preview, gratitude close. Calming animation on completion.
+
+  FRONTEND (Flutter):
+    Package: feature_content (or feature_rituals)
+    Route: /rituals/evening
+    Key Widgets:
+      - EveningReviewPageView — 6 steps sequential flow
+      - DayRecapCard — Visual ring showing completed/planned ratio
+      - WinsList — Completed tasks with micro-celebrations
+      - CarryForwardList — Incomplete tasks: "Reschedule" / "Drop" per task
+      - ReflectionInput — "What did you learn today?" text input
+      - TomorrowPreview — Smart tomorrow plan (v1: priority sorted)
+      - GratitudeClose — "End on a high note" prompt
+    State Management:
+      - eveningReviewProvider (StateNotifier) — step state + responses
+      - dayRecapProvider — computed: completed vs planned tasks for today
+      - incompleteTasksProvider — tasks not completed today
+    Drift Tables (local):
+      - rituals — evening review record
+      - todos — incomplete tasks rescheduled via carry forward
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      POST /api/v1/rituals/evening
+        Request: { recap: object, wins: string[], carriedForward: string[],
+                   dropped: string[], reflection: string, gratitude: string }
+        Response: { ritual: Ritual, streakMaintained: boolean }
+
+      POST /api/v1/rituals/evening/carry-forward
+        Request: { tasks: [{ id, action: "reschedule"|"drop", newDate? }] }
+        Response: { updated: number, dropped: number }
+
+    Business Logic:
+      - Day recap: count completed vs total tasks assigned to today
+      - Carry forward: reschedules tasks to tomorrow (default) or drops them
+      - Dropped tasks: marked as abandoned (not deleted, tracked for insights)
+      - Tomorrow preview (v1): tasks due tomorrow sorted by priority
+      - Streak: evening review completion counts toward daily streak
+
+  DATA FLOW:
+    Evening notification → user opens → eveningReviewProvider loads recap data
+    → user swipes through 6 steps → carry forward updates task dates
+    → POST /rituals/evening → streak maintained → calm close animation
+
+  INTERACTIONS & ANIMATIONS:
+    - Between steps: same as H3 (slide transitions, progress bar)
+    - Background: gradient shifts from day tones → deep night purple
+    - Wins: each completed task gets micro-celebration (gold sparkle, 200ms)
+    - Carry forward: swipe right = reschedule (blue), swipe left = drop (muted)
+    - Gratitude close: calming moonrise animation (600ms)
+    - Completion: streak maintained confirmation + haptic soft
+
+  TESTS (target count):
+    - Unit: 6 (recap calculation, carry forward logic, drop tracking)
+    - Widget: 8 (all 6 steps render, carry forward actions, animations)
+    - Integration: 2 (full evening flow, carry forward persists dates)
+
+
+SCREEN I1: PROGRESS HUB (Free: basic, Pro: full)
+Phase: 2
+─────────────────────────────────────────
+
+  PURPOSE:
+    The default progress experience for ALL users. Clean, analytical, adult.
+    Apple Watch-inspired progress rings, streak counter with freeze logic,
+    GitHub-style activity heatmap (52-week grid), weekly insight cards,
+    personal bests. Feels like Strava for productivity, not a video game.
+
+  FRONTEND (Flutter):
+    Package: feature_progress (new package)
+    Route: /progress or accessed from Profile tab
+    Key Widgets:
+      - UnjynxProgressRings — CustomPainter: 3 concentric rings (Gold/Violet/Emerald)
+        Props: taskPercent, focusPercent, habitPercent, size (compact/standard/expanded)
+        Animation: each ring fills independently (stagger: 600/700/800ms), spring physics
+      - StreakCounter — Current streak + personal best + 14-day calendar strip
+        Streak freeze indicator (Pro: 1/week)
+        Kind messaging: "Streaks reset. Your progress doesn't."
+      - ActivityHeatmap — CustomPainter: 52x7 grid, GitHub contribution style
+        Color scale: empty → light purple → deep violet → gold (high activity)
+        Tap day: popup with task count
+        Free: 30 days, Pro: full year
+      - WeeklyInsightCard — Rotates weekly, variable reward via information
+        Examples: "Most productive day was Wednesday", "23% more than last week"
+      - PersonalBests — Clean stat row: most tasks in day, longest streak, etc.
+    State Management:
+      - progressRingsProvider (AsyncNotifier) — today's ring values
+      - streakProvider — current streak + personal best + freeze count
+      - heatmapProvider — daily completion counts for heatmap rendering
+      - weeklyInsightProvider — this week's auto-generated insight
+      - personalBestsProvider — computed all-time records
+    Packages (pub.dev):
+      - fl_chart ^0.70.0 — sparklines for weekly comparison
+      - (heatmap + rings are custom CustomPainter — no external package)
+    Drift Tables (local):
+      - progress_snapshots — daily aggregated stats (tasks, focus_min, habits)
+      - streaks — current streak, longest streak, freeze_count
+      - daily_completions — per-day task completion count for heatmap
+
+  BACKEND (Hono/TypeScript):
+    Endpoints:
+      GET /api/v1/progress/today
+        Response: { rings: { tasks: 0.65, focus: 0.40, habits: 0.80 },
+                    streak: { current: 14, best: 30, freezesUsed: 0, freezesAvailable: 1 },
+                    insight: { text: "...", type: "comparison" } }
+
+      GET /api/v1/progress/heatmap?days=365
+        Response: { data: [{ date: string, count: number }] }
+        Notes: Free: 30 days. Pro: 365 days.
+
+      GET /api/v1/progress/personal-bests
+        Response: { mostTasksInDay: { count, date }, longestStreak: number,
+                    fastestProject: { name, days }, totalCompleted: number }
+
+      POST /api/v1/progress/streak/freeze
+        Response: { freezeUsed: true, streakMaintained: true }
+        Notes: Pro only. 1 freeze per week.
+
+    Business Logic:
+      - Ring calculation: tasks = completed/total today, focus = pomodoro+ghost mins / goal,
+        habits = morning ritual + evening review completion
+      - Streak: 1+ task completed per day. Resets at midnight user timezone.
+        Freeze: skips 1 day without breaking streak (Pro, 1/week max)
+      - Weekly insight: rule-based (v1):
+        Compare this week vs last week (completion count, rate, patterns)
+        Detect most productive day (max tasks), improvement/decline %
+        "Deferred 3+ times" detection for stuck tasks
+      - Heatmap: materialized view refreshed hourly, daily completion counts
+
+  DATA FLOW:
+    Profile → Progress Hub → progressRingsProvider loads today's data from Drift
+    → heatmapProvider loads completion history → weeklyInsightProvider computes
+    → all rendered with custom painters and charts
+    → real-time updates: ring nudges on task completion (WebSocket event)
+
+  INTERACTIONS & ANIMATIONS:
+    - Ring fill: each ring animates 0% → actual (stagger 600/700/800ms, spring)
+    - Ring completion: full ring glows gold briefly (400ms pulse)
+    - All 3 complete: simultaneous gold shimmer (1000ms spring)
+    - Streak counter: number increments with bounce (200ms spring)
+    - Heatmap: fade-in with left-to-right stagger (2ms per cell)
+    - Insight card: slide-in from right on Monday (weekly rotation)
+    - Haptic: medium impact when any ring completes
+
+  DSA / ALGORITHMS:
+    - Heatmap rendering: 2D array [52 weeks][7 days], CustomPainter draws
+      each cell as colored rect. Color = lerp(empty, gold, count/maxCount)
+    - Streak calculation: scan daily_completions backwards from today,
+      count consecutive days with count > 0. O(streak_length)
+    - Weekly insight generation: compare aggregate(this_week) vs aggregate(last_week)
+      Detect patterns: most productive day = argmax(day_counts)
+    - Personal bests: maintained via running max updated on each task completion
+
+  TESTS (target count):
+    - Unit: 10 (ring calculation, streak logic, freeze, heatmap data,
+                insight generation, personal bests computation)
+    - Widget: 8 (rings render, streak counter, heatmap, insight card,
+                  personal bests, Pro/Free gating)
+    - Integration: 3 (ring updates on completion, streak freeze flow,
+                       heatmap renders from real data)
+
+
+================================================================================
+  MISSING SYSTEM: NLP TASK PARSER (V1 — Rule-Based, NOT AI)
+================================================================================
+
+  PURPOSE:
+    Parses natural language task input like "Buy milk Monday 9am" into
+    structured fields: title, date, time, priority, project. Used in B3
+    (First Task Prompt), D1 (Quick Create), and voice input flows.
+    V1 is entirely rule-based (regex + date parsing). V2 replaces with AI.
+
+  ARCHITECTURE:
+    Client-side (Dart) — primary, lower latency:
+      - Custom NlpTaskParser class in packages/core/lib/utils/
+      - Regex patterns for dates, times, priorities, projects
+      - intl package for locale-aware date formatting
+      - Returns ParsedTask { title, date?, time?, priority?, project?, confidence }
+
+    Server-side (TypeScript) — fallback for complex expressions:
+      - chrono-node ^2.7.0 for advanced date parsing
+      - Endpoint: POST /api/v1/tasks/parse
+      - Handles: "next Tuesday", "in 2 weeks", "end of month"
+
+  DART CLIENT PARSER:
+    class NlpTaskParser {
+      ParsedTask parse(String input, {String locale = 'en'}) {
+        // 1. Extract priority: "!" or "urgent" or "P1" → P1
+        // 2. Extract project: "#Shopping" or "in Work" → project name
+        // 3. Extract time: "9am", "at 3:30", "morning" → TimeOfDay
+        // 4. Extract date: "Monday", "tomorrow", "March 15" → DateTime
+        // 5. Remaining text = title
+      }
+    }
+
+  REGEX PATTERNS:
+    Priority:  /(!+|urgent|asap|p[1-4]|high\s*priority|low\s*priority)/i
+    Project:   /#(\w+)|in\s+["']?(\w[\w\s]*)["']?/i
+    Time:      /(\d{1,2}):?(\d{2})?\s*(am|pm)|morning|afternoon|evening|noon/i
+    Date:      /today|tomorrow|day\s+after|next\s+(mon|tue|wed|thu|fri|sat|sun)/i
+               /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}/i
+               /in\s+(\d+)\s+(day|week|month)s?/i
+
+  CONFIDENCE SCORING:
+    - 1.0: all fields extracted clearly
+    - 0.7: date + title extracted
+    - 0.5: only title extracted (no structured fields)
+    - 0.3: ambiguous parse (multiple possible interpretations)
+
+  CHRONO-NODE (Backend):
+    Handles complex expressions:
+    - "next Tuesday at 3pm" → { date: next Tue, time: 15:00 }
+    - "in 2 weeks" → { date: today + 14 days }
+    - "end of month" → { date: last day of current month }
+    - "every Monday at 9am" → RRULE hint (not full RRULE, just suggestion)
+
+  PACKAGES:
+    Frontend: intl ^0.19.0 (dates), custom NlpTaskParser class
+    Backend: chrono-node ^2.7.0
+
+  TESTS:
+    - Unit: 15 (8 regex pattern tests, 4 complex date parsing, 3 edge cases)
+    - Integration: 3 (end-to-end parse → create task flow)
+
+
+================================================================================
+  MISSING SYSTEM: CONTENT STRATEGY (10 categories, 300+ per category)
+================================================================================
+
+  PURPOSE:
+    UNJYNX delivers daily inspirational content from 10 curated categories.
+    Each category needs 300-2000+ pieces for 1+ year of non-repeating content.
+    Content must be seeded, rotated, and deliverable via all channels.
+
+  10 CATEGORIES WITH TARGET CONTENT COUNTS:
+    1. Stoic Wisdom         — 1000+ quotes (Marcus Aurelius, Seneca, Epictetus)
+    2. Ancient Indian Wisdom — 2000+ quotes (Bhagavad Gita, Vivekananda, Kalam, Chanakya)
+    3. Growth Mindset        — 500+ tips (Dweck, Clear, Newport, Covey)
+    4. Dark Humor            — endless (original + curated sardonic wisdom)
+    5. Anime & Pop Culture   — 1000+ (Naruto, One Piece, Marvel, Stan Lee)
+    6. Gratitude & Mindfulness — 365+ prompts (reflections, micro-meditations)
+    7. Warrior Discipline     — 500+ (Sun Tzu, Bushido, modern discipline)
+    8. Poetic Wisdom          — 800+ (Rumi, Kabir, Gibran, Ghalib)
+    9. Productivity Hacks     — 365+ (1 technique/day, actionable)
+    10. Comeback Stories       — 365+ (real people, real failures, real victories)
+
+  CONTENT SEEDING PIPELINE (v1):
+    Phase 1 (launch): 100 pieces per category = 1000 total (3+ months of content)
+    Phase 2 (post-launch): scale to 300+ per category via admin CMS
+    Phase 3 (ongoing): community submissions + AI content suggestions (v2)
+
+    Seeding method: JSON import via admin CMS or direct DB insert
+    Schema: { id, category, text, author, source, locale, created_at }
+
+  CONTENT ROTATION ALGORITHM:
+    Seeded PRNG (Mulberry32) using hash(userId + dateString) as seed
+    Ensures: same user sees same content on same day across all devices
+    Daily rotation: new seed each day → new content selection
+    No repeats: track seen content IDs per user, skip already-seen
+
+  SHARE CARD GENERATION:
+    Server-side: Node.js canvas (node-canvas or sharp) renders branded PNG
+    Design: midnight purple bg (#0F0A1A), gold text (#FFD700), quote centered,
+            author attribution, UNJYNX watermark, 9:16 aspect for Instagram Stories
+    Cached: generated once per content ID, served from MinIO S3
+
+  BULLMQ DELIVERY JOB:
+    Queue: daily-content-delivery
+    Schedule: runs at each user's configured delivery time (grouped by timezone)
+    Process: fetch today's content → render share card → send via preferred channel
+    Channels: push notification + in-app (always), Telegram/WhatsApp/email (if enabled)
+
+  BACKEND ENDPOINTS:
+    GET /api/v1/content/daily — today's content for user's categories
+    GET /api/v1/content/categories — all 10 categories with metadata
+    GET /api/v1/content/categories/:id/preview — 3 random samples
+    PUT /api/v1/content/categories/preferences — update user's selections
+    POST /api/v1/content/:id/save — save to user's collection
+    GET /api/v1/content/:id/share-card — get branded PNG URL
+    GET /api/v1/content/history?category=stoic&page=1 — past content
+
+  DRIZZLE SCHEMA:
+    daily_content: id, category, text, author, source, locale, created_at
+    user_content_prefs: user_id, enabled_categories[], delivery_time, created_at
+    user_content_history: user_id, content_id, seen_at, saved
+    content_share_cards: content_id, image_url, generated_at (cache)
+
+  TESTS:
+    - Unit: 8 (rotation algorithm, no-repeat logic, tier limits, share card URL)
+    - Integration: 4 (daily delivery, category selection, history pagination, share)
+
+
+================================================================================
+  MISSING SYSTEM: DESIGN SYSTEM IMPLEMENTATION
+================================================================================
+
+  PURPOSE:
+    Complete Flutter design system implementation covering colors, typography,
+    spacing, elevation, iconography, and animation tokens. All values from
+    the README Section 7 specification.
+
+  FILE STRUCTURE (packages/core/lib/theme/):
+    unjynx_colors.dart       — UnjynxColors class with all brand hex values
+    unjynx_typography.dart   — TextTheme with Outfit, DM Sans, Bebas, Playfair
+    unjynx_spacing.dart      — UnjynxSpacing constants (8dp grid)
+    unjynx_radius.dart       — UnjynxRadius constants (sm=8, md=12, lg=16, xl=24)
+    unjynx_elevation.dart    — Elevation system (5 levels, dark tonal, light shadow)
+    unjynx_icons.dart        — Icon constants (Material Symbols + custom SVGs)
+    unjynx_animations.dart   — Animation tokens (durations, curves, spring configs)
+    unjynx_theme.dart        — Main ThemeData (dark + light) combining all above
+
+  COLOR TOKENS (Dark Mode):
+    brandMidnight:    #0F0A1A  (app background)
+    brandDeepPurple:  #1A0533  (nav bar, app bar)
+    brandViolet:      #6B21A8  (active states, rings)
+    brandElectricGold: #FFD700 (CTAs, XP, streak, completion)
+    brandGoldMuted:   #B8960C  (pressed states, borders)
+    brandEmerald:     #10B981  (success, completed)
+    brandAmber:       #F59E0B  (warnings, due-soon)
+    brandRose:        #F43F5E  (overdue, delete)
+    brandCyan:        #06B6D4  (Telegram accent)
+    brandWhatsApp:    #25D366  (WhatsApp accent)
+    brandInstagram:   #E4405F  (Instagram accent)
+
+  COLOR TOKENS (Light Mode):
+    brandPurpleMist:  #F8F5FF  (app bg, purple-tinted NOT white)
+    brandSoftLavender: #F0EAFC (nav bar, app bar)
+    brandLightViolet: #EDE5F7  (cards, sheets)
+    brandRichGold:    #B8860B  (CTAs — 4.8:1 contrast on light)
+    brandGoldWash:    #FFF8E1  (gold-tinted selection bg)
+    brandDeepEmerald: #059669  (success — deeper for contrast)
+    brandDeepAmber:   #D97706  (warning — deeper)
+    brandDeepRose:    #E11D48  (overdue — deeper)
+    brandTextPrimary: #1A0533  (headlines — 18.5:1 contrast!)
+    brandTextSecondary: #6B21A8 (subtitles)
+    brandTextTertiary: #475569  (metadata — 4.8:1 min)
+
+  TYPOGRAPHY:
+    Heading: Outfit (700/600/500) — 36/28/24/20sp
+    Body: DM Sans (400/500) — 16/14/12/11sp
+    Stats: Bebas Neue — ONLY for streak counters, ring %, level badges
+    Quotes: Playfair Display — ONLY for daily content quotes (wisdom categories)
+    Line heights: 1.15-1.6 depending on role
+    Letter spacing: -0.5px to +0.5px
+
+  SPACING (8dp grid):
+    xxs=2, xs=4, sm=8, md=12, base=16, lg=24, xl=32, 2xl=48, 3xl=64
+
+  BORDER RADIUS:
+    sm=8, md=12, lg=16, xl=24, full=9999 (circular)
+
+  ELEVATION (Dark = tonal surface tint, Light = purple-tinted shadows):
+    Level 0: 0dp — page background
+    Level 1: 1dp — cards at rest, bottom nav (dark: 5% tint, light: shadow 0.06)
+    Level 2: 3dp — floating cards, app bar (dark: 8%, light: shadow 0.08)
+    Level 3: 6dp — bottom sheets, dialogs (dark: 11%, light: shadow 0.10)
+    Level 4: 8dp — menus, tooltips (dark: 12%, light: shadow 0.12)
+    Level 5: 12dp — FAB, snackbars (dark: 14%, light: shadow 0.14)
+    Light shadow color: rgba(26,5,51,alpha) — purple-tinted, NEVER gray #000
+
+  ICONOGRAPHY:
+    Primary: Material Symbols Rounded (variable weight, fill, grade)
+    Default: weight 400, no fill. Active: weight 600, fill 1.
+    Custom SVGs (6): UNJYNX logo, Ghost Mode icon, Progress ring icon,
+    Channel icons (styled), Industry mode icons, Streak flame (Lottie animated)
+    Sizes: nav=24dp/48dp target, app bar=24dp/48dp, in-card=20dp/40dp,
+           inline=18dp/36dp, FAB=24dp/56dp, large FAB=28dp/96dp
+
+  ANIMATION TOKENS:
+    motionQuick:    Curves.easeOut, 150ms (checkbox, toggle, press)
+    motionStandard: Curves.easeInOut, 250ms (card expand, sheet, tab)
+    motionEmphasis: spring(damping:15, stiffness:200), ~350ms (task complete)
+    motionDramatic: spring(damping:12, stiffness:150), ~500ms (level up, milestone)
+    motionCalm:     Curves.easeInOutCubic, 600ms (Ghost Mode, breathing pulse)
+
+  HAPTIC MAP:
+    Task checkbox: medium impact / EFFECT_CLICK
+    Swipe complete: light→heavy / EFFECT_TICK→HEAVY_CLICK
+    FAB press: light / EFFECT_TICK
+    Achievement: success triple / tick-tick-heavy
+    Error: error / DOUBLE_CLICK
+    Ghost Mode: soft / EFFECT_TICK gentle
+    Level up: custom crescendo
+
+  SOUND DESIGN (20+ customizable per event):
+    Task complete: bright "ding" (C5→E5, 200ms, 60%)
+    Last task: triumphant chord (C major arpeggio, 800ms, 80%)
+    Streak milestone: ascending 5-note fanfare (1200ms, 80%)
+    Ghost Mode enter: zen bell (single, sustain, 2000ms, 40%)
+    Pomodoro done: timer bell (1000ms, 75%)
+    Error: soft buzz (200ms, 30%)
+
+  IMPLEMENTATION TASKS:
+    1. Create unjynx_colors.dart with UnjynxColors class (all hex values)
+    2. Create unjynx_typography.dart with google_fonts integration
+    3. Create unjynx_spacing.dart and unjynx_radius.dart constants
+    4. Create unjynx_elevation.dart with dark tonal + light shadow helpers
+    5. Create unjynx_theme.dart with darkTheme + lightTheme ThemeData
+    6. Create unjynx_animations.dart with curve + duration constants
+    7. Add google_fonts, flutter_svg, lottie dependencies to core pubspec
+    8. Create reusable components: UnjynxTaskCard, UnjynxProgressRings,
+       UnjynxContentCard, UnjynxChannelCard, UnjynxGhostModeScreen
+    9. Test theme switching (dark↔light) preserves all brand tokens
+
+  PACKAGES:
+    google_fonts ^6.2.0, flutter_svg ^2.0.0, lottie ^3.0.0,
+    material_symbols_icons ^4.2700.0
+
+  TESTS:
+    - Unit: 8 (color contrast ratios, spacing values, theme construction)
+    - Widget: 12 (each component renders in dark, each renders in light,
+                   theme toggle preserves state)
+
+
+`;
+
+fs.writeFileSync(outFile, content, 'utf-8');
+const lines = content.split('\n').length;
+console.log('EXPANSION-P2-ALL.doc written. Lines:', lines);

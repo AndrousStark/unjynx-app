@@ -1,0 +1,336 @@
+################################################################################
+  UNJYNX - DATA SAFETY & PRIVACY FORM
+  Version: 1.0.0
+  Last Updated: 2026-03-11
+  Applicable to: Google Play Data Safety, Apple App Privacy
+################################################################################
+
+================================================================================
+  1. DATA COLLECTION OVERVIEW
+================================================================================
+
+  UNJYNX collects the minimum data necessary to provide its core functionality.
+  Our backend is self-hosted -- we do not use Firebase, Supabase, or any BaaS
+  platform that processes data on third-party infrastructure outside our control.
+
+  DATA COLLECTED:
+
+  +-------------------------+----------+----------+--------------------------+
+  | Data Type               | Required | Optional | Purpose                  |
+  +-------------------------+----------+----------+--------------------------+
+  | Name / Display Name     | Yes      |          | Profile, team display    |
+  | Email Address           | Yes      |          | Auth, account recovery   |
+  | Password (hashed)       | Yes      |          | Authentication           |
+  | Profile Photo           |          | Yes      | User profile             |
+  | Phone Number            |          | Yes      | SMS/WhatsApp OTP verify  |
+  | Task Content            | Yes      |          | Core app functionality   |
+  | Project Names           | Yes      |          | Core app functionality   |
+  | Due Dates & Schedules   | Yes      |          | Reminder delivery        |
+  | Notification Prefs      | Yes      |          | Channel routing          |
+  | Device Push Token       | Yes      |          | Push notifications       |
+  | Device Model & OS       | Yes      |          | Crash reporting, compat  |
+  | App Version             | Yes      |          | Support, compatibility   |
+  | IP Address              | Yes      |          | Rate limiting, security  |
+  | Timezone                | Yes      |          | Correct reminder timing  |
+  | Usage Analytics         |          | Yes      | Product improvement      |
+  | Crash Logs              | Yes      |          | Bug fixing, stability    |
+  +-------------------------+----------+----------+--------------------------+
+
+================================================================================
+  2. DATA SHARING
+================================================================================
+
+  UNJYNX DOES NOT SELL USER DATA. EVER.
+
+  DATA SHARED WITH THIRD PARTIES:
+
+  +-------------------------+--------------+-----------------------------------+
+  | Third Party             | Data Shared  | Purpose                           |
+  +-------------------------+--------------+-----------------------------------+
+  | Sentry                  | Crash logs,  | Error tracking and crash          |
+  |                         | device info, | reporting. No task content is     |
+  |                         | stack traces | sent. Anonymized where possible.  |
+  +-------------------------+--------------+-----------------------------------+
+  | PostHog                 | Anonymized   | Product analytics. All user IDs   |
+  |                         | events,      | are anonymized. No PII is sent.   |
+  |                         | feature usage| Users can opt out in Settings.    |
+  +-------------------------+--------------+-----------------------------------+
+  | RevenueCat              | User ID,     | Subscription management and       |
+  |                         | purchase     | billing via App Store / Play      |
+  |                         | receipts     | Store. Required for IAP.          |
+  +-------------------------+--------------+-----------------------------------+
+  | Gupshup (WhatsApp BSP)  | Phone number,| WhatsApp message delivery.        |
+  |                         | message text | Only when user opts in.           |
+  +-------------------------+--------------+-----------------------------------+
+  | MSG91 (SMS provider)    | Phone number,| SMS delivery. Only when user      |
+  |                         | message text | verifies and opts in.             |
+  +-------------------------+--------------+-----------------------------------+
+  | SendGrid (Email)        | Email addr,  | Email reminder delivery.          |
+  |                         | message text | Only when user opts in.           |
+  +-------------------------+--------------+-----------------------------------+
+  | FCM (Firebase Cloud     | Device token | Push notification delivery only.  |
+  | Messaging)              |              | No task content in FCM payload.   |
+  +-------------------------+--------------+-----------------------------------+
+
+  IMPORTANT DISTINCTIONS:
+  - Task content is ONLY sent to messaging channels the user has explicitly
+    enabled and verified (via OTP for WhatsApp/SMS)
+  - Analytics (PostHog) receives NO task content, NO names, NO emails
+  - Crash reporting (Sentry) may include stack traces but NO user task data
+  - Team workspace data is shared ONLY with explicitly invited team members
+
+================================================================================
+  3. ENCRYPTION
+================================================================================
+
+  IN TRANSIT:
+  - TLS 1.3 enforced on all API endpoints
+  - HSTS (HTTP Strict Transport Security) enabled
+  - Certificate pinning in mobile app (production builds)
+  - WebSocket connections use WSS (TLS-encrypted)
+
+  AT REST:
+  - PostgreSQL: encrypted tablespace (AES-256)
+  - MinIO object storage: server-side encryption (SSE-S3)
+  - Backups: encrypted with AES-256 before upload
+  - Valkey (Redis-compatible): in-memory only, no disk persistence of
+    sensitive data (OTPs expire in 60s, sessions in Logto)
+
+  SECRETS:
+  - All API keys, tokens, and credentials stored in environment variables
+  - Never committed to source code
+  - Rotated on any suspected exposure
+
+================================================================================
+  4. DATA DELETION
+================================================================================
+
+  USER-INITIATED DELETION:
+  - Settings > Privacy > Delete My Account
+  - Triggers a 30-day grace period (user can cancel deletion during this time)
+  - After 30 days, ALL user data is permanently and irreversibly deleted:
+    * Profile information
+    * All tasks, projects, subtasks, comments
+    * Notification preferences and channel connections
+    * Progress history, streaks, analytics
+    * Team memberships (user is removed from all teams)
+    * Push tokens and channel verification data
+  - Confirmation email sent upon deletion request and upon final deletion
+
+  ADMIN-INITIATED DELETION:
+  - Admin can trigger immediate deletion for policy violations
+  - Same comprehensive data removal as user-initiated
+
+  WHAT PERSISTS AFTER DELETION:
+  - Anonymized, aggregated analytics (cannot be traced back to individual)
+  - Audit logs retained for 90 days (legal/compliance requirement)
+  - Billing records retained per tax law requirements (7 years in India)
+
+  DELETION OF CHANNEL DATA:
+  - When a user disconnects a channel (e.g., removes WhatsApp):
+    * OTP verification data deleted immediately
+    * Phone number removed from our database
+    * Unsubscribe request sent to messaging provider (Gupshup, MSG91, etc.)
+    * Delivery history retained for 30 days, then purged
+
+================================================================================
+  5. DATA RETENTION
+================================================================================
+
+  +---------------------------+-----------------------------------------------+
+  | Data Category             | Retention Policy                              |
+  +---------------------------+-----------------------------------------------+
+  | Active account data       | Retained while account is active              |
+  | Completed tasks           | Retained for progress history (user can       |
+  |                           | manually delete individual tasks)              |
+  | Crash logs (Sentry)       | 90 days                                       |
+  | Analytics events          | 12 months (anonymized after 30 days)          |
+  | OTP codes                 | 60 seconds (auto-expire)                      |
+  | Session tokens            | 7 days (refresh), 15 minutes (access)         |
+  | Delivery attempt logs     | 90 days                                       |
+  | Deleted account data      | 30-day grace period, then permanent deletion  |
+  | Billing records           | 7 years (Indian tax law compliance)           |
+  | Audit logs                | 90 days                                       |
+  +---------------------------+-----------------------------------------------+
+
+================================================================================
+  6. THIRD-PARTY SDK DETAILS
+================================================================================
+
+  SENTRY (Crash Reporting)
+  - Purpose: Real-time error tracking and crash reporting
+  - Data sent: stack traces, device model, OS version, app version, breadcrumbs
+  - Data NOT sent: task content, user names, email addresses
+  - Privacy: https://sentry.io/privacy/
+  - Data processing: EU/US servers (configurable)
+  - User control: Cannot opt out (essential for app stability)
+
+  POSTHOG (Product Analytics)
+  - Purpose: Understanding feature usage to improve the product
+  - Data sent: anonymized user ID, feature events, screen views, app version
+  - Data NOT sent: task content, personal information, email, name
+  - Privacy: https://posthog.com/privacy
+  - Data processing: Self-hosted instance (same infrastructure as backend)
+  - User control: Can opt out in Settings > Privacy > Analytics
+
+  REVENUECAT (Subscription Management)
+  - Purpose: Managing in-app purchases and subscription state
+  - Data sent: anonymous app user ID, purchase receipts, subscription status
+  - Data NOT sent: task content, personal information beyond billing
+  - Privacy: https://www.revenuecat.com/privacy
+  - Data processing: US servers
+  - User control: Required for paid features, cannot opt out if subscribed
+
+  FCM (Firebase Cloud Messaging)
+  - Purpose: Delivering push notifications to Android and iOS devices
+  - Data sent: device push token, notification title/body
+  - Data NOT sent: full task details (notification body is a summary only)
+  - Privacy: https://firebase.google.com/support/privacy
+  - Note: FCM is used ONLY for push delivery. No other Firebase services
+    are used. No Firebase Analytics, no Firestore, no Firebase Auth.
+
+================================================================================
+  7. GOOGLE PLAY DATA SAFETY FORM ANSWERS
+================================================================================
+
+  Does your app collect or share any of the required user data types?
+  -> Yes
+
+  Is all of the user data collected by your app encrypted in transit?
+  -> Yes
+
+  Do you provide a way for users to request that their data is deleted?
+  -> Yes
+
+  DATA TYPES COLLECTED:
+
+  [x] Name               - Collected, not shared. For profile/team display.
+  [x] Email address       - Collected, not shared. For auth/recovery.
+  [x] Phone number        - Optional, not shared externally (sent to SMS/WA
+                            provider only when user opts in).
+  [x] App interactions    - Collected, shared (PostHog, anonymized).
+  [x] Crash logs          - Collected, shared (Sentry).
+  [x] Device or other IDs - Collected, shared (FCM push token).
+  [x] Purchase history    - Collected, shared (RevenueCat).
+
+  [ ] Location            - NOT collected.
+  [ ] Photos/videos       - NOT collected (profile photo is optional, stored
+                            on our servers, not shared).
+  [ ] Contacts            - NOT collected.
+  [ ] Calendar            - NOT collected (future Phase 9 feature).
+  [ ] Files and docs      - NOT collected.
+  [ ] Audio               - NOT collected.
+  [ ] Health and fitness   - NOT collected.
+  [ ] Messages            - NOT collected (we send TO users, not read FROM).
+  [ ] Financial info       - NOT collected (handled by Play Store/RevenueCat).
+
+================================================================================
+  8. APPLE APP PRIVACY FORM ANSWERS
+================================================================================
+
+  Privacy Nutrition Labels:
+
+  DATA USED TO TRACK YOU:
+  -> None. We do not track users across other companies' apps or websites.
+
+  DATA LINKED TO YOU:
+  -> Contact Info (name, email)
+  -> Identifiers (user ID)
+  -> Usage Data (product interaction)
+  -> Purchases (subscription status)
+
+  DATA NOT LINKED TO YOU:
+  -> Diagnostics (crash logs -- anonymized)
+  -> Usage Data (analytics -- anonymized after 30 days)
+
+  DATA NOT COLLECTED:
+  -> Location, Contacts, Health & Fitness, Browsing History, Search History,
+     Sensitive Info, Financial Info (handled by Apple), Other Data
+
+================================================================================
+  9. DPDP ACT 2023 COMPLIANCE STATEMENT
+================================================================================
+
+  UNJYNX by METAminds complies with the Digital Personal Data Protection Act,
+  2023 (India) as follows:
+
+  LAWFUL PURPOSE & CONSENT:
+  - Personal data is processed only for the purpose of providing task
+    management and reminder services, as consented to by the user upon
+    account creation.
+  - Separate, explicit consent is obtained before enabling each notification
+    channel (WhatsApp, SMS, etc.).
+  - Users can withdraw consent at any time by disabling channels or deleting
+    their account.
+
+  NOTICE:
+  - A clear privacy notice is presented during onboarding, before any data
+    collection occurs.
+  - The notice specifies: what data is collected, why, how long it is retained,
+    and how to exercise rights.
+
+  DATA PRINCIPAL RIGHTS:
+  - Right to access: Users can view all their data within the app.
+  - Right to correction: Users can edit their profile and task data.
+  - Right to erasure: Users can delete individual items or their entire account.
+  - Right to grievance redressal: support@unjynx.app responds within 48 hours.
+  - Right to nominate: Nomination feature planned for future release.
+
+  DATA FIDUCIARY OBLIGATIONS:
+  - Data is collected only for specified purposes (no secondary use).
+  - Data accuracy is maintained (users can correct at any time).
+  - Data is retained only as long as necessary (see retention table above).
+  - Reasonable security safeguards are in place (TLS 1.3, AES-256, etc.).
+
+  CHILDREN'S DATA:
+  - UNJYNX is rated "Everyone" / "4+" but does not specifically target children.
+  - No data of children under 18 is knowingly processed without verifiable
+    parental consent.
+  - If we become aware that a child's data has been collected without consent,
+    it will be deleted promptly.
+
+  CROSS-BORDER DATA TRANSFER:
+  - Primary data processing occurs on self-hosted infrastructure.
+  - Third-party SDKs (Sentry, PostHog, RevenueCat) may process data outside
+    India. Adequate security measures and contractual safeguards are in place
+    per DPDP Act requirements.
+  - Users are informed of this in the privacy notice.
+
+  DATA BREACH NOTIFICATION:
+  - In the event of a personal data breach, the Data Protection Board of India
+    and affected users will be notified within 72 hours.
+  - Notification will include: nature of breach, data affected, remedial actions
+    taken, and contact information for the Data Protection Officer.
+
+  DATA PROTECTION OFFICER:
+  - Contact: dpo@unjynx.app
+  - Responsible for: compliance monitoring, breach response, user grievances
+
+  COMPLIANCE DEADLINE:
+  - Full compliance targeted before May 2027 (statutory deadline).
+  - Current implementation already covers all major requirements.
+
+================================================================================
+  10. PLAY STORE DATA SAFETY SECTION PREVIEW
+================================================================================
+
+  How this will appear to users on the Play Store:
+
+  DATA SAFETY
+  +-----------------------------------------------------------------+
+  | Data shared                                                      |
+  | No data is shared with third parties                             |
+  +-----------------------------------------------------------------+
+  | Data collected                                                   |
+  | Name, Email address, App activity, Crash logs, Device IDs        |
+  +-----------------------------------------------------------------+
+  | Security practices                                               |
+  | Data is encrypted in transit                                     |
+  | You can request that data be deleted                             |
+  +-----------------------------------------------------------------+
+
+  Note: While we do share some data with third-party SDKs (Sentry, PostHog,
+  RevenueCat), Google's Data Safety guidelines classify "sharing" as providing
+  data to third parties for their own purposes. Our SDK data sharing is purely
+  for app functionality (crash reporting, analytics, billing) and is therefore
+  classified as "collected" rather than "shared" per Google's definitions.

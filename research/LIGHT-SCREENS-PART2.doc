@@ -1,0 +1,45 @@
+UNJYNX LIGHT MODE DESIGN SPECIFICATION — PART 2 (SCREENS G–N)
+================================================================================
+Company: METAminds | App: UNJYNX | Document Version: 1.0.0
+Date: 2026-03-10
+Scope: Ghost Mode, Content & Rituals, Progress & Game Mode, Channels,
+       Profile, Settings, Team & Collaboration
+Target: 80,000+ characters of pixel-precise, production-ready UI specification
+Continuation of: LIGHT-SCREENS-PART1.doc (Screens A1–F4, 22 screens)
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+  G1.  Ghost Mode (Forced Dark + Light Transition Handling)
+  H1.  Daily Content Feed
+  H2.  Content Category Selector
+  H3.  Morning Ritual Screen
+  H4.  Evening Review Screen
+  I1.  Progress Hub (Default — All Users)
+  I2.  Progress Dashboard (Pro)
+  I3.  Accountability Partners (Pro)
+  I4.  Game Mode (Pro)
+  J1.  Channel Hub
+  J2.  Telegram Connection Flow
+  J3.  WhatsApp Connection Flow
+  J4.  Instagram Friend First Flow
+  J5.  Notification Preferences
+  J6.  SMS Connection Flow
+  L1.  Profile Screen
+  L2.  Edit Profile Screen
+  M1.  Settings Screen
+  M2.  Plan & Billing Screen
+  N1.  Team Dashboard
+  N2.  Team Member Management
+  N3.  Shared Project View
+  N4.  Team Reports
+  N5.  Async Standup
+
+  APPENDIX D: Cross-Screen Component Library (Part 2 Additions)
+  APPENDIX E: Light <-> Dark Transition Table (Part 2 Screens)
+  APPENDIX F: Accessibility Audit (Part 2 Screens)
+
+NOTE ON GLOBAL TOKENS: All design tokens (colors, typography, shadows,
+glassmorphism, spacing, animation curves) are defined in Part 1, Section 0.
+This document references those tokens without re-defining them. Any NEW
+tokens introduced here are called out explicitly.

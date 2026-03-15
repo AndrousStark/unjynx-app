@@ -1,0 +1,742 @@
+UNJYNX - UX & Technical Research Report
+========================================
+Date: 2026-03-06
+Scope: Onboarding, Projects, Settings, Profile, Offline Sync, WebSocket, Flutter Libraries
+
+================================================================================
+1. ONBOARDING SCREENS - BEST PRACTICES (2025-2026)
+================================================================================
+
+1.1 WHAT TOP APPS DO
+---------------------
+
+TODOIST:
+- Redesigned onboarding in 2025 with fresh Welcome screen
+- Profile screen moved EARLIER in flow (before workspace setup)
+- Team workspace join available from the start (skip setup dance)
+- First-time Browse tab shows guided tooltip
+- Confetti animation on onboarding completion (delight moment)
+- Progressive disclosure: core features first, advanced later
+
+TICKTICK:
+- Minimalist onboarding matching their subdued color theme
+- Immediately shows value with built-in Pomodoro, habits, calendar
+- Quick task creation demo during onboarding
+- 25+ theme selection early in experience
+
+THINGS 3:
+- Ultra-clean, gesture-driven introduction
+- Focuses on Areas > Projects > Tasks hierarchy
+- Shows drag-and-drop, headings, and quick entry
+- No account required (local-first) = zero friction start
+
+NOTION:
+- Role/use-case selection: "What will you use Notion for?"
+- Template gallery shown during onboarding
+- Workspace creation flow with team invites
+- Progressive feature disclosure via tooltips
+
+1.2 OPTIMAL NUMBER OF SCREENS
+-------------------------------
+Research consensus: 3-5 screens maximum, under 60 seconds total
+
+Key statistics:
+- 25% of users abandon after ONE use if value isn't clear immediately
+- Reducing from 5+ to 3 screens significantly improves conversion
+- Personalized onboarding paths increase completion by 35%
+- Microlearning modules increase completion by 45%
+- Maximum 4-7 personalization questions before overwhelming users
+
+1.3 WHAT MAKES ONBOARDING GREAT IN 2026
+-----------------------------------------
+
+MUST-HAVE elements:
+a) Value-first screen: Remind users WHY they downloaded (tagline + hero visual)
+b) Personalization survey (2-3 questions max):
+   - "What will you use UNJYNX for?" (work/personal/both/student/team)
+   - "What's your biggest productivity challenge?" (forgetting tasks/too many apps/no routine)
+   - "How do you want to be reminded?" (push/WhatsApp/Telegram/SMS)
+c) Quick win: Create first task during onboarding (instant value)
+d) Permission requests: Notifications, contacts - contextualized with WHY
+e) Delight moment: Animation/confetti on completion
+
+ANTI-PATTERNS to avoid:
+- Feature tours that just list capabilities
+- More than 5 screens before seeing the main app
+- Forcing account creation before showing value
+- Generic welcome without personalization
+- Skip button that's hard to find
+
+1.4 RECOMMENDED UNJYNX ONBOARDING FLOW (5 screens)
+----------------------------------------------------
+Screen 1: Hero splash - "Break the satisfactory. Unjynx your productivity." + Lottie animation
+Screen 2: Use case selection - Work/Personal/Student/Team (cards with icons)
+Screen 3: Reminder channel preference - Push/WhatsApp/Telegram/SMS/Email (multi-select)
+Screen 4: Create your first task - Inline task creation with smart date parsing demo
+Screen 5: Notification permission + "You're all set!" confetti celebration
+
+Optional (post-onboarding): Tooltip overlays on main screen for first 3 sessions
+
+
+================================================================================
+2. PROJECT MANAGEMENT IN TODO APPS
+================================================================================
+
+2.1 ORGANIZATIONAL HIERARCHIES
+-------------------------------
+
+TODOIST structure:
+  Folders > Sub-folders (2 levels) > Projects > Sections > Tasks > Sub-tasks
+  - 13 theme color options for projects
+  - Sections act as horizontal dividers within projects
+  - Labels (tags) are global, cross-project
+  - Filters: powerful custom views with boolean logic
+  - Views: List view + Board (Kanban) view per project
+
+TICKTICK structure:
+  Folders > Lists > Sections > Tasks > Sub-tasks
+  - 25+ themes + custom background images
+  - Tags with color coding
+  - Smart lists (auto-generated views: Today, Next 7 Days, All)
+  - Multiple views: List, Kanban, Timeline, Calendar
+  - Built-in Pomodoro timer per task
+  - Habit tracking alongside tasks
+
+THINGS 3 structure:
+  Areas > Projects > Headings > Tasks > Checklists
+  - Areas = broad life categories (Work, Personal, Health)
+  - Projects = goal-oriented task collections within areas
+  - Headings = visual dividers within projects (like sections)
+  - Tags for cross-cutting categorization with Quick Find
+  - Unique "When" scheduling: Today, Upcoming, Anytime, Someday
+  - No kanban view - pure list-based, intentionally simple
+
+2.2 UI PATTERNS
+----------------
+
+LIST VIEW (all three apps):
+- Primary view, most used
+- Task name, due date, priority indicator on each row
+- Swipe actions (complete, schedule, delete)
+- Drag-and-drop reordering
+- Section/heading separators
+
+BOARD/KANBAN VIEW (Todoist, TickTick):
+- Columns based on sections, status, or custom grouping
+- Cards show task name + metadata (due date, assignee, priority)
+- Drag between columns to change status
+- Todoist: any project can toggle between list and board
+- TickTick: Kanban available for all lists
+
+CALENDAR VIEW (TickTick):
+- Monthly/weekly view with tasks on dates
+- Drag tasks to reschedule
+- Integration with external calendars
+
+TIMELINE VIEW (TickTick):
+- Gantt-chart style for project planning
+- Shows task duration and dependencies
+
+2.3 COLOR & ICON SYSTEMS
+--------------------------
+- Todoist: 19 project colors (Berry, Red, Orange, Yellow, Olive Green, Lime Green,
+  Green, Mint Green, Teal, Sky Blue, Light Blue, Blue, Grape, Violet, Lavender,
+  Magenta, Salmon, Charcoal, Grey)
+- TickTick: Project colors + custom icon selection from icon library
+- Things 3: Minimal color (mostly blue accent), no project colors/icons
+
+RECOMMENDATION for UNJYNX:
+- 20+ project colors (Material 3 palette, including midnight purple + gold brand colors)
+- Icon picker from curated set (50-100 icons covering work, personal, health, finance, etc.)
+- Emoji support as alternative to icons
+- Custom color picker for Pro users
+
+2.4 SORTING & GROUPING
+------------------------
+Common sort options across apps:
+- Manual (drag and drop)
+- Due date (ascending/descending)
+- Priority (P1 > P2 > P3 > P4)
+- Alphabetical
+- Date added / Date modified
+- Assignee (team features)
+
+Grouping options:
+- By section/heading
+- By due date (Overdue, Today, Tomorrow, This Week, Later)
+- By priority
+- By label/tag
+- By project (in "All" views)
+- By assignee (team features)
+
+
+================================================================================
+3. SETTINGS SCREENS
+================================================================================
+
+3.1 WHAT TOP APPS EXPOSE
+--------------------------
+
+GENERAL settings:
+- Theme (Light/Dark/System/Custom colors)
+- Language
+- Start of week (Sunday/Monday)
+- Date format
+- Time format (12h/24h)
+- Default reminder time
+- Default priority
+- Default project for new tasks
+
+NOTIFICATIONS settings:
+- Push notification toggle
+- Reminder sound selection
+- Vibration pattern
+- Do not disturb hours
+- Daily digest time
+- Overdue task reminders
+- TickTick "Nagging" mode (persistent reminders until done)
+- Per-channel controls (Push/WhatsApp/Telegram/SMS/Email)
+
+APPEARANCE settings:
+- Theme selection (Todoist: 13, TickTick: 25+)
+- Custom background image (TickTick)
+- Font size
+- Compact/comfortable/spacious density
+- Sidebar customization (show/hide default lists)
+- Quick Add toolbar customization
+
+PRODUCTIVITY settings:
+- Pomodoro timer defaults (work/break duration)
+- Habit tracking preferences
+- Daily goal (number of tasks)
+- Karma/gamification toggle
+- Smart scheduling preferences
+
+ACCOUNT settings:
+- Email / password change
+- Connected accounts (Google, Apple, etc.)
+- Two-factor authentication
+- Data export (JSON, CSV)
+- Data import (from other apps)
+- Subscription management
+- Delete account
+
+INTEGRATIONS settings:
+- Calendar sync (Google Calendar, Apple Calendar)
+- Connected services (Slack, Zapier, IFTTT)
+- API access / tokens
+- Webhook configuration
+
+PRIVACY & DATA settings:
+- Analytics opt-out
+- Crash reporting opt-in/out
+- Data export (GDPR compliance)
+- Clear local cache
+- Offline mode preferences
+
+3.2 ORGANIZATION PATTERN
+--------------------------
+
+Android Material 3 Guidelines recommend:
+- GROUPED SECTIONS with dividers (not flat list)
+- Group headings for related settings
+- Most important/frequently used settings at top
+- "Advanced" section only when 3+ items to hide
+- Switches for binary options (inline, no separate screen)
+- Menus for multiple-choice options
+- Sliders for range values
+
+RECOMMENDED UNJYNX SETTINGS STRUCTURE:
+
+  Account & Profile
+    - Profile (name, avatar, email)
+    - Connected accounts
+    - Subscription
+    --- divider ---
+  Appearance
+    - Theme (Light/Dark/System)
+    - Brand colors (midnight purple + gold, or custom)
+    - Font size
+    - List density
+    --- divider ---
+  Notifications & Reminders
+    - Push notifications
+    - Default reminder time
+    - Reminder channels (WhatsApp/Telegram/SMS/Email)
+    - Nagging mode (persistent reminders)
+    - Do Not Disturb hours
+    - Daily digest
+    --- divider ---
+  Task Defaults
+    - Default project
+    - Default priority
+    - Start of week
+    - Date/time format
+    - Quick Add toolbar items
+    --- divider ---
+  Integrations
+    - Calendar sync
+    - Connected apps
+    --- divider ---
+  Data & Privacy
+    - Export data
+    - Import data
+    - Clear cache
+    - Analytics opt-out
+    --- divider ---
+  Advanced
+    - Offline sync settings
+    - Developer options (API token)
+    --- divider ---
+  About
+    - Version info
+    - Licenses
+    - Help & Feedback
+    - Rate the app
+
+
+================================================================================
+4. PROFILE / ACCOUNT PAGES
+================================================================================
+
+4.1 COMMON ELEMENTS IN TOP APPS
+---------------------------------
+
+VISUAL HEADER:
+- Large avatar (tap to change, camera + gallery options)
+- Display name (editable)
+- Email address
+- Account type badge (Free/Pro/Team)
+
+STATS SECTION (engagement/gamification):
+- Tasks completed (total, this week, today)
+- Current streak (consecutive days with completed tasks)
+- Karma/XP points (Todoist does this)
+- Productivity score
+- Most productive day/time
+
+ACCOUNT MANAGEMENT:
+- Edit profile (name, avatar, bio)
+- Email change
+- Password change
+- Connected auth methods (Google, Apple, Email)
+- Two-factor authentication setup
+- Timezone selection
+- Language preference
+
+SUBSCRIPTION:
+- Current plan display
+- Upgrade/downgrade buttons
+- Billing history
+- Payment method
+
+DANGER ZONE:
+- Log out
+- Log out of all devices
+- Delete account (with confirmation + data export prompt)
+
+4.2 MULTIPLE AUTH METHODS
+---------------------------
+
+Best practice patterns:
+- Show connected providers as a list with connect/disconnect buttons
+- Require at least ONE auth method to remain connected
+- Warn before disconnecting the last provider
+- Email+password always available as fallback
+- Social login icons: Google, Apple, GitHub (for dev users)
+- For UNJYNX with Logto: supports 30+ providers, show most popular 3-4
+
+Navigation pattern (from research):
+  Profile icon (tab bar) > Profile header > Edit Profile button > Form
+  OR
+  Settings > Account > Profile > Edit
+
+4.3 RECOMMENDED UNJYNX PROFILE PAGE
+-------------------------------------
+
+TOP SECTION:
+  [Avatar]  [Display Name]
+  [Email]   [Pro Badge]
+
+STATS CARDS (horizontal scroll):
+  [Total Done: 247] [Streak: 12 days] [This Week: 23] [Avg/Day: 4.2]
+
+QUICK ACTIONS:
+  - Edit Profile
+  - Manage Subscription
+  - Share UNJYNX (referral link)
+
+ACCOUNT SECTION:
+  - Connected Accounts (Google/Apple/Email indicators)
+  - Timezone (auto-detected, editable)
+  - Notifications Summary
+
+BOTTOM:
+  - Log Out
+  - Delete Account (red, with 30-day grace period)
+
+
+================================================================================
+5. OFFLINE SYNC ENGINES
+================================================================================
+
+5.1 HOW THE BIG PLAYERS DO IT
+-------------------------------
+
+TODOIST - Incremental Sync Protocol:
+- Custom Sync API (v9) with sync_token-based incremental updates
+- sync_token="*" for full sync, subsequent tokens for deltas
+- Resource-type filtering (sync only what you need)
+- UUID-based command idempotency (safe retries)
+- Rate limits: 1000 partial syncs / 15min, 100 full syncs / 15min
+- Server is source of truth, client caches locally
+- NOT true offline-first (requires eventual server confirmation)
+
+NOTION - SQLite + CRDT Hybrid:
+- SQLite cache on client for years (best-effort)
+- Offline mode (launched Aug 2025) adds strong guarantees
+- Downloads every record a page depends on for offline use
+- lastDownloadedTimestamp tracking per page for incremental sync
+- On reconnect: compares timestamps, fetches only newer pages
+- Custom CRDT system for conflict resolution on non-text properties
+- Handles structural changes (page moves, database row additions)
+
+LINEAR - Local-First Sync Engine:
+- IndexedDB on client, custom sync protocol
+- All UI operations are instant (0ms latency, optimistic UI)
+- Background sync pushes mutations to server
+- Server processes linearly (total ordering)
+- Client rebases on server state
+- 3+ years of learnings from building sync engine
+- Premium UX feel: everything feels instant
+
+5.2 SYNC STRATEGY COMPARISON
+------------------------------
+
+| Strategy    | Complexity | Collaboration | Best For                    |
+|-------------|------------|---------------|-----------------------------|
+| LWW         | Low        | Poor          | Single-user, simple data    |
+| Sync Tokens | Medium     | Moderate      | Client-server, API-based    |
+| OT          | High       | Excellent     | Text editing (Google Docs)  |
+| CRDT        | Very High  | Excellent     | P2P, multi-device, collab   |
+| Replicache  | Medium     | Good          | Centralized server, web     |
+
+5.3 RECOMMENDED APPROACH FOR UNJYNX
+-------------------------------------
+
+Primary strategy: Field-level LWW with Incremental Sync (already in ARCHITECTURE-PLAN)
+
+Rationale:
+- Single-user primary use case (not collaborative docs)
+- LWW is sufficient for task CRUD operations
+- Field-level (not row-level) prevents data loss on concurrent edits
+- Incremental sync reduces bandwidth and battery usage
+- Matches Todoist's proven approach
+
+Implementation layers:
+1. LOCAL: Drift (SQLite) as source of truth on device
+2. SYNC: Custom sync protocol with sync_token pattern
+3. CONFLICT: Field-level LWW with server timestamp authority
+4. QUEUE: Offline mutation queue (persist across app restarts)
+5. REALTIME: WebSocket for push updates when online
+
+Future upgrade path:
+- If team/collaboration features need it, upgrade to CRDT for shared projects
+- PowerSync Open Edition as potential drop-in sync layer
+
+5.4 FLUTTER-SPECIFIC SYNC LIBRARIES (2025-2026)
+-------------------------------------------------
+
+POWERSYNC (RECOMMENDED for evaluation):
+- Package: powersync on pub.dev
+- Syncs between SQLite (client) and PostgreSQL (server)
+- Open Edition available (self-hosted)
+- Official Drift integration via drift_sqlite_async
+- LWW by default, customizable conflict resolution
+- Works with custom backends (not just Supabase)
+- Most mature Flutter offline-sync solution
+
+SYNCABLE:
+- GitHub: Mr-Pepe/syncable
+- Offline-first multi-device sync for Flutter
+- Referenced in project memory as a reference app
+- Good for learning patterns, smaller community
+
+OFFLINE_SYNC:
+- Package: offline_sync on pub.dev
+- Basic offline-first data management
+- Auto-sync on connectivity restore
+- Good for simple cases
+
+BRICK (with offline_first adapter):
+- Package: brick_offline_first
+- ORM with offline-first capabilities
+- Used with Supabase in production
+- Less active community
+
+CUSTOM (Drift + manual sync):
+- Most control, most effort
+- Drift for local DB (already in our stack)
+- Custom sync service with mutation queue
+- workmanager for background sync
+- This is what UNJYNX should start with
+
+RECOMMENDATION:
+Start with Custom (Drift + manual sync) for Phase 1. Evaluate PowerSync Open Edition
+for Phase 2+ when multi-device sync becomes critical. This avoids vendor lock-in while
+keeping the upgrade path open.
+
+
+================================================================================
+6. WEBSOCKET PATTERNS FOR HONO
+================================================================================
+
+6.1 HONO WEBSOCKET OPTIONS
+----------------------------
+
+OPTION A: @hono/node-ws (RECOMMENDED)
+- Package: @hono/node-ws v1.3.0
+- Native Hono integration for Node.js
+- Uses Web Standards WebSocket API
+- Type-safe with Hono's TypeScript-first approach
+- Lightweight, no additional dependencies
+
+Setup pattern:
+  import { createNodeWebSocket } from '@hono/node-ws'
+  const app = new Hono()
+  const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
+
+  app.get('/ws', upgradeWebSocket((c) => ({
+    onMessage(event, ws) { /* handle messages */ },
+    onClose(event, ws) { /* cleanup */ },
+    onOpen(event, ws) { /* setup */ },
+  })))
+
+  const server = serve({ fetch: app.fetch, port: 3000 })
+  injectWebSocket(server)
+
+OPTION B: Socket.IO with Hono
+- More features (rooms, namespaces, auto-reconnect)
+- Socket.IO has a PostgreSQL adapter (socket.io/docs/v4/postgres-adapter)
+- Heavier, adds significant bundle size
+- Better for complex multi-room scenarios
+- Overkill for task sync notifications
+
+OPTION C: Hono on Bun (native WebSocket)
+- Bun has built-in WebSocket support
+- Faster than Node.js WebSocket
+- Less mature ecosystem
+- Good future option if migrating to Bun
+
+6.2 POSTGRESQL LISTEN/NOTIFY BRIDGE
+--------------------------------------
+
+Pattern: DB triggers fire NOTIFY > Node.js listener > WebSocket broadcast
+
+Key library: pg-listen (github.com/andywer/pg-listen)
+- Reliable PostgreSQL LISTEN/NOTIFY for Node.js
+- Auto-reconnection
+- JSON payload support
+
+Architecture:
+
+  [PostgreSQL]
+      |
+      | NOTIFY 'task_changes', '{"userId": "abc", "taskId": "123", "action": "update"}'
+      |
+  [pg-listen subscriber in Node.js]
+      |
+      | Filter by userId, find their WebSocket connection
+      |
+  [@hono/node-ws WebSocket server]
+      |
+      | ws.send(JSON.stringify({ type: 'TASK_UPDATED', task: {...} }))
+      |
+  [Flutter client via web_socket_channel]
+
+Database trigger example:
+
+  CREATE OR REPLACE FUNCTION notify_task_change()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    PERFORM pg_notify('task_changes', json_build_object(
+      'user_id', NEW.user_id,
+      'task_id', NEW.id,
+      'action', TG_OP
+    )::text);
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+
+  CREATE TRIGGER task_change_trigger
+  AFTER INSERT OR UPDATE OR DELETE ON tasks
+  FOR EACH ROW EXECUTE FUNCTION notify_task_change();
+
+6.3 RECOMMENDED UNJYNX WEBSOCKET ARCHITECTURE
+-----------------------------------------------
+
+Layer 1: @hono/node-ws for WebSocket server
+Layer 2: pg-listen for PostgreSQL LISTEN/NOTIFY subscription
+Layer 3: Connection manager (Map<userId, Set<WebSocket>>)
+Layer 4: Message types (TASK_CREATED, TASK_UPDATED, TASK_DELETED, SYNC_REQUIRED)
+Layer 5: Heartbeat/ping-pong for connection health (30s interval)
+Layer 6: Reconnection logic on Flutter client (exponential backoff)
+
+Flutter client: web_socket_channel package (dart:io WebSocket wrapper)
+
+Why NOT Socket.IO:
+- Adds ~100KB+ to bundle
+- PostgreSQL adapter requires separate Redis-like pub/sub
+- Hono's native WS helper is sufficient for our 1:1 notification model
+- We don't need rooms/namespaces for personal task sync
+
+
+================================================================================
+7. FLUTTER ONBOARDING LIBRARIES
+================================================================================
+
+7.1 TOP PACKAGES RANKED
+-------------------------
+
+1. introduction_screen (RECOMMENDED - primary)
+   - pub.dev: introduction_screen
+   - Most popular onboarding package
+   - Material 3 compatible (useMaterial3: true)
+   - Customizable buttons (skip, next, done, back)
+   - Uses dots_indicator internally
+   - Supports custom page widgets
+   - Supports Lottie/Rive animations in pages
+   - Extensive customization (global styles, per-page overrides)
+   - Active maintenance
+
+2. smooth_page_indicator (RECOMMENDED - indicator component)
+   - pub.dev: smooth_page_indicator
+   - Best page indicator package (use WITH introduction_screen or custom)
+   - 15+ built-in effects: Worm, Expanding Dots, Jumping Dot, Scrolling Dots,
+     Slide, Scale, Swap, Color Transition, Customizable
+   - Works with any PageView
+   - Smooth animations
+   - Fully customizable (size, color, spacing, shape)
+   - Material 3 compatible
+
+3. concentric_transition
+   - pub.dev: concentric_transition
+   - Beautiful circular clip transition between pages
+   - Eye-catching, unique visual effect
+   - Great for brand-forward onboarding
+   - Works well with custom page layouts
+   - Perfect for UNJYNX "break the satisfactory" brand feel
+
+4. lottie (for onboarding animations)
+   - pub.dev: lottie
+   - Pure Dart Lottie player
+   - Render After Effects animations natively
+   - Perfect for onboarding hero illustrations
+   - Combine with any onboarding scaffold
+
+5. animated_onboarding_screen
+   - pub.dev: animated_onboarding_screen
+   - Uses Lottie for animations
+   - Responsive design (adapts to screen sizes)
+   - Customizable fonts, colors, animation sizes
+   - Less popular but good for animation-heavy onboarding
+
+6. flutter_intro
+   - pub.dev: flutter_intro
+   - Overlay/spotlight-style onboarding (post-main-screen)
+   - Highlights UI elements with tooltips
+   - Good for contextual onboarding AFTER initial screens
+   - Use for the "first 3 sessions tooltip" pattern
+
+7.2 RECOMMENDED UNJYNX ONBOARDING STACK
+-----------------------------------------
+
+Initial onboarding (first launch):
+  - Build CUSTOM PageView (maximum control over brand experience)
+  - smooth_page_indicator for dot indicators (ExpandingDots or WormEffect)
+  - concentric_transition for page transitions (unique brand feel)
+  - lottie for hero animations on each page
+  - Total: 3 packages, fully custom layout
+
+Post-onboarding contextual help:
+  - flutter_intro for spotlight/tooltip overlays
+  - Show on first 3 app launches, then stop
+  - Highlight: Quick Add button, Project drawer, Reminder channel selector
+
+Why NOT introduction_screen as scaffold:
+  - For UNJYNX's brand-heavy, unique design, a custom PageView gives more control
+  - introduction_screen is great for standard onboarding but constrains layout
+  - However, if speed is priority in Phase 1, introduction_screen is a solid choice
+  - Can always migrate to custom later
+
+7.3 PACKAGE VERSIONS (check pub.dev for latest)
+-------------------------------------------------
+
+All packages below support null safety and Flutter 3.x:
+
+| Package                    | Min Flutter | Material 3 | Notes                    |
+|---------------------------|-------------|------------|--------------------------|
+| introduction_screen       | 3.x         | Yes        | Most features out of box |
+| smooth_page_indicator     | 3.x         | Yes        | Best indicator library   |
+| concentric_transition     | 3.x         | Yes        | Unique visual effect     |
+| lottie                    | 3.x         | N/A        | Animation renderer       |
+| flutter_intro             | 3.x         | Yes        | Contextual overlays      |
+| animated_onboarding_screen| 3.x         | Yes        | Lottie-integrated        |
+
+
+================================================================================
+SUMMARY OF RECOMMENDATIONS FOR UNJYNX
+================================================================================
+
+ONBOARDING:
+  -> 5 screens, under 60 seconds
+  -> Personalization questions (use case + reminder channel)
+  -> Quick win (create first task)
+  -> Custom PageView + smooth_page_indicator + concentric_transition + lottie
+  -> Post-onboarding: flutter_intro for contextual tooltips
+
+PROJECTS:
+  -> Hierarchy: Folders > Projects > Sections > Tasks > Subtasks
+  -> Areas (like Things 3) as top-level life categories
+  -> Views: List (default) + Kanban board + Calendar
+  -> 20+ colors + curated icon picker + emoji support
+  -> Filters with boolean logic (AND/OR)
+  -> Tags with colors, cross-project
+
+SETTINGS:
+  -> Grouped sections with dividers (Material 3 pattern)
+  -> 8 groups: Account, Appearance, Notifications, Task Defaults,
+     Integrations, Data & Privacy, Advanced, About
+  -> Most used at top, advanced hidden
+  -> Inline switches for toggles
+
+PROFILE:
+  -> Avatar + name + email + plan badge header
+  -> Stats cards (streak, completed, weekly, daily avg)
+  -> Connected accounts management
+  -> Delete account with 30-day grace period (DPDP Act compliance)
+
+OFFLINE SYNC:
+  -> Phase 1: Custom Drift + manual LWW sync (Todoist-style sync tokens)
+  -> Phase 2+: Evaluate PowerSync Open Edition
+  -> Field-level LWW conflict resolution
+  -> Offline mutation queue persisted to Drift
+  -> Background sync via workmanager
+
+WEBSOCKET:
+  -> @hono/node-ws v1.3.0 for Hono WebSocket server
+  -> pg-listen for PostgreSQL LISTEN/NOTIFY subscription
+  -> Custom connection manager (userId -> Set<WebSocket>)
+  -> web_socket_channel on Flutter client
+  -> 30s heartbeat, exponential backoff reconnection
+
+FLUTTER ONBOARDING:
+  -> smooth_page_indicator (dot indicators)
+  -> concentric_transition (page transitions)
+  -> lottie (hero animations)
+  -> flutter_intro (post-onboarding tooltips)
+  -> Custom PageView scaffold for maximum brand control
+
+================================================================================
+END OF RESEARCH REPORT
+================================================================================

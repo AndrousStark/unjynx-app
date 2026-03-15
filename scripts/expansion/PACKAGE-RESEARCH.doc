@@ -1,0 +1,110 @@
+FLUTTER PACKAGE RESEARCH FOR UNJYNX EXPANSION
+===============================================
+Last updated: 2026-03-09
+Source: Context7 MCP + pub.dev docs
+
+1. HOME SCREEN WIDGETS (W1-W5)
+   Package: home_widget ^6.0.0
+
+   Flutter side:
+     HomeWidget.saveWidgetData<String>('id', data)    -- save data for native widget
+     HomeWidget.updateWidget(
+       name: 'UnjynxTasksWidgetProvider',
+       androidName: 'UnjynxTasksWidgetProvider',
+       iOSName: 'UnjynxTasksWidget',
+     )    -- trigger native widget update
+     HomeWidget.registerInteractivityCallback(backgroundCallback)  -- handle taps from widget
+
+   iOS (SwiftUI):
+     - Uses WidgetKit + AppIntent bridge
+     - AppIntent calls HomeWidgetBackgroundWorker.run(url:, appGroup:)
+     - Reads data from UserDefaults (shared via App Group)
+
+   Android (Jetpack Compose or XML):
+     - AppWidgetProvider with RemoteViews
+     - Reads from SharedPreferences via HomeWidgetPlugin.getData(context)
+     - Can display images rendered by Flutter (BitmapFactory.decodeFile)
+
+   Update frequency: 15 min via WidgetKit timeline + on-demand via HomeWidget.updateWidget()
+
+2. CALENDAR (F1-F2)
+   Package: calendar_view (flutter_calendar_view) ^2.2.0
+   Library ID: /simformsolutionspvtltd/flutter_calendar_view
+   Benchmark: 85.7/100 (BEST option)
+
+   Key widgets:
+     MonthView<Object?>()  -- month calendar grid
+     DayView<Object?>()    -- 24h timeline with event tiles
+     WeekView<Object?>()   -- 7-column grid
+
+   Features:
+     - EventController() for managing events
+     - RecurrenceSettings(frequency: RepeatFrequency.weekly, weekdays: [0,2,4])
+     - Custom eventTileBuilder for branded task blocks
+     - heightPerMinute: 1.0 for day view scaling
+     - startHour/endHour to limit visible hours
+     - liveTimeIndicatorSettings for current time line
+     - onEventTap, onDateLongPress callbacks
+     - fullDayEventBuilder for all-day events
+     - Drag to reschedule (via custom gesture handlers)
+
+   For UNJYNX:
+     - F1: Use MonthView (month), WeekView (week/3-day), DayView (day)
+     - Segmented control to switch views
+     - Custom cell builder for task count dots (month view)
+     - Custom event tile builder with project color coding
+     - Color intensity heatmap in month view (via custom cell builder)
+
+   Alternative: table_calendar ^3.1.0 (also good but less feature-rich)
+
+3. CHARTS (I2 Progress Dashboard)
+   Package: fl_chart ^0.70.0
+   Library ID: /websites/pub_dev_fl_chart (1506 snippets, High reputation)
+
+   Chart types needed for I2:
+     - LineChart: completion trend (daily/weekly/monthly)
+     - BarChart: productivity by day, focus time
+     - ScatterChart: estimated vs actual time
+     - PieChart (donut): category breakdown
+
+   All charts use UNJYNX brand colors (purple/gold/emerald)
+
+4. HEATMAP (I1 Progress Hub)
+   Package: flutter_heatmap_calendar ^1.0.0 OR custom CustomPainter
+   Library ID: /devappmin/flutter_heatmap_calendar
+
+   For UNJYNX:
+     - GitHub-style 52-week contribution grid
+     - Custom painter preferred for full brand control
+     - Color scale: empty(dark) → light purple → deep violet → gold
+     - Tap any day → popup with task count
+     - Free: 30 days, Pro: full year
+
+5. NLP TASK PARSING (v1 - rule-based)
+   Backend package: chrono-node ^2.7.0 (natural language date parser)
+   Frontend: Custom Dart regex parser + intl package
+
+   Pattern matching:
+     - Date: "Monday", "tomorrow", "March 15", "next week"
+     - Time: "9am", "at 3:30", "morning", "evening"
+     - Priority: "urgent", "!", "P1", "high priority"
+     - Project: "#ProjectName", "in Shopping"
+
+   Flow: User types → Dart regex extracts → shows parsed preview → on submit,
+         backend validates with chrono-node if needed
+
+6. ADDITIONAL PACKAGES REFERENCED
+   - lottie ^3.0.0: Lottie animations for empty states, streak flame
+   - flutter_slidable ^3.1.0: Swipe actions on task cards
+   - flutter_quill ^10.0.0: Rich text editing for task descriptions (D2)
+   - rrule ^0.3.0: RRULE parsing/generation for D5 recurring builder
+   - file_picker ^8.0.0: Task import CSV selection
+   - csv ^6.0.0: CSV parsing for task import
+   - share_plus ^9.0.0: Share daily content as cards
+   - purchases_flutter ^8.0.0: RevenueCat billing SDK
+   - google_fonts ^6.2.0: Outfit, DM Sans, Bebas Neue, Playfair Display
+   - flutter_svg ^2.0.0: Custom brand SVG icons
+   - audioplayers ^6.0.0: Sound effects (task complete, streaks)
+   - vibration ^2.0.0: Custom haptic patterns
+   - flutter_tts ^4.0.0: Voice-first accessibility mode
+   - OpenDyslexic font: Via google_fonts or bundled asset for dyslexia mode

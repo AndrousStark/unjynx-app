@@ -1,0 +1,559 @@
+import type {
+  Profile,
+  DailyContentItem,
+  FeatureFlag,
+  AuditLogEntry,
+  Task,
+} from "../../db/schema/index.js";
+import type {
+  UserListQuery,
+  UpdateUserInput,
+  CreateUserInput,
+  AssignTaskInput,
+  CreateContentInput,
+  UpdateContentInput,
+  ContentListQuery,
+  BulkImportContentInput,
+  CreateFeatureFlagInput,
+  UpdateFeatureFlagInput,
+  AuditLogQuery,
+  AnalyticsQuery,
+  BroadcastInput,
+  TrendQuery,
+  SubscriptionListQuery,
+  CreateCouponInput,
+  UpdateCouponInput,
+  UserActivityQuery,
+} from "./admin.schema.js";
+import * as adminRepo from "./admin.repository.js";
+import * as logtoManagement from "./logto-management.service.js";
+import { clearAdminCache } from "../../middleware/admin-guard.js";
+
+// ── Users ─────────────────────────────────────────────────────────────
+
+export async function listUsers(
+  query: UserListQuery,
+): Promise<{ items: adminRepo.ProfileWithPlan[]; total: number }> {
+  const offset = (query.page - 1) * query.limit;
+  return adminRepo.findUsers(
+    query.search,
+    query.limit,
+    offset,
+    query.role,
+    query.sortBy,
+    query.sortOrder,
+    query.status,
+  );
+}
+
+export async function getUserDetail(
+  userId: string,
+): Promise<adminRepo.ProfileWithPlan | undefined> {
+  return adminRepo.findUserById(userId);
+}
+
+export async function updateUser(
+  userId: string,
+  input: UpdateUserInput,
+): Promise<adminRepo.ProfileWithPlan | undefined> {
+  const updates: Partial<Profile> = {};
+
+  if (input.name !== undefined) {
+    updates.name = input.name;
+  }
+  if (input.email !== undefined) {
+    updates.email = input.email;
+  }
+  if (input.avatarUrl !== undefined) {
+    updates.avatarUrl = input.avatarUrl;
+  }
+  if (input.timezone !== undefined) {
+    updates.timezone = input.timezone;
+  }
+  if (input.adminRole !== undefined) {
+    updates.adminRole = input.adminRole;
+  }
+  if (input.isBanned !== undefined) {
+    updates.isBanned = input.isBanned;
+  }
+
+  // Fetch profile for Logto operations
+  const profile = await adminRepo.findUserById(userId);
+  if (!profile) return undefined;
+
+  // Sync email/name changes to Logto if needed
+  if (input.email !== undefined || input.name !== undefined) {
+    if (profile.logtoId) {
+      try {
+        await logtoManagement.updateLogtoUser(profile.logtoId, {
+          email: input.email,
+          name: input.name,
+        });
+      } catch (error) {
+        console.error("[admin] Failed to sync user update to Logto:", error);
+        // Continue with local update even if Logto sync fails
+      }
+    }
+  }
+
+  // Sync ban/unban to Logto (suspend/unsuspend)
+  if (input.isBanned !== undefined && profile.logtoId) {
+    try {
+      await logtoManagement.suspendLogtoUser(profile.logtoId, input.isBanned);
+    } catch (error) {
+      console.error("[admin] Failed to sync ban status to Logto:", error);
+    }
+  }
+
+  // If role changed, clear admin cache so it takes effect immediately
+  if (input.adminRole !== undefined) {
+    clearAdminCache();
+  }
+
+  // If plan changed, create or update the user's subscription
+  if (input.planOverride !== undefined) {
+    await adminRepo.upsertUserSubscription(userId, input.planOverride);
+  }
+
+  // Update the profile (only profile fields, not subscription)
+  const hasProfileUpdates = Object.keys(updates).length > 0;
+  if (hasProfileUpdates) {
+    await adminRepo.updateUser(userId, updates);
+  }
+
+  // Return fresh user with plan
+  return adminRepo.findUserById(userId);
+}
+
+// ── User Management ──────────────────────────────────────────────────
+
+/**
+ * Create a new user in Logto and create a local profile.
+ * Rolls back the Logto user if local profile creation fails.
+ */
+export async function createUser(
+  input: CreateUserInput,
+): Promise<Profile> {
+  // Step 1: Create user in Logto
+  const logtoId = await logtoManagement.createLogtoUser(
+    input.email,
+    input.password,
+    input.name,
+  );
+
+  try {
+    // Step 2: Create local profile
+    const profile = await adminRepo.createProfile({
+      logtoId,
+      email: input.email,
+      name: input.name,
+      timezone: input.timezone,
+      adminRole: input.adminRole,
+    });
+
+    return profile;
+  } catch (error) {
+    // Rollback: delete the Logto user since profile creation failed
+    try {
+      await logtoManagement.deleteLogtoUser(logtoId);
+    } catch (rollbackError) {
+      console.error(
+        "[admin] Failed to rollback Logto user after profile creation failure:",
+        rollbackError,
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * Delete a user from both local DB and Logto.
+ * Prevents self-deletion.
+ */
+export async function deleteUser(
+  userId: string,
+  actorId: string,
+): Promise<void> {
+  if (actorId === userId) {
+    throw new Error("Cannot delete your own account");
+  }
+
+  const profile = await adminRepo.findUserById(userId);
+  if (!profile) {
+    throw new Error("User not found");
+  }
+
+  // Delete local profile first (cascades to tasks, etc.)
+  const deleted = await adminRepo.deleteProfile(userId);
+  if (!deleted) {
+    throw new Error("Failed to delete user profile");
+  }
+
+  // Delete from Logto
+  if (profile.logtoId) {
+    try {
+      await logtoManagement.deleteLogtoUser(profile.logtoId);
+    } catch (error) {
+      console.error(
+        "[admin] Failed to delete Logto user after profile deletion:",
+        error,
+      );
+      // Profile is already deleted locally — log but don't throw
+    }
+  }
+}
+
+/**
+ * Reset a user's password via Logto Management API.
+ */
+export async function resetUserPassword(
+  userId: string,
+  newPassword: string,
+): Promise<void> {
+  const profile = await adminRepo.findUserById(userId);
+  if (!profile) {
+    throw new Error("User not found");
+  }
+  if (!profile.logtoId) {
+    throw new Error("User has no Logto account linked");
+  }
+
+  await logtoManagement.setLogtoPassword(profile.logtoId, newPassword);
+}
+
+/**
+ * Change a user's admin role.
+ * Prevents self-demotion (admin cannot downgrade their own role).
+ */
+export async function changeUserRole(
+  userId: string,
+  newRole: string,
+  actorId: string,
+): Promise<Profile> {
+  if (actorId === userId) {
+    throw new Error("Cannot change your own role");
+  }
+
+  const profile = await adminRepo.findUserById(userId);
+  if (!profile) {
+    throw new Error("User not found");
+  }
+
+  const updated = await adminRepo.updateUser(userId, {
+    adminRole: newRole as Profile["adminRole"],
+  });
+
+  if (!updated) {
+    throw new Error("Failed to update user role");
+  }
+
+  // Clear admin cache so the role change takes effect immediately
+  clearAdminCache();
+
+  return updated;
+}
+
+/**
+ * Assign a task to a user (admin action).
+ */
+export async function assignTaskToUser(
+  userId: string,
+  input: AssignTaskInput,
+): Promise<Task> {
+  const profile = await adminRepo.findUserById(userId);
+  if (!profile) {
+    throw new Error("User not found");
+  }
+
+  return adminRepo.createTask({
+    userId,
+    title: input.title,
+    description: input.description,
+    priority: input.priority,
+    dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+  });
+}
+
+/**
+ * Get paginated tasks for a specific user.
+ */
+export async function getUserTasks(
+  userId: string,
+  page: number,
+  limit: number,
+): Promise<{ items: Task[]; total: number }> {
+  const offset = (page - 1) * limit;
+  return adminRepo.getUserTasks(userId, limit, offset);
+}
+
+/**
+ * Get task statistics for a specific user.
+ */
+export async function getUserStats(
+  userId: string,
+): Promise<adminRepo.UserStats> {
+  return adminRepo.getUserStats(userId);
+}
+
+// ── Content ───────────────────────────────────────────────────────────
+
+export async function listContent(
+  query: ContentListQuery,
+): Promise<{ items: DailyContentItem[]; total: number }> {
+  const offset = (query.page - 1) * query.limit;
+  return adminRepo.findContent(query.category, query.limit, offset);
+}
+
+export async function createContent(
+  input: CreateContentInput,
+): Promise<DailyContentItem> {
+  return adminRepo.insertContent({
+    category: input.category,
+    content: input.content,
+    author: input.author,
+    source: input.source,
+  });
+}
+
+export async function updateContent(
+  contentId: string,
+  input: UpdateContentInput,
+): Promise<DailyContentItem | undefined> {
+  return adminRepo.updateContent(contentId, input);
+}
+
+export async function deleteContent(
+  contentId: string,
+): Promise<boolean> {
+  return adminRepo.deleteContent(contentId);
+}
+
+export async function bulkImportContent(
+  input: BulkImportContentInput,
+): Promise<DailyContentItem[]> {
+  const data = input.items.map((item) => ({
+    category: item.category,
+    content: item.content,
+    author: item.author,
+    source: item.source,
+  }));
+
+  return adminRepo.bulkInsertContent(data);
+}
+
+// ── Feature Flags ─────────────────────────────────────────────────────
+
+export async function listFeatureFlags(): Promise<FeatureFlag[]> {
+  return adminRepo.findFeatureFlags();
+}
+
+export async function getFeatureFlag(
+  id: string,
+): Promise<FeatureFlag | undefined> {
+  return adminRepo.findFeatureFlagById(id);
+}
+
+export async function createFeatureFlag(
+  input: CreateFeatureFlagInput,
+): Promise<FeatureFlag> {
+  return adminRepo.insertFeatureFlag({
+    key: input.key,
+    name: input.name,
+    description: input.description,
+    status: input.status,
+    percentage: input.percentage,
+  });
+}
+
+export async function updateFeatureFlag(
+  id: string,
+  input: UpdateFeatureFlagInput,
+): Promise<FeatureFlag | undefined> {
+  return adminRepo.updateFeatureFlag(id, input);
+}
+
+export async function deleteFeatureFlag(
+  id: string,
+): Promise<boolean> {
+  return adminRepo.deleteFeatureFlag(id);
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────
+
+export async function getAuditLog(
+  query: AuditLogQuery,
+): Promise<{ items: AuditLogEntry[]; total: number }> {
+  const offset = (query.page - 1) * query.limit;
+  return adminRepo.findAuditLog(
+    { action: query.action, userId: query.userId },
+    query.limit,
+    offset,
+  );
+}
+
+export async function logAuditEvent(
+  userId: string,
+  action: string,
+  resourceType: string,
+  resourceId?: string,
+  details?: Record<string, unknown>,
+  ipAddress?: string,
+): Promise<AuditLogEntry> {
+  return adminRepo.insertAuditEntry({
+    userId,
+    action,
+    entityType: resourceType,
+    entityId: resourceId,
+    metadata: details ? JSON.stringify(details) : undefined,
+    ipAddress,
+  });
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────
+
+export async function getAnalyticsOverview(): Promise<adminRepo.AnalyticsOverview> {
+  return adminRepo.getAnalyticsOverview();
+}
+
+export async function getSignupTrend(
+  days: number,
+): Promise<adminRepo.TrendPoint[]> {
+  return adminRepo.getSignupTrend(days);
+}
+
+export async function getDauTrend(
+  days: number,
+): Promise<adminRepo.TrendPoint[]> {
+  return adminRepo.getDauTrend(days);
+}
+
+export async function getPlanDistribution(): Promise<adminRepo.PlanDistribution[]> {
+  return adminRepo.getPlanDistribution();
+}
+
+export async function getTaskActivity(
+  days: number,
+): Promise<adminRepo.TaskActivityPoint[]> {
+  return adminRepo.getTaskActivity(days);
+}
+
+export async function getRevenueTrend(
+  days: number,
+): Promise<adminRepo.RevenuePoint[]> {
+  return adminRepo.getRevenueTrend(days);
+}
+
+export async function getNotificationStats(): Promise<adminRepo.NotificationChannelStats[]> {
+  return adminRepo.getNotificationStats();
+}
+
+// ── Broadcast ─────────────────────────────────────────────────────────
+
+export interface BroadcastResult {
+  readonly sent: boolean;
+  readonly targetCount: number;
+}
+
+export async function sendBroadcast(
+  input: BroadcastInput,
+): Promise<BroadcastResult> {
+  // Placeholder: real implementation would queue notifications via BullMQ
+  return { sent: true, targetCount: 0 };
+}
+
+// ── Notification Admin ───────────────────────────────────────────────
+
+export async function getNotificationQueueStatus(): Promise<adminRepo.QueueStatus> {
+  return adminRepo.getNotificationQueueStatus();
+}
+
+export async function getFailedNotifications(
+  page: number,
+  limit: number,
+): Promise<{ items: import("../../db/schema/index.js").DeliveryAttempt[]; total: number }> {
+  const offset = (page - 1) * limit;
+  return adminRepo.findFailedNotifications(limit, offset);
+}
+
+export async function retryNotification(
+  attemptId: string,
+): Promise<import("../../db/schema/index.js").DeliveryAttempt | undefined> {
+  return adminRepo.resetDeliveryAttempt(attemptId);
+}
+
+export async function retryAllNotifications(): Promise<number> {
+  return adminRepo.resetAllFailedAttempts();
+}
+
+// ── Billing Admin ────────────────────────────────────────────────────
+
+export async function listSubscriptions(
+  query: SubscriptionListQuery,
+): Promise<{ items: import("../../db/schema/index.js").Subscription[]; total: number }> {
+  const offset = (query.page - 1) * query.limit;
+  return adminRepo.findAllSubscriptions(query.limit, offset, query.plan, query.status);
+}
+
+export async function getBillingStats(): Promise<adminRepo.BillingStats> {
+  return adminRepo.getBillingStats();
+}
+
+export async function listCoupons(): Promise<import("../../db/schema/index.js").Coupon[]> {
+  return adminRepo.findAllCoupons();
+}
+
+export async function createCoupon(
+  input: CreateCouponInput,
+): Promise<import("../../db/schema/index.js").Coupon> {
+  return adminRepo.insertCoupon({
+    code: input.code,
+    discountPercent: input.discountPercent,
+    maxUses: input.maxUses,
+    validUntil: input.validUntil ? new Date(input.validUntil) : undefined,
+    isActive: input.isActive,
+  });
+}
+
+export async function updateCoupon(
+  id: string,
+  input: UpdateCouponInput,
+): Promise<import("../../db/schema/index.js").Coupon | undefined> {
+  const updates: Record<string, unknown> = {};
+  if (input.discountPercent !== undefined) updates.discountPercent = input.discountPercent;
+  if (input.maxUses !== undefined) updates.maxUses = input.maxUses;
+  if (input.validUntil !== undefined) {
+    updates.validUntil = input.validUntil ? new Date(input.validUntil) : null;
+  }
+  if (input.isActive !== undefined) updates.isActive = input.isActive;
+
+  return adminRepo.updateCoupon(id, updates);
+}
+
+export async function deleteCoupon(id: string): Promise<boolean> {
+  return adminRepo.deleteCoupon(id);
+}
+
+// ── Support Admin ────────────────────────────────────────────────────
+
+export async function getAccountHealth(
+  userId: string,
+): Promise<adminRepo.AccountHealth | null> {
+  return adminRepo.getAccountHealth(userId);
+}
+
+// ── User Activity ────────────────────────────────────────────────────
+
+export async function getUserActivity(
+  userId: string,
+  page: number,
+  limit: number,
+): Promise<{ items: AuditLogEntry[]; total: number }> {
+  const offset = (page - 1) * limit;
+  return adminRepo.findUserActivity(userId, limit, offset);
+}
+
+// ── Compliance ───────────────────────────────────────────────────────
+
+export async function getComplianceSummary(): Promise<adminRepo.ComplianceSummary> {
+  return adminRepo.getComplianceSummary();
+}

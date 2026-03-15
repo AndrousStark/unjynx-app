@@ -1,0 +1,27 @@
+name: feature_billing
+description: UNJYNX billing plugin - subscription plans, billing management
+version: 0.1.0
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  dio: ^5.7.0
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.3.0
+  go_router: ^16.0.0
+
+  service_api:
+    path: ../service_api
+  unjynx_core:
+    path: ../core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^7.0.0

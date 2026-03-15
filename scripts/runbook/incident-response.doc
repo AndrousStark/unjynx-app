@@ -1,0 +1,948 @@
+################################################################################
+  UNJYNX - INCIDENT RESPONSE RUNBOOK
+  Version: 1.0.0
+  Last Updated: 2026-03-11
+  Owner: METAminds Engineering Team
+################################################################################
+
+================================================================================
+  TABLE OF CONTENTS
+================================================================================
+
+  1.  Severity Levels
+  2.  On-Call Rotation Template
+  3.  Incident Response Process
+  4.  Common Scenarios & Fixes
+  5.  Rollback Procedures
+  6.  Communication Templates
+  7.  Postmortem Template
+
+================================================================================
+  1. SEVERITY LEVELS
+================================================================================
+
+  +-------+------------------+----------------+---------------+----------------+
+  | Level | Name             | Response Time  | Update Freq   | Examples       |
+  +-------+------------------+----------------+---------------+----------------+
+  | P0    | CRITICAL         | 15 minutes     | Every 30 min  | Full outage,   |
+  |       | (Site Down)      |                |               | data loss,     |
+  |       |                  |                |               | security       |
+  |       |                  |                |               | breach         |
+  +-------+------------------+----------------+---------------+----------------+
+  | P1    | HIGH             | 30 minutes     | Every 1 hour  | Major feature  |
+  |       | (Major Feature   |                |               | broken (auth,  |
+  |       |  Broken)         |                |               | notifications, |
+  |       |                  |                |               | task CRUD),    |
+  |       |                  |                |               | >10% users     |
+  |       |                  |                |               | affected       |
+  +-------+------------------+----------------+---------------+----------------+
+  | P2    | MEDIUM           | 2 hours        | Every 4 hours | Minor feature  |
+  |       | (Minor Issue)    |                |               | broken, single |
+  |       |                  |                |               | channel down,  |
+  |       |                  |                |               | slow perf,     |
+  |       |                  |                |               | <10% users     |
+  +-------+------------------+----------------+---------------+----------------+
+  | P3    | LOW              | Next business  | On resolution | Cosmetic bugs, |
+  |       | (Cosmetic)       | day            |               | typos, minor   |
+  |       |                  |                |               | UI glitches,   |
+  |       |                  |                |               | non-blocking   |
+  +-------+------------------+----------------+---------------+----------------+
+
+  ESCALATION RULES:
+  - P0: Immediately notify all engineering + CTO. All hands on deck.
+  - P1: Notify on-call engineer + engineering lead. Pull in help if no
+    progress in 1 hour.
+  - P2: On-call engineer handles. Escalate to P1 if not resolved in 4 hours.
+  - P3: Track in issue tracker. Fix in next sprint.
+
+  AUTO-ESCALATION:
+  - If P1 not acknowledged in 30 min -> escalate to P0.
+  - If P2 not acknowledged in 2 hours -> escalate to P1.
+  - Sentry alert thresholds trigger auto-escalation (configured in Sentry).
+
+================================================================================
+  2. ON-CALL ROTATION TEMPLATE
+================================================================================
+
+  ROTATION SCHEDULE:
+  - Weekly rotation, handoff every Monday at 09:00 IST
+  - Primary on-call: first responder, expected to acknowledge within SLA
+  - Secondary on-call: backup if primary does not respond within 15 min
+  - On-call hours: 24/7 for P0/P1, business hours only for P2/P3
+
+  WEEK TEMPLATE:
+  +----------+-------------------+---------------------+
+  | Week     | Primary On-Call   | Secondary On-Call    |
+  +----------+-------------------+---------------------+
+  | Week 1   | Engineer A        | Engineer B           |
+  | Week 2   | Engineer B        | Engineer C           |
+  | Week 3   | Engineer C        | Engineer A           |
+  | Week 4   | Engineer A        | Engineer B           |
+  +----------+-------------------+---------------------+
+
+  ON-CALL RESPONSIBILITIES:
+  - Monitor Sentry and Grafana dashboards
+  - Acknowledge alerts within SLA
+  - Triage and begin investigation
+  - Communicate status updates per severity schedule
+  - Hand off context cleanly if shift ends during an incident
+  - Write postmortem if incident was P0 or P1
+
+  ON-CALL TOOLKIT:
+  - Sentry dashboard: https://sentry.unjynx.app
+  - Grafana dashboard: https://grafana.unjynx.app
+  - Docker access: SSH to production host or Docker Desktop (dev)
+  - Database access: pgAdmin or psql via SSH tunnel
+  - BullMQ dashboard: Bull Board at /admin/queues (auth required)
+  - Logto admin: https://logto.unjynx.app/console
+  - Log aggregation: Loki via Grafana
+
+================================================================================
+  3. INCIDENT RESPONSE PROCESS
+================================================================================
+
+  PHASE 1: DETECT (0-5 minutes)
+  ------------------------------
+  Incident detected via:
+  - Sentry alert (error spike, new issue)
+  - Grafana alert (CPU, memory, disk, response time threshold)
+  - User report (support email, in-app feedback, social media)
+  - Automated health check failure (uptime monitor)
+  - BullMQ stalled job alert
+
+  Actions:
+  1. Acknowledge the alert in the monitoring system
+  2. Open an incident channel (Slack #incident-YYYY-MM-DD-N or Discord)
+  3. Assign initial severity level based on the matrix above
+  4. Timestamp everything from this point forward
+
+  PHASE 2: TRIAGE (5-15 minutes)
+  --------------------------------
+  Goal: Understand what is broken and how many users are affected.
+
+  Actions:
+  1. Check Sentry for error details:
+     - Error message, stack trace, affected endpoint
+     - Number of events, number of affected users
+     - First seen vs. last seen (is it new or recurring?)
+  2. Check Grafana for system health:
+     - API response times (p50, p95, p99)
+     - Error rate percentage
+     - CPU, memory, disk usage
+     - Database connection pool utilization
+     - BullMQ queue depth and failure rate
+  3. Check recent deployments:
+     - When was the last deploy? (git log, CI/CD history)
+     - What changed? (git diff between current and previous release)
+     - Correlation: did the issue start after the deploy?
+  4. Check external dependencies:
+     - Gupshup (WhatsApp) status page
+     - MSG91 (SMS) status page
+     - SendGrid (email) status page
+     - Telegram Bot API status
+  5. Determine blast radius:
+     - All users or subset?
+     - All platforms or specific (Android/iOS)?
+     - All regions or specific?
+  6. Update severity level if initial assessment was wrong
+
+  PHASE 3: COMMUNICATE (ongoing throughout incident)
+  ---------------------------------------------------
+  Actions:
+  1. Post initial status update (use templates in Section 6)
+  2. Update status page if user-facing impact exists
+  3. Notify stakeholders per severity level:
+     - P0: All engineering, CTO, status page, social media
+     - P1: Engineering lead, status page
+     - P2: Incident channel only
+     - P3: Issue tracker only
+  4. Continue updates at the frequency defined by severity level
+  5. Always include: what is known, what is being done, ETA if available
+
+  PHASE 4: FIX (variable duration)
+  ----------------------------------
+  Strategy priority:
+  1. MITIGATE first (reduce impact even if root cause unknown)
+     - Restart failed containers
+     - Scale up resources
+     - Enable maintenance mode for affected feature
+     - Redirect traffic away from failing service
+  2. INVESTIGATE root cause
+     - Follow the relevant scenario guide in Section 4
+     - Check logs (Loki via Grafana, docker logs)
+     - Reproduce in staging if possible
+     - Bisect recent changes if deploy-related
+  3. FIX the root cause
+     - Apply the fix
+     - Deploy to staging first if time allows
+     - Deploy to production
+     - Verify the fix resolves the issue
+  4. MONITOR for recurrence
+     - Watch error rates for 30 minutes after fix
+     - Verify affected metrics return to baseline
+
+  PHASE 5: POSTMORTEM (within 48 hours of resolution)
+  -----------------------------------------------------
+  Required for all P0 and P1 incidents. Optional for P2.
+  See Section 7 for the postmortem template.
+
+  Actions:
+  1. Schedule postmortem meeting (within 48 hours)
+  2. Primary on-call writes the initial draft
+  3. All involved engineers review and contribute
+  4. Identify action items with owners and deadlines
+  5. Share with full engineering team
+  6. Track action items to completion
+
+================================================================================
+  4. COMMON SCENARIOS & FIXES
+================================================================================
+
+  --------------------------------------------------------------------------
+  SCENARIO 4.1: BACKEND UNRESPONSIVE (API returns 5xx or times out)
+  --------------------------------------------------------------------------
+
+  SYMPTOMS:
+  - Mobile app shows "Connection error" or loading spinner indefinitely
+  - Grafana: API response time spikes, error rate > 5%
+  - Sentry: ECONNREFUSED, ETIMEDOUT, or 502/503 errors
+
+  DIAGNOSTIC STEPS:
+
+  1. Check if containers are running:
+     $ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+     Expected: All 10 containers UP (api, postgres, valkey, logto, logto-db,
+     minio, prometheus, grafana, loki, mailpit)
+
+  2. If api container is down, check logs:
+     $ docker logs unjynx-api --tail 100
+
+  3. If api is running but unresponsive, check resource usage:
+     $ docker stats --no-stream
+
+  4. Check PostgreSQL connectivity:
+     $ docker exec unjynx-postgres pg_isready -U unjynx
+     Expected: "accepting connections"
+
+  5. Check Valkey (Redis) connectivity:
+     $ docker exec unjynx-valkey valkey-cli ping
+     Expected: "PONG"
+
+  6. Check if the issue is network-level:
+     $ curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health
+     Expected: 200
+
+  FIXES:
+
+  A. Container crashed -> Restart it:
+     $ docker restart unjynx-api
+
+  B. All containers down -> Restart the stack:
+     $ docker compose up -d
+
+  C. PostgreSQL out of connections:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "SELECT count(*) FROM pg_stat_activity;"
+     If near max_connections (100 default):
+     $ docker restart unjynx-postgres
+     Then restart api:
+     $ docker restart unjynx-api
+
+  D. Valkey out of memory:
+     $ docker exec unjynx-valkey valkey-cli info memory
+     If used_memory is near maxmemory:
+     $ docker exec unjynx-valkey valkey-cli FLUSHDB
+     (WARNING: clears all cached data and BullMQ jobs. Use only if critical.)
+
+  E. Disk full:
+     $ df -h
+     If disk > 90%:
+     - Prune Docker: docker system prune -f
+     - Rotate logs: truncate -s 0 /var/log/docker/*.log
+     - Remove old images: docker image prune -a -f
+
+  --------------------------------------------------------------------------
+  SCENARIO 4.2: HIGH ERROR RATE (>5% of requests failing)
+  --------------------------------------------------------------------------
+
+  SYMPTOMS:
+  - Sentry: spike in new or existing error events
+  - Grafana: error_rate gauge exceeds 5% threshold
+  - Users reporting intermittent failures
+
+  DIAGNOSTIC STEPS:
+
+  1. Check Sentry for the dominant error:
+     - Go to Sentry dashboard -> Issues -> Sort by Events (descending)
+     - Identify: which endpoint, which error, which release
+
+  2. Check if error correlates with a recent deploy:
+     $ git log --oneline -10
+     Compare timestamps with Sentry "First Seen"
+
+  3. Tail live logs:
+     $ docker logs unjynx-api --follow --tail 50
+
+  4. Check if it is a specific endpoint:
+     - Grafana: request rate by route panel
+     - Identify if one route is generating all errors
+
+  FIXES:
+
+  A. Bad deploy -> Roll back (see Section 5)
+
+  B. Specific endpoint failing -> Check that endpoint's:
+     - Database query (slow query? missing index? schema mismatch?)
+     - External API call (provider down? rate limited?)
+     - Input validation (new edge case in user input?)
+
+  C. Transient error (network blip, temporary overload):
+     - Monitor for 10 minutes
+     - If self-resolving, document and close
+     - If recurring, investigate connection pooling / retry logic
+
+  --------------------------------------------------------------------------
+  SCENARIO 4.3: AUTH FAILURES (users cannot log in)
+  --------------------------------------------------------------------------
+
+  SYMPTOMS:
+  - Mobile app shows "Authentication failed" or "Session expired"
+  - Sentry: 401/403 errors on /api/v1/auth/* endpoints
+  - Logto admin console inaccessible
+
+  DIAGNOSTIC STEPS:
+
+  1. Check Logto container health:
+     $ docker logs unjynx-logto --tail 50
+     $ curl -s http://localhost:3301/oidc/.well-known/openid-configuration
+
+  2. Check Logto database:
+     $ docker exec unjynx-logto-db pg_isready -U logto
+     $ docker logs unjynx-logto-db --tail 20
+
+  3. Check JWT validation:
+     - Verify LOGTO_ENDPOINT in api .env matches running Logto URL
+     - Verify LOGTO_RESOURCE matches the API resource in Logto console
+     - Check if JWT signing keys have rotated unexpectedly
+
+  4. Check token expiry configuration:
+     - Access token TTL: 15 minutes (default)
+     - Refresh token TTL: 7 days (default)
+     - If clock skew between servers > 30s, tokens may be rejected
+
+  FIXES:
+
+  A. Logto container down -> Restart:
+     $ docker restart unjynx-logto
+
+  B. Logto DB corrupted -> Restore from backup:
+     $ docker restart unjynx-logto-db
+     If that fails, re-seed:
+     $ docker exec unjynx-logto-db psql -U logto -f /docker-entrypoint-initdb.d/init.sql
+
+  C. JWT key rotation issue:
+     - Check Logto admin console -> Signing Keys
+     - If keys rotated, api server needs restart to fetch new JWKS:
+       $ docker restart unjynx-api
+
+  D. Clock skew:
+     $ date && docker exec unjynx-api date
+     If > 30s difference, sync NTP:
+     $ sudo ntpdate -u pool.ntp.org
+
+  E. M2M token expired (backend-to-Logto communication):
+     - Check LOGTO_M2M_APP_ID and LOGTO_M2M_APP_SECRET in .env
+     - Verify M2M application exists in Logto console
+     - Restart api to force new M2M token fetch
+
+  --------------------------------------------------------------------------
+  SCENARIO 4.4: NOTIFICATION DELIVERY FAILURES
+  --------------------------------------------------------------------------
+
+  SYMPTOMS:
+  - Users report not receiving reminders on WhatsApp/Telegram/SMS/Email
+  - BullMQ dashboard shows failed jobs or growing queue depth
+  - Delivery attempt logs show repeated failures
+
+  DIAGNOSTIC STEPS:
+
+  1. Check BullMQ queue health:
+     - Open Bull Board: http://localhost:3000/admin/queues
+     - Check each queue: waiting, active, completed, failed counts
+     - Check failed jobs for error messages
+
+  2. Check specific channel adapter:
+
+     WhatsApp (Gupshup):
+     - Verify GUPSHUP_API_KEY in .env
+     - Check Gupshup dashboard for delivery status
+     - Verify template approval status (Meta requires pre-approved templates)
+     - Check if user's WhatsApp number is valid and opted in
+
+     Telegram (Bot API):
+     - Verify TELEGRAM_BOT_TOKEN in .env
+     - Test: curl https://api.telegram.org/bot<TOKEN>/getMe
+     - Check if user has started a conversation with the bot
+     - Verify webhook URL is correctly set
+
+     SMS (MSG91):
+     - Verify MSG91_AUTH_KEY in .env
+     - Check MSG91 dashboard for delivery reports
+     - Verify DLT registration (required in India)
+     - Check if sender ID is approved
+
+     Email (SendGrid):
+     - Verify SENDGRID_API_KEY in .env
+     - Check SendGrid dashboard for bounces/blocks
+     - Verify sender domain authentication (SPF, DKIM, DMARC)
+     - Check if email is landing in spam
+
+     Discord (Bot API):
+     - Verify DISCORD_BOT_TOKEN in .env
+     - Check if bot is in the user's server
+     - Verify bot has Send Messages permission
+
+     Slack (Web API):
+     - Verify SLACK_BOT_TOKEN in .env
+     - Check if bot is in the user's workspace
+     - Verify OAuth scopes include chat:write
+
+  3. Check Valkey (queue backend):
+     $ docker exec unjynx-valkey valkey-cli info clients
+     $ docker exec unjynx-valkey valkey-cli DBSIZE
+
+  4. Check scheduler:
+     - Is the cron scheduler running?
+     $ docker logs unjynx-api --tail 50 | grep -i "cron\|scheduler"
+     - Are jobs being enqueued?
+     $ docker exec unjynx-valkey valkey-cli LLEN bull:whatsapp:wait
+
+  FIXES:
+
+  A. Stalled BullMQ jobs -> Retry failed jobs:
+     - Via Bull Board UI: select failed jobs -> Retry
+     - Or programmatically via API endpoint
+
+  B. Channel provider outage -> Check status pages:
+     - Gupshup: https://status.gupshup.io
+     - MSG91: https://status.msg91.com
+     - SendGrid: https://status.sendgrid.com
+     - Switch to backup channel if available (escalation chain)
+
+  C. Rate limiting by provider:
+     - Check current rate limits in provider dashboard
+     - Reduce send rate in BullMQ worker configuration
+     - Implement backoff: exponential retry with jitter
+
+  D. Valkey down -> Restart:
+     $ docker restart unjynx-valkey
+     Note: In-memory jobs will be lost. Scheduler will re-enqueue
+     upcoming reminders on next cron cycle.
+
+  E. Template not approved (WhatsApp):
+     - Submit template via Gupshup dashboard
+     - Wait for Meta approval (usually 24-48 hours)
+     - Fall back to session messages if user initiated conversation
+
+  --------------------------------------------------------------------------
+  SCENARIO 4.5: DATABASE SLOW (queries taking >1s)
+  --------------------------------------------------------------------------
+
+  SYMPTOMS:
+  - API response times elevated (p95 > 500ms, p99 > 2s)
+  - Grafana: database query duration panel shows spikes
+  - Sentry: timeout errors on database-heavy endpoints
+
+  DIAGNOSTIC STEPS:
+
+  1. Check slow query log:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "SELECT pid, now() - pg_stat_activity.query_start AS duration, query
+        FROM pg_stat_activity
+        WHERE state = 'active' AND query_start < now() - interval '1 second'
+        ORDER BY duration DESC LIMIT 10;"
+
+  2. Check connection pool utilization:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "SELECT count(*), state FROM pg_stat_activity GROUP BY state;"
+
+  3. Check table sizes and bloat:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "SELECT relname, pg_size_pretty(pg_total_relation_size(relid))
+        FROM pg_catalog.pg_statio_user_tables
+        ORDER BY pg_total_relation_size(relid) DESC LIMIT 10;"
+
+  4. Check disk space:
+     $ docker exec unjynx-postgres df -h /var/lib/postgresql/data
+
+  5. Check for missing indexes:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "SELECT schemaname, relname, seq_scan, seq_tup_read, idx_scan
+        FROM pg_stat_user_tables
+        WHERE seq_scan > 100 AND idx_scan < 10
+        ORDER BY seq_tup_read DESC LIMIT 10;"
+
+  6. Check for lock contention:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "SELECT blocked_locks.pid AS blocked_pid,
+               blocking_locks.pid AS blocking_pid,
+               blocked_activity.query AS blocked_query
+        FROM pg_catalog.pg_locks blocked_locks
+        JOIN pg_catalog.pg_locks blocking_locks
+          ON blocking_locks.locktype = blocked_locks.locktype
+        JOIN pg_catalog.pg_stat_activity blocked_activity
+          ON blocked_activity.pid = blocked_locks.pid
+        JOIN pg_catalog.pg_stat_activity blocking_activity
+          ON blocking_activity.pid = blocking_locks.pid
+        WHERE NOT blocked_locks.granted LIMIT 5;"
+
+  FIXES:
+
+  A. Long-running query -> Kill it:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "SELECT pg_terminate_backend(<PID>);"
+
+  B. Missing index -> Add it:
+     - Identify the slow query
+     - Add appropriate index via Drizzle migration
+     - Deploy migration (see rollback procedure for safety)
+
+  C. Table bloat -> Vacuum:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "VACUUM ANALYZE <table_name>;"
+     For aggressive cleanup:
+     $ docker exec unjynx-postgres psql -U unjynx -c \
+       "VACUUM FULL <table_name>;"
+     WARNING: VACUUM FULL locks the table. Run during low-traffic window.
+
+  D. Connection pool exhausted:
+     - Increase max_connections in postgresql.conf
+     - Or reduce pool size in Drizzle connection config
+     - Restart PostgreSQL:
+       $ docker restart unjynx-postgres
+
+  E. Disk space critical:
+     - Remove old WAL files: pg_archivecleanup
+     - Truncate large log tables
+     - Increase disk allocation in Docker volume
+
+  --------------------------------------------------------------------------
+  SCENARIO 4.6: OUT OF MEMORY (OOM)
+  --------------------------------------------------------------------------
+
+  SYMPTOMS:
+  - Container killed by OOM killer (docker logs show "Killed")
+  - docker stats shows container at memory limit
+  - API becomes unresponsive, then container restarts
+
+  DIAGNOSTIC STEPS:
+
+  1. Check which container was OOM-killed:
+     $ docker inspect --format='{{.State.OOMKilled}}' unjynx-api
+     $ docker inspect --format='{{.State.OOMKilled}}' unjynx-postgres
+
+  2. Check current memory usage:
+     $ docker stats --no-stream --format \
+       "table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}"
+
+  3. Check for memory leaks in api:
+     - Sentry: look for increasing memory trend in performance dashboard
+     - Node.js heap dump (if accessible):
+       $ docker exec unjynx-api node -e "console.log(process.memoryUsage())"
+
+  4. Check BullMQ worker memory:
+     - Large number of concurrent workers can consume significant memory
+     - Check worker concurrency settings
+
+  FIXES:
+
+  A. Immediate relief -> Restart the container:
+     $ docker restart unjynx-api
+
+  B. Increase memory limit in docker-compose.yml:
+     deploy:
+       resources:
+         limits:
+           memory: 1G    # increase from 512M
+     Then: $ docker compose up -d unjynx-api
+
+  C. Node.js memory limit:
+     Add to api Dockerfile or docker-compose command:
+     command: node --max-old-space-size=768 dist/index.js
+
+  D. BullMQ worker optimization:
+     - Reduce concurrency per queue (default 5, try 2)
+     - Ensure completed/failed jobs are cleaned up (removeOnComplete/Fail)
+     - Check for job data that is too large (attachments, full task objects)
+
+  E. PostgreSQL shared_buffers too high:
+     - Default 128MB may be too high for container with 256MB limit
+     - Adjust in postgresql.conf: shared_buffers = 64MB
+     - Restart: $ docker restart unjynx-postgres
+
+  F. Memory leak investigation:
+     - Enable Node.js heap snapshots: --inspect flag
+     - Compare snapshots over time to identify growing objects
+     - Common leak sources: unclosed database connections, event listener
+       accumulation, large in-memory caches without TTL
+
+================================================================================
+  5. ROLLBACK PROCEDURES
+================================================================================
+
+  --------------------------------------------------------------------------
+  5.1: SHOREBIRD OTA PATCH REVERT (Flutter mobile app)
+  --------------------------------------------------------------------------
+
+  Shorebird allows instant rollback of Flutter patches without going through
+  the App Store / Play Store review process.
+
+  STEPS:
+  1. List current patches:
+     $ shorebird patch list --app-id com.metaminds.unjynx
+
+  2. Identify the bad patch number
+
+  3. Revert to previous patch:
+     $ shorebird patch delete --app-id com.metaminds.unjynx --patch <NUMBER>
+
+  4. If you need to revert to the base release (no patches):
+     $ shorebird patch delete --app-id com.metaminds.unjynx --all
+
+  5. Verify: open the app and confirm it is running the previous version
+
+  NOTES:
+  - Shorebird patches propagate within minutes
+  - Users must open the app to receive the rollback
+  - Only Dart code can be patched via Shorebird (not native code)
+  - If the issue is in native code, you must submit a new build to stores
+
+  --------------------------------------------------------------------------
+  5.2: DOCKER IMAGE ROLLBACK (Backend API)
+  --------------------------------------------------------------------------
+
+  STEPS:
+  1. List available images:
+     $ docker images unjynx-api --format "table {{.Tag}}\t{{.CreatedAt}}"
+
+  2. Identify the last known good tag/SHA
+
+  3. Update docker-compose.yml image tag:
+     image: unjynx-api:<GOOD_TAG>
+
+  4. Deploy the rollback:
+     $ docker compose up -d unjynx-api
+
+  5. Verify:
+     $ curl http://localhost:3000/health
+     $ docker logs unjynx-api --tail 20
+
+  FOR CI/CD DEPLOYMENTS:
+  1. Go to GitHub Actions -> select the last successful deployment workflow
+  2. Click "Re-run all jobs" to redeploy the previous version
+  3. Or manually trigger deployment with the previous commit SHA
+
+  --------------------------------------------------------------------------
+  5.3: DATABASE MIGRATION ROLLBACK
+  --------------------------------------------------------------------------
+
+  IMPORTANT: Database rollbacks are the most dangerous type. Always verify
+  the rollback migration before running it.
+
+  USING DRIZZLE:
+  Drizzle does not have built-in rollback. You must create a reverse migration.
+
+  STEPS:
+  1. Identify the problematic migration:
+     $ ls apps/backend/drizzle/
+
+  2. Create a reverse migration manually:
+     - If migration added a column: CREATE migration to DROP that column
+     - If migration added a table: CREATE migration to DROP that table
+     - If migration modified data: CREATE migration to reverse the data change
+
+  3. Test the reverse migration on a staging database FIRST:
+     $ npx tsx node_modules/drizzle-kit/bin.cjs push --force
+
+  4. Apply to production:
+     $ npx tsx node_modules/drizzle-kit/bin.cjs push --force
+
+  5. Restart the API to pick up schema changes:
+     $ docker restart unjynx-api
+
+  BACKUP BEFORE ANY MIGRATION:
+  $ docker exec unjynx-postgres pg_dump -U unjynx -Fc unjynx > \
+    backup-$(date +%Y%m%d-%H%M%S).dump
+
+  RESTORE FROM BACKUP:
+  $ docker exec -i unjynx-postgres pg_restore -U unjynx -d unjynx --clean \
+    < backup-YYYYMMDD-HHMMSS.dump
+
+  --------------------------------------------------------------------------
+  5.4: EMERGENCY MAINTENANCE MODE
+  --------------------------------------------------------------------------
+
+  If the issue cannot be quickly resolved, enable maintenance mode:
+
+  1. API maintenance mode (returns 503 with retry-after header):
+     - Set MAINTENANCE_MODE=true in environment
+     - Restart: $ docker restart unjynx-api
+     - All endpoints return: { "error": "Service under maintenance",
+       "retryAfter": 300 }
+
+  2. Mobile app maintenance banner:
+     - Update remote config to show maintenance banner
+     - Banner text: "We are performing scheduled maintenance. Be back soon."
+     - App remains functional offline (offline-first architecture)
+
+  3. Status page update (see Communication Templates)
+
+================================================================================
+  6. COMMUNICATION TEMPLATES
+================================================================================
+
+  --------------------------------------------------------------------------
+  6.1: STATUS PAGE UPDATE - INVESTIGATING
+  --------------------------------------------------------------------------
+
+  TITLE: [Component] - Investigating Issues
+
+  BODY:
+  We are investigating reports of [brief description of the issue].
+  Some users may experience [specific symptoms].
+
+  We are actively working on this and will provide updates as we learn more.
+
+  Affected services: [list affected services]
+  Started at: [timestamp in IST]
+
+  --------------------------------------------------------------------------
+  6.2: STATUS PAGE UPDATE - IDENTIFIED
+  --------------------------------------------------------------------------
+
+  TITLE: [Component] - Issue Identified
+
+  BODY:
+  We have identified the cause of [brief description].
+  [One sentence explaining root cause at a high level].
+
+  Our engineering team is implementing a fix. We expect to resolve this
+  within [estimated time].
+
+  Affected services: [list]
+  Impact: [percentage of users affected, or "all users"]
+  Started at: [timestamp]
+
+  --------------------------------------------------------------------------
+  6.3: STATUS PAGE UPDATE - MONITORING
+  --------------------------------------------------------------------------
+
+  TITLE: [Component] - Fix Deployed, Monitoring
+
+  BODY:
+  A fix has been deployed for [brief description].
+  We are monitoring the situation to ensure stability.
+
+  If you continue to experience issues, please try:
+  1. Force-close and reopen the UNJYNX app
+  2. Check your internet connection
+  3. Contact support@unjynx.app if the issue persists
+
+  Resolution time: [duration]
+
+  --------------------------------------------------------------------------
+  6.4: STATUS PAGE UPDATE - RESOLVED
+  --------------------------------------------------------------------------
+
+  TITLE: [Component] - Resolved
+
+  BODY:
+  The issue with [brief description] has been resolved.
+  All services are operating normally.
+
+  Root cause: [brief, non-technical explanation]
+  Duration: [start time] to [end time] ([total duration])
+  Impact: [who was affected and how]
+
+  We apologize for any inconvenience. We are taking steps to prevent
+  similar issues in the future.
+
+  --------------------------------------------------------------------------
+  6.5: USER NOTIFICATION (Push / Email)
+  --------------------------------------------------------------------------
+
+  SUBJECT: UNJYNX Service Update
+
+  BODY:
+  Hi [Name],
+
+  You may have noticed some issues with [affected feature] earlier today.
+  We have identified and resolved the problem. Everything is back to normal.
+
+  If you have any pending reminders that were delayed, they will be delivered
+  shortly. No action is needed on your part.
+
+  We take reliability seriously and are implementing additional safeguards
+  to prevent this from happening again.
+
+  Thank you for your patience.
+
+  -- The UNJYNX Team
+
+  --------------------------------------------------------------------------
+  6.6: INTERNAL INCIDENT DECLARATION
+  --------------------------------------------------------------------------
+
+  CHANNEL: #incidents
+
+  @here INCIDENT DECLARED
+  Severity: P[0/1/2]
+  Summary: [one line description]
+  Impact: [who is affected, what is broken]
+  Started: [timestamp]
+  On-call: [name]
+  Status: Investigating
+  Tracking: [link to incident doc/issue]
+
+================================================================================
+  7. POSTMORTEM TEMPLATE
+================================================================================
+
+  ============================================================================
+  INCIDENT POSTMORTEM
+  ============================================================================
+
+  INCIDENT ID:      INC-YYYY-NNN
+  DATE:             YYYY-MM-DD
+  SEVERITY:         P[0/1/2]
+  DURATION:         [X hours Y minutes]
+  AUTHORS:          [names of engineers who investigated]
+  STATUS:           [Draft / Reviewed / Final]
+
+  ============================================================================
+  SUMMARY
+  ============================================================================
+
+  [2-3 sentences describing what happened, the impact, and the resolution.
+  Written so that anyone in the company can understand it.]
+
+  ============================================================================
+  TIMELINE (all times in IST)
+  ============================================================================
+
+  HH:MM  [Event description]
+  HH:MM  [Event description]
+  HH:MM  Alert fired: [alert name]
+  HH:MM  On-call [name] acknowledged
+  HH:MM  Severity escalated from P2 to P1
+  HH:MM  Root cause identified: [brief]
+  HH:MM  Fix deployed
+  HH:MM  Verified fix, monitoring
+  HH:MM  Incident resolved
+
+  ============================================================================
+  ROOT CAUSE
+  ============================================================================
+
+  [Detailed technical explanation of what caused the incident. Be specific.
+  Include relevant code paths, configuration values, and infrastructure
+  details. This section is for engineers.]
+
+  ============================================================================
+  IMPACT
+  ============================================================================
+
+  Users affected:     [number or percentage]
+  Requests failed:    [number]
+  Duration:           [X hours Y minutes]
+  Revenue impact:     [if applicable]
+  Data loss:          [yes/no, details if yes]
+  SLA breach:         [yes/no]
+
+  Features affected:
+  - [Feature 1]: [how it was affected]
+  - [Feature 2]: [how it was affected]
+
+  ============================================================================
+  DETECTION
+  ============================================================================
+
+  How was the incident detected?
+  - [ ] Automated alert (Sentry / Grafana)
+  - [ ] User report
+  - [ ] Internal testing
+  - [ ] Scheduled check
+
+  Time to detect (TTD): [X minutes from start to first alert]
+  Time to acknowledge (TTA): [X minutes from alert to acknowledgment]
+  Time to mitigate (TTM): [X minutes from acknowledgment to impact reduction]
+  Time to resolve (TTR): [X minutes from acknowledgment to full resolution]
+
+  ============================================================================
+  WHAT WENT WELL
+  ============================================================================
+
+  - [thing that went well]
+  - [thing that went well]
+  - [thing that went well]
+
+  ============================================================================
+  WHAT WENT WRONG
+  ============================================================================
+
+  - [thing that went wrong]
+  - [thing that went wrong]
+  - [thing that went wrong]
+
+  ============================================================================
+  WHERE WE GOT LUCKY
+  ============================================================================
+
+  - [thing that could have been worse but was not]
+
+  ============================================================================
+  ACTION ITEMS
+  ============================================================================
+
+  +----+------+-------------------------------------------+-------+----------+
+  | #  | Type | Action Item                               | Owner | Due Date |
+  +----+------+-------------------------------------------+-------+----------+
+  | 1  | Fix  | [description of fix/improvement]          | [who] | [when]   |
+  | 2  | Prev | [preventive measure]                      | [who] | [when]   |
+  | 3  | Det  | [improve detection/alerting]               | [who] | [when]   |
+  | 4  | Proc | [process improvement]                     | [who] | [when]   |
+  +----+------+-------------------------------------------+-------+----------+
+
+  Types: Fix = direct fix, Prev = prevent recurrence, Det = improve detection,
+         Proc = process change
+
+  ============================================================================
+  LESSONS LEARNED
+  ============================================================================
+
+  [1-3 key takeaways that the team should internalize. These should be
+  actionable insights, not blame assignments. Focus on systemic improvements.]
+
+  ============================================================================
+  APPENDIX
+  ============================================================================
+
+  Relevant logs:
+  [paste key log lines]
+
+  Relevant metrics:
+  [link to Grafana dashboard snapshot]
+
+  Related incidents:
+  [links to similar past incidents, if any]
+
+  ============================================================================
+  BLAMELESS POSTMORTEM PRINCIPLES
+  ============================================================================
+
+  This postmortem follows blameless principles:
+  - We focus on systemic causes, not individual mistakes
+  - We assume everyone acted with the best information available at the time
+  - We look for process and tooling improvements, not personnel changes
+  - The goal is to learn and prevent recurrence, not to assign blame

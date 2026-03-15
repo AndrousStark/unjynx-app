@@ -1,0 +1,77 @@
+---
+const testimonials = [
+  {
+    quote: 'Finally, a TODO app that actually reminds me where I\'ll see it -- on WhatsApp. I stopped missing deadlines the day I installed UNJYNX.',
+    name: 'Arjun Mehta',
+    role: 'Product Manager at a Series B startup',
+    initials: 'AM',
+    gradient: 'from-violet to-deep-violet',
+  },
+  {
+    quote: 'The Ghost Mode is insane. My productivity doubled in a week. No other app lets me block distractions while automatically telling my team I\'m in deep focus.',
+    name: 'Priya Sharma',
+    role: 'Senior Software Engineer',
+    initials: 'PS',
+    gradient: 'from-gold/80 to-rich-gold',
+  },
+  {
+    quote: 'Daily wisdom quotes are my favorite morning ritual now. The Mahabharata quotes combined with productivity insights is genuinely unique.',
+    name: 'David Chen',
+    role: 'Freelance Designer & Illustrator',
+    initials: 'DC',
+    gradient: 'from-emerald-500 to-teal-600',
+  },
+];
+---
+
+<section class="relative py-24 sm:py-32">
+  <!-- Background -->
+  <div class="absolute inset-0 bg-gradient-to-b from-midnight via-midnight to-midnight-light/30"></div>
+
+  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Section header -->
+    <div class="text-center mb-16 sm:mb-20 reveal">
+      <p class="font-body text-sm font-semibold text-gold uppercase tracking-widest mb-4">
+        Testimonials
+      </p>
+      <h2 class="font-heading font-bold text-3xl sm:text-4xl md:text-5xl text-purple-mist mb-6">
+        Loved by people who<br />
+        <span class="text-violet">actually get things done</span>
+      </h2>
+    </div>
+
+    <!-- Testimonial cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto reveal-children">
+      {testimonials.map((testimonial) => (
+        <div class="relative p-8 rounded-2xl border border-violet/10 bg-midnight-light/20 backdrop-blur-sm hover:border-violet/20 transition-all duration-500 group">
+          <!-- Quote mark -->
+          <svg class="w-10 h-10 text-violet/20 mb-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10H14.017zM0 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151C7.546 6.068 5.983 8.789 5.983 11H10v10H0z" />
+          </svg>
+
+          <!-- Quote text -->
+          <p class="font-body text-base leading-relaxed text-purple-mist/70 mb-8 group-hover:text-purple-mist/90 transition-colors duration-300">
+            "{testimonial.quote}"
+          </p>
+
+          <!-- Author -->
+          <div class="flex items-center gap-4">
+            <div class={`w-12 h-12 rounded-full bg-gradient-to-br ${testimonial.gradient} flex items-center justify-center`}>
+              <span class="font-heading font-bold text-sm text-white">
+                {testimonial.initials}
+              </span>
+            </div>
+            <div>
+              <p class="font-heading font-semibold text-sm text-purple-mist">
+                {testimonial.name}
+              </p>
+              <p class="font-body text-xs text-purple-mist/40">
+                {testimonial.role}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

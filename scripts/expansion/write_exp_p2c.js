@@ -1,0 +1,1797 @@
+const fs = require('fs');
+const path = require('path');
+
+const outputPath = path.join(__dirname, 'EXPANSION-P2C.doc');
+
+const content = `################################################################################
+################################################################################
+##                                                                            ##
+##   UNJYNX EXPANSION SPEC — BATCH P2C                                       ##
+##   ======================================                                   ##
+##                                                                            ##
+##   Screens: E1, E3, E4, I1 + Design System Implementation                  ##
+##   Phase: 2 (Core App Experience)                                           ##
+##   Date: March 9, 2026                                                      ##
+##   Source: app-structure/README.md (lines 619-679, 849-893, 2157-2427,      ##
+##           2692-2764) + COMPREHENSIVE-PHASE-PLAN.doc                        ##
+##                                                                            ##
+##   Coverage:                                                                ##
+##   - E1: Project List Screen (Tab 2)                                        ##
+##   - E3: Create / Edit Project Sheet                                        ##
+##   - E4: Workspace Screen (Team plan)                                       ##
+##   - I1: Progress Hub Screen                                                ##
+##   - DS: Design System Implementation Plan                                  ##
+##                                                                            ##
+################################################################################
+################################################################################
+
+
+================================================================================
+================================================================================
+  SECTION 1: SCREEN SPECIFICATIONS
+================================================================================
+================================================================================
+
+
+SCREEN E1: PROJECT LIST SCREEN (Tier: Free + Pro + Team)
+Phase: 2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  The central hub for all user projects, displayed as Tab 2 in the bottom
+  navigation. Organizes projects into collapsible sections (Favorites, Active,
+  Shared, Archived) with search, quick actions, and visual progress indicators.
+  Free users are limited to 10 projects; Pro and Team users get unlimited.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+    Package: feature_projects
+    Route: /projects (Tab 2 in BottomNavigationBar)
+
+    Key Widgets:
+      - ProjectListScreen (main scaffold with CustomScrollView)
+      - ProjectSearchBar (SliverAppBar with search toggle)
+      - CollapsibleProjectSection (SliverList with AnimatedCrossFade header)
+      - ProjectCard (Card with color dot, icon, progress bar, member avatars)
+      - ProjectQuickActionsSheet (ModalBottomSheet on long press)
+      - EmptyProjectsPlaceholder (illustration + "Create your first project")
+      - ProjectLimitBanner (Free tier: "N/10 projects used" with upgrade CTA)
+
+    State Management (Riverpod):
+      - projectListProvider: AsyncNotifierProvider<ProjectListNotifier, List<Project>>
+        Fetches from Drift, groups into sections, handles search filter
+      - projectSearchQueryProvider: StateProvider<String>
+        Debounced search query (300ms)
+      - projectSectionsProvider: Provider<Map<ProjectSection, List<Project>>>
+        Derived from projectListProvider, groups by: Favorites (is_favorite),
+        Active (!is_archived && !is_favorite), Shared (team_id != null),
+        Archived (is_archived)
+      - collapsedSectionsProvider: StateProvider<Set<ProjectSection>>
+        Tracks which sections are collapsed (Archived collapsed by default)
+      - projectCountProvider: Provider<int>
+        Total project count for free-tier limit check
+      - canCreateProjectProvider: Provider<bool>
+        Checks plan tier vs project count (Free: max 10)
+
+    Packages (pub.dev):
+      - flutter_slidable 3.x (swipe actions: archive, delete, share)
+      - shimmer 3.x (skeleton loading with purple gradient)
+      - flutter_animate 4.x (section expand/collapse, card entrance)
+
+    Drift Tables (local storage):
+      - projects (id TEXT PK, name TEXT, description TEXT, color TEXT,
+        icon TEXT, user_id TEXT FK, team_id TEXT FK nullable, default_view TEXT,
+        due_at INTEGER nullable, is_archived INTEGER DEFAULT 0,
+        is_favorite INTEGER DEFAULT 0, sort_order INTEGER,
+        created_at INTEGER, updated_at INTEGER, is_deleted INTEGER DEFAULT 0,
+        sync_status TEXT)
+      - project_members_cache (project_id TEXT FK, user_id TEXT FK,
+        display_name TEXT, avatar_url TEXT, role TEXT)
+
+    Files:
+      - lib/presentation/screens/project_list_screen.dart
+      - lib/presentation/widgets/project_card.dart
+      - lib/presentation/widgets/collapsible_project_section.dart
+      - lib/presentation/widgets/project_search_bar.dart
+      - lib/presentation/widgets/project_quick_actions_sheet.dart
+      - lib/presentation/widgets/empty_projects_placeholder.dart
+      - lib/presentation/widgets/project_limit_banner.dart
+      - lib/application/providers/project_list_providers.dart
+
+  BACKEND (Hono/TypeScript):
+  ──────────────────────────
+    Endpoints:
+      GET    /api/v1/projects
+             Query: ?status=active|archived|all&search=&sort=updated_at|name|
+                    created_at&cursor=&limit=50
+             Response: { data: Project[], meta: { cursor, has_more, total } }
+
+      GET    /api/v1/projects/:id
+             Response: { data: Project }
+
+      PATCH  /api/v1/projects/:id/favorite
+             Body: { is_favorite: boolean }
+             Response: { data: Project }
+
+      PATCH  /api/v1/projects/:id/archive
+             Body: { is_archived: boolean }
+             Response: { data: Project }
+
+      DELETE /api/v1/projects/:id
+             Soft-delete (sets is_deleted = true)
+             Response: { data: { id, deleted: true } }
+
+    Business Logic:
+      - Free tier: CREATE returns 403 if user has >= 10 active projects
+      - Archived projects do NOT count toward free-tier limit
+      - Soft-delete cascades: tasks in project get is_deleted = true
+      - Favorite toggle is idempotent (PATCH, not POST)
+      - Search uses pg_trgm similarity on name + description
+      - Sort defaults to updated_at DESC (most recently modified first)
+      - Shared projects (team_id != null) appear in "Shared With Me" section
+        only for non-owner members; owner sees them in Active
+
+  DATA FLOW:
+  ──────────
+    1. Screen mounts -> projectListProvider reads Drift (instant local data)
+    2. Background sync pulls latest from GET /api/v1/projects (if online)
+    3. Drift updates trigger reactive rebuild via Stream<List<Project>>
+    4. User taps search -> projectSearchQueryProvider updates with 300ms debounce
+    5. projectSectionsProvider recomputes grouping (O(n) single pass)
+    6. Long press -> ProjectQuickActionsSheet shows Archive/Delete/Share/Edit
+    7. Action dispatched -> Drift updated immediately (optimistic) -> sync queued
+    8. Sync pushes change to backend -> conflict resolution (LWW by updated_at)
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+    - Section expand/collapse: AnimatedCrossFade + SizeTransition (250ms ease)
+    - Card entrance: Staggered fade-up (50ms delay per card, 200ms duration)
+    - Search bar: SliverAppBar collapses on scroll, search field slides in
+    - Swipe right on card: Green archive reveal (flutter_slidable)
+    - Swipe left on card: Red delete reveal with confirmation
+    - Long press: Scale 0.97 + haptic feedback -> bottom sheet slides up
+    - Pull to refresh: CustomScrollView with UNJYNX logo spin
+    - Project creation success: New card drops in from top with spring bounce
+    - Skeleton loading: 4 shimmer cards on first load (purple gradient, 0.8s)
+    - Progress bar fill: Animated linear progress (spring, 400ms on data change)
+    - Favorite star toggle: Scale overshoot 1.0->1.3->1.0 + color fill (200ms)
+    - Empty state: Illustration fades in + "Create" button pulses gold (2s loop)
+
+  DSA / ALGORITHMS:
+  ─────────────────
+    - Grouping: Single-pass O(n) partition into 4 buckets (favorites, active,
+      shared, archived) using conditional checks
+    - Search: Client-side fuzzy match with String.contains for instant filter;
+      backend pg_trgm GIN index for full-text (O(k) where k=query tokens)
+    - Sort: Dart List.sort with Comparable chain (O(n log n))
+    - Debounce: Timer-based 300ms debounce on search input to prevent excessive
+      rebuilds and reduce Drift query frequency
+    - Cursor pagination: Backend uses (updated_at, id) composite cursor for
+      O(log n) pagination vs O(n) OFFSET
+
+  TESTS:
+  ──────
+    Unit tests: 14
+      - projectSectionsProvider groups correctly (4 tests: each section)
+      - Search filter narrows results (2 tests: match, no match)
+      - Free-tier limit enforced at 10 (2 tests: at limit, under limit)
+      - Sort by name, updated_at, created_at (3 tests)
+      - Collapsed sections state management (2 tests)
+      - Favorite toggle updates project (1 test)
+    Widget tests: 8
+      - ProjectCard renders all elements (color dot, name, progress, avatars)
+      - CollapsibleProjectSection expands/collapses on tap
+      - Long press shows quick actions sheet
+      - Empty state shows placeholder when no projects
+      - Search bar filters project list
+      - Project limit banner visible for free tier
+      - Swipe actions trigger correct callbacks
+      - Skeleton shimmer shows during loading
+    Integration tests: 3
+      - Tap project card navigates to project detail (E2)
+      - Create project from FAB opens create sheet (E3)
+      - Archive and unarchive project flow
+
+
+SCREEN E3: CREATE / EDIT PROJECT SHEET (Tier: Free + Pro + Team)
+Phase: 2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  A modal bottom sheet for creating new projects or editing existing ones.
+  Provides name, description, color picker (18 preset + custom hex), icon picker
+  (200+ Material icons), default view, template selection, visibility, and
+  optional deadline. Team users can add members and assign roles.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+    Package: feature_projects
+    Route: Presented as showModalBottomSheet from E1 or E2 (no dedicated route)
+           Alternatively: /projects/create, /projects/:id/edit (deep link)
+
+    Key Widgets:
+      - CreateEditProjectSheet (DraggableScrollableSheet, 70-95% screen height)
+      - ProjectNameField (TextFormField with validation, auto-focus on create)
+      - ProjectDescriptionField (TextFormField, multiline, optional)
+      - ColorPickerGrid (GridView of 18 preset CircleAvatar + custom hex input)
+      - IconPickerGrid (GridView of 200+ Material icons, searchable)
+      - DefaultViewSelector (SegmentedButton: List | Kanban | Timeline)
+      - TemplatePicker (horizontal scroll of template cards)
+      - VisibilitySelector (SegmentedButton: Personal | Team | Public)
+      - ProjectDeadlinePicker (ListTile with showDatePicker on tap)
+      - TeamMemberAdder (search field + chip list, Team plan only)
+      - SaveProjectButton (gold CTA: "Create Project" or "Save Changes")
+
+    State Management (Riverpod):
+      - projectFormProvider: StateNotifierProvider<ProjectFormNotifier, ProjectFormState>
+        Manages form state: name, description, color, icon, default_view,
+        template_id, visibility, due_at, members[]
+        ProjectFormState is a freezed class with copyWith
+      - projectFormValidProvider: Provider<bool>
+        Derived: name.isNotEmpty && name.length <= 100
+      - selectedColorProvider: StateProvider<String>
+        Current hex color (default: first preset "#6B21A8")
+      - selectedIconProvider: StateProvider<String>
+        Current icon name (default: "folder")
+      - iconSearchQueryProvider: StateProvider<String>
+        Filter for icon picker grid
+      - availableTemplatesProvider: FutureProvider<List<ProjectTemplate>>
+        v1: 5 built-in (Personal, Work, Side Project, Study, Health)
+        v2: industry-specific templates
+      - teamMemberSearchProvider: FutureProvider<List<UserSummary>>
+        Searches users by email/username for team member adding
+
+    Packages (pub.dev):
+      - flex_color_picker 3.x (color wheel for custom hex input)
+      - flutter_animate 4.x (sheet entrance, color/icon selection feedback)
+
+    Drift Tables:
+      - projects (same as E1 — INSERT or UPDATE)
+      - project_templates_cache (id TEXT PK, name TEXT, description TEXT,
+        default_color TEXT, default_icon TEXT, default_view TEXT,
+        subtasks_json TEXT, category TEXT, is_system INTEGER)
+
+    Preset Colors (18):
+      #6B21A8 (Violet), #7C3AED (Purple), #4F46E5 (Indigo),
+      #2563EB (Blue), #0891B2 (Cyan), #059669 (Emerald),
+      #16A34A (Green), #65A30D (Lime), #CA8A04 (Yellow),
+      #D97706 (Amber), #EA580C (Orange), #DC2626 (Red),
+      #E11D48 (Rose), #DB2777 (Pink), #9333EA (Fuchsia),
+      #475569 (Slate), #78716C (Stone), #1A0533 (Midnight)
+
+    Icon Categories (200+ icons organized):
+      General: folder, star, bookmark, flag, label, tag
+      Work: business_center, work, laptop, phone, email, meeting_room
+      Personal: home, favorite, person, shopping_cart, restaurant, flight
+      Health: fitness_center, spa, medical_services, self_improvement
+      Education: school, menu_book, science, calculate, psychology
+      Creative: brush, palette, camera, music_note, movie, design_services
+      Finance: payments, account_balance, trending_up, savings
+      Nature: park, eco, water_drop, pets, wb_sunny
+      Tech: code, terminal, bug_report, memory, cloud, devices
+      Social: groups, diversity_3, handshake, volunteer_activism
+
+    Files:
+      - lib/presentation/sheets/create_edit_project_sheet.dart
+      - lib/presentation/widgets/color_picker_grid.dart
+      - lib/presentation/widgets/icon_picker_grid.dart
+      - lib/presentation/widgets/default_view_selector.dart
+      - lib/presentation/widgets/template_picker.dart
+      - lib/presentation/widgets/visibility_selector.dart
+      - lib/presentation/widgets/project_deadline_picker.dart
+      - lib/presentation/widgets/team_member_adder.dart
+      - lib/application/providers/project_form_providers.dart
+      - lib/application/notifiers/project_form_notifier.dart
+
+  BACKEND (Hono/TypeScript):
+  ──────────────────────────
+    Endpoints:
+      POST   /api/v1/projects
+             Body: { name, description?, color, icon, default_view,
+                     template_id?, visibility, due_at?, member_ids?[] }
+             Validation (Zod):
+               name: z.string().min(1).max(100).trim()
+               description: z.string().max(2000).optional()
+               color: z.string().regex(/^#[0-9A-Fa-f]{6}$/)
+               icon: z.string().min(1).max(50)
+               default_view: z.enum(["list", "kanban", "timeline"])
+               visibility: z.enum(["personal", "team", "public"])
+               due_at: z.string().datetime().optional()
+               member_ids: z.array(z.string().cuid2()).max(50).optional()
+             Response: { data: Project } (201 Created)
+
+      PATCH  /api/v1/projects/:id
+             Body: Partial<CreateProjectBody> (same fields, all optional)
+             Response: { data: Project } (200 OK)
+
+      GET    /api/v1/projects/templates
+             Response: { data: ProjectTemplate[] }
+
+      POST   /api/v1/projects/:id/members
+             Body: { user_id, role: "admin" | "editor" | "viewer" }
+             Team plan only — returns 403 for Free/Pro
+             Response: { data: ProjectMember } (201 Created)
+
+      DELETE /api/v1/projects/:id/members/:userId
+             Response: { data: { removed: true } }
+
+    Business Logic:
+      - Free tier: max 10 active projects (archived excluded)
+      - Pro tier: unlimited projects, no team features
+      - Team tier: unlimited projects + members + visibility controls
+      - "timeline" default_view requires Team plan (returns 403 for Free/Pro)
+      - Template application: copies template's subtasks_json into project
+        as default sections, does NOT auto-create tasks
+      - Color must be valid 6-digit hex (with #)
+      - Icon must match a known Material icon name (validated against list)
+      - Visibility "team" and "public" require Team plan
+      - Adding members: sends notification to invited user
+      - Idempotency-Key header required for POST (prevents double-create)
+
+  DATA FLOW:
+  ──────────
+    CREATE:
+    1. User taps FAB (+) on E1 -> CreateEditProjectSheet opens (create mode)
+    2. User fills form -> projectFormProvider tracks all field changes immutably
+    3. projectFormValidProvider gates the save button (name required)
+    4. User taps "Create Project" -> ProjectFormNotifier.submit()
+    5. Drift INSERT with sync_status = "pending" (optimistic, instant)
+    6. Sheet dismisses -> E1 rebuilds with new project card (spring-in animation)
+    7. Sync queue pushes POST /api/v1/projects to backend
+    8. Backend validates, creates, returns server ID -> Drift updates sync_status
+
+    EDIT:
+    1. User long-presses project on E1 -> "Edit" -> sheet opens (edit mode)
+    2. projectFormProvider pre-populated from existing project
+    3. User modifies fields -> form state updated immutably (freezed copyWith)
+    4. User taps "Save Changes" -> Drift UPDATE + sync queue PATCH
+    5. Sheet dismisses -> E1 reflects changes immediately
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+    - Sheet entrance: DraggableScrollableSheet slides up (350ms, Curves.easeOut)
+    - Color selection: Selected circle scales 1.0->1.2 + checkmark overlay (200ms)
+    - Custom hex input: ColorWheel appears with slide-down (250ms)
+    - Icon selection: Selected icon scales 1.0->1.15 + gold border highlight (200ms)
+    - Icon search: GridView animates layout change (AnimatedSwitcher, 200ms)
+    - Template card tap: Card border glows gold (150ms), details expand below
+    - Save button: Disabled state = muted gray; Enabled = gold gradient pulse
+    - Save success: Button shrinks to checkmark circle (300ms) -> sheet dismisses
+    - Form field focus: Underline color transitions to brandViolet (200ms)
+    - Keyboard aware: Sheet scrolls to keep focused field visible
+    - Member chip added: Chip scales in from 0 with overshoot (250ms)
+    - Member chip removed: Chip scales to 0 and fades (200ms)
+
+  DSA / ALGORITHMS:
+  ─────────────────
+    - Icon search: Linear scan with String.contains on icon names O(n),
+      n=200 icons, sub-millisecond on mobile
+    - Color validation: Regex match O(1) for hex format
+    - Form validation: O(1) field checks, derived provider recomputes on change
+    - Template application: JSON parse + shallow copy O(s) where s=sections count
+    - Member deduplication: Set<String> lookup O(1) to prevent duplicate adds
+
+  TESTS:
+  ──────
+    Unit tests: 12
+      - ProjectFormNotifier create mode initializes defaults (1 test)
+      - ProjectFormNotifier edit mode pre-populates (1 test)
+      - Form validation: empty name invalid (1 test)
+      - Form validation: name > 100 chars invalid (1 test)
+      - Color must be valid hex (2 tests: valid, invalid)
+      - Icon selection updates state (1 test)
+      - Template application copies sections (1 test)
+      - Free tier limit blocks creation at 10 (1 test)
+      - Visibility "team" requires Team plan (1 test)
+      - Member add/remove updates list immutably (2 tests)
+    Widget tests: 8
+      - ColorPickerGrid renders 18 preset colors
+      - ColorPickerGrid custom hex input accepts valid color
+      - IconPickerGrid renders icons and filters on search
+      - IconPickerGrid selection highlights with gold border
+      - DefaultViewSelector shows 3 options
+      - SaveProjectButton disabled when name empty
+      - Sheet in edit mode shows "Save Changes" not "Create Project"
+      - TeamMemberAdder hidden for Free/Pro plans
+    Integration tests: 2
+      - Full create flow: fill form -> save -> appears in E1 project list
+      - Full edit flow: open existing -> modify name -> save -> updated in E1
+
+
+SCREEN E4: WORKSPACE SCREEN (Tier: Team Only)
+Phase: 2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Organization-level container for Team plan subscribers. Displays all team
+  projects in a grid, team members with online status, recent activity feed,
+  and quick statistics. Serves as the team's command center — a workspace
+  groups multiple projects under one organization with shared members and roles.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+    Package: feature_projects (sub-directory: workspace/)
+    Route: /workspace/:workspaceId
+
+    Key Widgets:
+      - WorkspaceScreen (Scaffold with NestedScrollView)
+      - WorkspaceHeader (SliverAppBar: workspace name, logo, settings gear)
+      - TeamMembersRow (horizontal scrollable avatar list with online dots)
+      - ProjectsGrid (SliverGrid of ProjectCard with progress indicators)
+      - ActivityFeed (SliverList of ActivityItem: who did what, when)
+      - WorkspaceQuickStats (Row of stat cards: total tasks, completion %, members)
+      - InviteMemberSheet (ModalBottomSheet with email/username search)
+      - RoleManagerSheet (ModalBottomSheet: Owner, Admin, Editor, Viewer roles)
+      - WorkspaceSettingsSheet (name, logo upload, danger zone: delete)
+      - WorkspaceUpgradeGate (shown to Free/Pro users with upgrade CTA)
+
+    State Management (Riverpod):
+      - workspaceProvider: AsyncNotifierFamilyProvider<WorkspaceNotifier, Workspace, String>
+        Fetches workspace by ID, includes projects + members
+      - workspaceMembersProvider: StreamProvider<List<TeamMember>>
+        Real-time member list with online status (WebSocket)
+      - workspaceProjectsProvider: FutureProvider.family<List<Project>, String>
+        Projects in this workspace, sorted by last activity
+      - workspaceActivityProvider: FutureProvider.family<List<ActivityItem>, String>
+        Recent activity feed (last 50 items, cursor-paginated)
+      - workspaceStatsProvider: Provider.family<WorkspaceStats, String>
+        Derived from projects: total tasks, completed, completion rate, active members
+      - workspaceRoleProvider: Provider.family<TeamRole, String>
+        Current user's role in this workspace (gates UI actions)
+      - onlineMembersProvider: StreamProvider<Set<String>>
+        WebSocket-driven set of online user IDs
+
+    Packages (pub.dev):
+      - cached_network_image 3.x (member avatars, workspace logo)
+      - flutter_animate 4.x (activity feed entrance, stat counter animation)
+      - image_picker 1.x (workspace logo upload)
+      - shimmer 3.x (skeleton loading)
+
+    Drift Tables:
+      - workspaces_cache (id TEXT PK, name TEXT, owner_id TEXT,
+        logo_url TEXT, plan TEXT, created_at INTEGER, updated_at INTEGER)
+      - workspace_members_cache (workspace_id TEXT FK, user_id TEXT FK,
+        display_name TEXT, avatar_url TEXT, role TEXT, joined_at INTEGER,
+        is_online INTEGER DEFAULT 0)
+      - workspace_activity_cache (id TEXT PK, workspace_id TEXT FK,
+        user_id TEXT FK, user_name TEXT, action TEXT, resource_type TEXT,
+        resource_name TEXT, created_at INTEGER)
+
+    Files:
+      - lib/presentation/screens/workspace_screen.dart
+      - lib/presentation/widgets/workspace_header.dart
+      - lib/presentation/widgets/team_members_row.dart
+      - lib/presentation/widgets/projects_grid.dart
+      - lib/presentation/widgets/activity_feed.dart
+      - lib/presentation/widgets/workspace_quick_stats.dart
+      - lib/presentation/sheets/invite_member_sheet.dart
+      - lib/presentation/sheets/role_manager_sheet.dart
+      - lib/presentation/sheets/workspace_settings_sheet.dart
+      - lib/presentation/widgets/workspace_upgrade_gate.dart
+      - lib/application/providers/workspace_providers.dart
+
+  BACKEND (Hono/TypeScript):
+  ──────────────────────────
+    Endpoints:
+      POST   /api/v1/workspaces
+             Body: { name, logo_url? }
+             Requires Team plan. Creates workspace + adds creator as Owner.
+             Response: { data: Workspace } (201)
+
+      GET    /api/v1/workspaces
+             Lists all workspaces current user belongs to.
+             Response: { data: Workspace[] }
+
+      GET    /api/v1/workspaces/:id
+             Full workspace detail with member count + project count.
+             Response: { data: Workspace }
+
+      PATCH  /api/v1/workspaces/:id
+             Body: { name?, logo_url? }
+             Requires Owner or Admin role.
+             Response: { data: Workspace }
+
+      DELETE /api/v1/workspaces/:id
+             Requires Owner role. Soft-deletes workspace + all projects.
+             Response: { data: { id, deleted: true } }
+
+      GET    /api/v1/workspaces/:id/members
+             Response: { data: TeamMember[] }
+
+      POST   /api/v1/workspaces/:id/members/invite
+             Body: { email_or_username, role: "admin"|"editor"|"viewer" }
+             Sends invitation (email via SendGrid, in-app notification).
+             Response: { data: { invitation_id, status: "pending" } }
+
+      PATCH  /api/v1/workspaces/:id/members/:userId/role
+             Body: { role: "admin"|"editor"|"viewer" }
+             Requires Owner or Admin. Cannot change Owner's role.
+             Response: { data: TeamMember }
+
+      DELETE /api/v1/workspaces/:id/members/:userId
+             Remove member. Owner cannot be removed (must transfer first).
+             Response: { data: { removed: true } }
+
+      GET    /api/v1/workspaces/:id/activity
+             Query: ?cursor=&limit=50
+             Response: { data: ActivityItem[], meta: { cursor, has_more } }
+
+      GET    /api/v1/workspaces/:id/stats
+             Response: { data: { total_tasks, completed_tasks, completion_rate,
+                        active_members, projects_count } }
+
+      POST   /api/v1/workspaces/:id/logo
+             Multipart file upload -> MinIO (unjynx-uploads bucket)
+             Max 2MB, PNG/JPG/WebP only.
+             Response: { data: { logo_url } }
+
+    Business Logic:
+      - Only Team plan users can create/access workspaces
+      - Free/Pro users see WorkspaceUpgradeGate with plan comparison
+      - Role hierarchy: Owner > Admin > Editor > Viewer
+        Owner: full control, transfer ownership, delete workspace
+        Admin: manage members, manage all projects, cannot delete workspace
+        Editor: create/edit projects and tasks, cannot manage members
+        Viewer: read-only access to all workspace content
+      - Activity feed logs: task create/complete/delete, project create/archive,
+        member join/leave, role change. Stored in audit_log table.
+      - Online status: WebSocket presence channel per workspace
+        User joins workspace -> broadcast "online" to all members
+        User disconnects (30s timeout) -> broadcast "offline"
+      - Stats are computed on-demand (not cached) for accuracy
+      - Invitation: creates pending record, sends email, invited user sees
+        in-app notification. Accept -> added as member. Decline -> record deleted.
+      - Logo upload: resized server-side to 256x256, WebP format, stored in MinIO
+
+  DATA FLOW:
+  ──────────
+    1. User navigates to /workspace/:id -> workspaceProvider fetches from Drift cache
+    2. Parallel API calls: GET workspace, GET members, GET activity, GET stats
+    3. WebSocket joins workspace presence channel for real-time online status
+    4. onlineMembersProvider updates as members connect/disconnect
+    5. User taps "Invite" -> InviteMemberSheet -> POST /invite -> email sent
+    6. Invited user accepts -> workspace members list updates via WebSocket event
+    7. User taps project card -> navigates to /projects/:projectId (E2)
+    8. Activity feed loads initial 50 items, infinite scroll loads more via cursor
+    9. Stats card shows live data (derived from workspaceProjectsProvider)
+    10. Logo upload: image_picker -> crop/resize client-side -> POST /logo -> MinIO
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+    - Screen entrance: SliverAppBar parallax with workspace logo (hero animation)
+    - Team member row: Horizontal scroll with online dot pulse (green, 2s cycle)
+    - Avatar tap: Scale 1.0->1.1 + show member detail tooltip (name, role, status)
+    - Projects grid: Staggered entrance (GridView items fade-up, 50ms stagger)
+    - Project card progress bar: Animated linear fill on data load (400ms spring)
+    - Activity feed items: Slide in from left, staggered (30ms per item, 200ms each)
+    - Quick stat numbers: CountUp animation from 0 to value (600ms, Curves.easeOut)
+    - Invite success: Confetti-free checkmark + "Invitation sent" snackbar
+    - Role change: DropdownButton with animated color shift per role
+    - Pull to refresh: Refresh all data sources in parallel
+    - Skeleton loading: Grid shimmer for projects, list shimmer for activity
+    - Upgrade gate: Frosted glass overlay with "Upgrade to Team" gold button
+
+  DSA / ALGORITHMS:
+  ─────────────────
+    - Activity feed pagination: Cursor-based (created_at, id) O(log n) per page
+    - Online presence: WebSocket pub/sub with Set<String> membership O(1) lookup
+    - Stats computation: SQL COUNT/SUM aggregation on projects + tasks tables
+      O(n) where n = tasks in workspace (indexed by workspace projects)
+    - Role hierarchy: Enum ordinal comparison O(1) for permission checks
+    - Member search: pg_trgm on users.display_name + users.email for fuzzy O(k)
+    - Logo resize: Server-side sharp library, O(w*h) pixel processing
+
+  TESTS:
+  ──────
+    Unit tests: 10
+      - workspaceStatsProvider computes correctly (2 tests: with data, empty)
+      - Role permission checks (4 tests: owner, admin, editor, viewer)
+      - Online members provider tracks connect/disconnect (2 tests)
+      - Activity feed pagination loads next page (1 test)
+      - Invitation creates pending record (1 test)
+    Widget tests: 8
+      - WorkspaceHeader renders name and logo
+      - TeamMembersRow shows avatars with online dots
+      - ProjectsGrid renders project cards in grid
+      - ActivityFeed renders activity items with timestamps
+      - WorkspaceQuickStats shows 4 stat values
+      - InviteMemberSheet validates email format
+      - RoleManagerSheet shows role options
+      - WorkspaceUpgradeGate shown for non-Team users
+    Integration tests: 3
+      - Full invite flow: search user -> invite -> accept -> appears in members
+      - Role change flow: admin changes editor to viewer
+      - Tap project card navigates to project detail
+
+
+SCREEN I1: PROGRESS HUB SCREEN (Tier: Free + Pro)
+Phase: 2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  The analytical dashboard for task completion data, inspired by Apple Fitness
+  and Strava. Displays progress rings, streak counter, GitHub-style 52-week
+  activity heatmap, weekly insight cards, and personal bests. Designed for a
+  professional audience — clean, data-driven, zero gamification. A 35-year-old
+  VP of Engineering should feel comfortable if a colleague sees this on screen.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+    Package: feature_profile (sub-directory: progress/)
+    Route: /progress (accessed from Profile tab -> Progress section,
+           or tapping progress rings on Home C1)
+
+    Key Widgets:
+      - ProgressHubScreen (Scaffold + CustomScrollView with SliverList)
+      - ProgressRingsHero (UnjynxProgressRings expanded size, interactive)
+      - RingDetailSheet (ModalBottomSheet: breakdown per ring on tap)
+      - WeeklyComparisonSparkline (fl_chart LineChart, this week vs last)
+      - StreakCounter (large Bebas Neue number + animated flame icon)
+      - StreakCalendarStrip (Row of 14 CircleAvatar: filled/empty/freeze)
+      - ActivityHeatmap (CustomPainter: 52x7 grid, GitHub contribution style)
+      - HeatmapDayPopup (overlay on tap: date + tasks completed list)
+      - WeeklyInsightCard (Card with rotating insight text, refreshes Monday)
+      - PersonalBestsRow (horizontal stat cards: most tasks/day, longest streak,
+        fastest project, total completed)
+      - ProgressSkeleton (shimmer placeholders while data loads)
+
+    State Management (Riverpod):
+      - progressRingsDetailProvider: AsyncNotifierProvider<ProgressRingsNotifier,
+        ProgressRingsData>
+        ProgressRingsData (freezed): taskPercent, focusPercent, habitPercent,
+        taskGoal, taskCompleted, focusGoalMinutes, focusActualMinutes,
+        habitsGoal, habitsDone, weeklyTaskData[], weeklyFocusData[],
+        weeklyHabitData[]
+      - streakDetailProvider: AsyncNotifierProvider<StreakNotifier, StreakData>
+        StreakData (freezed): current, longest, lastActiveDate, freezeUsedThisWeek,
+        freezeAvailable, last14Days: List<DayStatus>
+        DayStatus enum: active, missed, freezeUsed
+      - activityHeatmapProvider: FutureProvider.family<List<HeatmapDay>,
+        DateRange>
+        HeatmapDay (freezed): date, taskCount, intensity (0.0-1.0)
+        Free: last 30 days, Pro: full 52 weeks
+      - weeklyInsightsProvider: AsyncNotifierProvider<InsightsNotifier,
+        List<InsightItem>>
+        InsightItem (freezed): type (enum), message (String), value (dynamic),
+        generatedAt (DateTime)
+        Types: mostProductiveDay, weekOverWeekChange, avgCompletionTime,
+        deferredTasksAlert
+      - personalBestsProvider: FutureProvider<PersonalBests>
+        PersonalBests (freezed): mostTasksInDay (count + date),
+        longestStreak (count), fastestProject (name + days),
+        totalCompleted (count)
+      - heatmapTapProvider: StateProvider<DateTime?>
+        Tracks which day is tapped for popup overlay
+      - progressPlanGateProvider: Provider<ProgressPlanGate>
+        Returns which features are available (Free: rings, streak, 30-day
+        heatmap, basic insight | Pro: full heatmap, all insights, bests, export)
+
+    Packages (pub.dev):
+      - fl_chart 0.68+ (sparkline LineChart for weekly comparison)
+      - flutter_animate 4.x (ring fill, stat counter, card entrance)
+      - lottie 3.x (streak flame animation — subtle, warm, not aggressive)
+      - flutter_svg 2.x (custom progress ring icon if needed)
+      - shimmer 3.x (skeleton loading)
+      - share_plus 10.x (export progress data as image)
+
+    Drift Tables (local storage):
+      - progress_snapshots (id TEXT PK, user_id TEXT, date INTEGER UNIQUE,
+        tasks_created INTEGER, tasks_completed INTEGER, focus_minutes INTEGER,
+        habits_done INTEGER, pomodoros_completed INTEGER, sync_status TEXT)
+      - streaks (id TEXT PK, user_id TEXT UNIQUE, current INTEGER DEFAULT 0,
+        longest INTEGER DEFAULT 0, last_active_date INTEGER,
+        freeze_used_this_week INTEGER DEFAULT 0,
+        freeze_available INTEGER DEFAULT 1, sync_status TEXT)
+      - personal_bests (id TEXT PK, user_id TEXT, achievement_key TEXT,
+        value INTEGER, achieved_at INTEGER, metadata TEXT, sync_status TEXT)
+
+    Files:
+      - lib/presentation/screens/progress_hub_screen.dart
+      - lib/presentation/widgets/progress_rings_hero.dart
+      - lib/presentation/widgets/ring_detail_sheet.dart
+      - lib/presentation/widgets/weekly_comparison_sparkline.dart
+      - lib/presentation/widgets/streak_counter.dart
+      - lib/presentation/widgets/streak_calendar_strip.dart
+      - lib/presentation/widgets/activity_heatmap.dart
+      - lib/presentation/widgets/heatmap_day_popup.dart
+      - lib/presentation/widgets/weekly_insight_card.dart
+      - lib/presentation/widgets/personal_bests_row.dart
+      - lib/domain/services/insights_engine.dart
+      - lib/domain/services/streak_service.dart
+      - lib/domain/services/heatmap_data_service.dart
+      - lib/domain/painters/heatmap_painter.dart
+      - lib/domain/painters/progress_ring_painter.dart
+      - lib/application/providers/progress_hub_providers.dart
+
+  BACKEND (Hono/TypeScript):
+  ──────────────────────────
+    Endpoints:
+      GET    /api/v1/progress/rings
+             Response: { data: { task_percent, focus_percent, habit_percent,
+               task_goal, task_completed, focus_goal_minutes,
+               focus_actual_minutes, habits_goal, habits_done } }
+             Computed from today's progress_snapshots row.
+
+      GET    /api/v1/progress/rings/weekly
+             Response: { data: { this_week: DailyRingData[7],
+               last_week: DailyRingData[7] } }
+             For sparkline comparison charts.
+
+      GET    /api/v1/progress/streak
+             Response: { data: { current, longest, last_active_date,
+               freeze_used_this_week, freeze_available, last_14_days:
+               DayStatus[] } }
+
+      POST   /api/v1/progress/streak/freeze
+             Uses one freeze (Pro only, max 1/week).
+             Response: { data: { freeze_used: true, remaining: 0 } }
+             Business rules:
+               - Streak must be active (current > 0)
+               - Max 1 freeze per ISO week (Mon-Sun)
+               - Free users get 403 (Pro feature)
+               - Freeze marks today as "freeze_used" instead of "missed"
+
+      GET    /api/v1/progress/heatmap
+             Query: ?start_date=ISO&end_date=ISO
+             Free: max 30-day range | Pro: max 365-day range
+             Response: { data: HeatmapDay[] }
+             HeatmapDay: { date, task_count, intensity }
+             intensity = task_count / max(all_task_counts_in_range) clamped 0-1
+
+      GET    /api/v1/progress/insights
+             Response: { data: InsightItem[] }
+             Generated server-side every Monday at 00:00 UTC (BullMQ cron job)
+             v1 rule-based engine:
+               1. Most productive day: GROUP BY day_of_week, ORDER BY count DESC
+               2. Week-over-week: (this_week - last_week) / last_week * 100
+               3. Avg completion time: AVG(completed_at - created_at) in hours
+               4. Deferred tasks: tasks with snooze_count >= 2
+
+      GET    /api/v1/progress/bests
+             Response: { data: { most_tasks_day: { count, date },
+               longest_streak, fastest_project: { name, days },
+               total_completed } }
+
+      POST   /api/v1/progress/snapshot
+             Called by daily cron (BullMQ, 23:59 user timezone).
+             Aggregates today's data into progress_snapshots row.
+             Also updates streaks table (increment or reset).
+             Response: { data: ProgressSnapshot }
+
+    Business Logic:
+      - Daily snapshot cron runs at 23:59 in each user's timezone
+        (requires timezone in users table, BullMQ delayed jobs)
+      - Streak logic:
+        Active day = at least 1 task completed
+        Streak increments if today is active AND yesterday was active or freeze
+        Streak resets to 1 if gap > 1 day without freeze
+        Freeze prevents reset but does NOT increment streak
+        Kind reset: preserve longest streak, show encouraging copy
+      - Heatmap intensity: Quantile-based color mapping
+        0 tasks = empty (dark surface)
+        1-2 tasks = light purple (0.25 intensity)
+        3-5 tasks = medium purple (0.5 intensity)
+        6-9 tasks = deep violet (0.75 intensity)
+        10+ tasks = gold (1.0 intensity)
+        Thresholds are per-user percentile-based for personalization (Pro)
+      - Weekly insights regenerated every Monday 00:00 UTC
+        Cached in user_settings table (key: "weekly_insights")
+        Free: 1 insight per week | Pro: all 4 insights
+      - Personal bests updated on every snapshot if new record achieved
+
+  DATA FLOW:
+  ──────────
+    1. Screen mounts -> All providers read from Drift (instant local render)
+    2. Background: parallel API calls for rings, streak, heatmap, insights, bests
+    3. Drift updated with fresh server data -> providers rebuild reactively
+    4. Progress rings animate from 0% to actual value (staggered, spring physics)
+    5. Streak counter does CountUp animation (Bebas Neue, 0 -> current, 600ms)
+    6. Heatmap CustomPainter draws 52x7 grid from List<HeatmapDay>
+    7. User taps heatmap day -> heatmapTapProvider updates -> popup overlay shows
+    8. User taps ring -> RingDetailSheet with breakdown (tasks list, focus sessions)
+    9. Weekly insight card auto-rotates content every Monday (checks generatedAt)
+    10. Personal bests row shows milestone stats with subtle counter animation
+    11. Free tier: heatmap shows 30-day data + "Unlock full year" Pro CTA overlay
+    12. Streak freeze: user taps "Use freeze" -> POST /streak/freeze -> UI updates
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+    Progress Rings:
+      - Mount: Each ring fills independently (0% -> actual, staggered:
+        outer 600ms, middle 700ms, inner 800ms, spring physics with 0.8 damping)
+      - Ring completion (100%): Full ring glows briefly
+        (opacity pulse 0.5->1.0->0.7, 400ms)
+      - All three complete: Simultaneous gold shimmer across all rings
+        (spring, 1000ms)
+      - Tap any ring: Scale 1.0->0.95->1.0 (haptic) + RingDetailSheet opens
+      - Weekly sparkline: fl_chart LineChart draws from left (600ms, easeOut)
+
+    Streak Counter:
+      - Number: Bebas Neue CountUp 0->current (600ms, Curves.easeOutExpo)
+      - Flame: Lottie animation loops at 24fps, warm amber/gold tones
+      - Flame scales with streak: <7 days = small, 7-30 = medium, 30+ = large
+      - Calendar strip: Circles fade in staggered left-to-right (30ms each)
+      - Freeze use: Blue ice effect ripple from tapped freeze button (300ms)
+
+    Activity Heatmap:
+      - CustomPainter (HeatmapPainter) renders 52x7 grid:
+        - Each cell: RRect with radius 2dp, 2dp gap between cells
+        - Cell size: (screenWidth - 64dp) / 52 (approximately 5.5dp per cell)
+        - Color mapping: Empty -> brandMidnight+5% tint, 0.25 -> brandViolet@30%,
+          0.5 -> brandViolet@60%, 0.75 -> brandViolet@90%, 1.0 -> brandElectricGold
+        - Light mode: Empty -> brandSoftLavender, scale -> brandViolet -> brandRichGold
+      - Mount animation: Cells fade in wave from bottom-left to top-right (800ms total)
+      - Tap cell: Cell scales 1.0->1.5 + popup shows (150ms snap)
+      - Popup: Rounded card above cell with date + "N tasks completed" + task list
+      - Free tier overlay: Blur + lock icon on days > 30 ago
+
+    Weekly Insight Card:
+      - Card entrance: Slide up + fade (300ms, staggered after heatmap)
+      - Content change (Monday): CrossFade old insight -> new (400ms)
+      - Stat number in insight: CountUp animation (400ms)
+
+    Personal Bests:
+      - Horizontal scroll row, each card is 140dp wide
+      - Card entrance: Scale 0.9->1.0 + fade, staggered 80ms per card
+      - Number: Bebas Neue, CountUp from 0 (500ms per stat)
+      - New record achieved: Card border pulses gold 3 times (150ms each)
+
+    General:
+      - Pull to refresh: All data sources refresh in parallel
+      - Skeleton loading: Shimmer ring placeholder + heatmap grid + stat cards
+      - Scroll: SliverList for performant scrolling of all sections
+
+  DSA / ALGORITHMS:
+  ─────────────────
+    - Heatmap rendering: 2D array (7 rows x 52 cols = 364 cells), O(1) per cell
+      draw in CustomPainter. Color quantile mapping with 5 buckets.
+    - Ring painting: CustomPainter arc drawing using canvas.drawArc with
+      sweep angle = percent * 2 * pi. Rounded stroke caps via StrokeCap.round.
+      Spring animation: SpringSimulation with mass=1, stiffness=150, damping=12.
+    - Streak calculation: O(1) comparison — check if (today - lastActiveDate) <= 1
+      with freeze consideration. Daily cron updates.
+    - Insight generation (rule-based v1):
+      Most productive day: SQL GROUP BY EXTRACT(DOW FROM date), O(n/7) per bucket
+      Week-over-week: Two SUM queries, O(n) where n=tasks in 2-week window
+      Avg completion time: SQL AVG(completed_at - created_at), O(n) completions
+      Deferred detection: SQL WHERE snooze_count >= 2, O(n) scan (indexed)
+    - Personal bests: On snapshot, compare today's values against stored bests.
+      O(1) comparison per metric. Update if new record.
+    - Sparkline data: 7-element array per week, O(1) access for fl_chart.
+    - Heatmap intensity normalization: min-max scaling per range
+      intensity = (count - min) / (max - min), clamped [0, 1]
+    - Free/Pro gating: O(1) plan check via progressPlanGateProvider
+
+  TESTS:
+  ──────
+    Unit tests: 18
+      - ProgressRingsNotifier computes percentages correctly (3 tests: all zero,
+        partial, all complete)
+      - StreakNotifier increments on consecutive days (1 test)
+      - StreakNotifier resets after gap (1 test)
+      - StreakNotifier freeze prevents reset (1 test)
+      - StreakNotifier freeze limit 1 per week (1 test)
+      - HeatmapDataService computes intensity quantiles (2 tests: uniform, skewed)
+      - InsightsEngine generates most productive day (1 test)
+      - InsightsEngine generates week-over-week change (1 test)
+      - InsightsEngine generates avg completion time (1 test)
+      - InsightsEngine generates deferred tasks alert (1 test)
+      - PersonalBests updates on new record (1 test)
+      - PersonalBests does not downgrade existing record (1 test)
+      - Free tier limits heatmap to 30 days (1 test)
+      - Pro tier shows full 52 weeks (1 test)
+      - Streak kind reset preserves longest (1 test)
+    Widget tests: 10
+      - ProgressRingsHero renders 3 rings with correct colors
+      - ProgressRingsHero tap opens detail sheet
+      - StreakCounter displays current and personal best
+      - StreakCalendarStrip renders 14 days with correct states
+      - ActivityHeatmap renders grid (golden file test with RepaintBoundary)
+      - HeatmapDayPopup shows on cell tap
+      - WeeklyInsightCard displays insight message
+      - PersonalBestsRow renders 4 stat cards
+      - Free tier shows Pro upgrade overlay on heatmap
+      - Skeleton loading shows shimmer placeholders
+    Integration tests: 4
+      - Tap ring navigates to detail breakdown
+      - Heatmap tap shows popup with task list
+      - Streak freeze button uses freeze and updates UI
+      - Complete task on Home -> return to Progress Hub -> ring updated
+
+
+================================================================================
+================================================================================
+  SECTION 2: DESIGN SYSTEM IMPLEMENTATION
+================================================================================
+================================================================================
+
+  PURPOSE:
+  The UNJYNX Design System is the single source of truth for all visual tokens,
+  typography, colors, spacing, elevation, icons, and animations. Implemented as
+  a set of immutable Dart classes in packages/core/lib/theme/. Every screen in
+  the app imports from this directory — no hardcoded colors, font sizes, or
+  spacing values anywhere else in the codebase.
+
+  This section defines the complete implementation plan: file structure, all
+  constant values, Material 3 integration, and the reusable widget library.
+
+
+DS-1: THEME ARCHITECTURE — Directory Structure
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  packages/core/lib/theme/
+  ├── unjynx_theme.dart           (barrel file: exports everything)
+  ├── unjynx_colors.dart          (UnjynxColors class: all hex constants)
+  ├── unjynx_typography.dart      (UnjynxTypography: text styles with google_fonts)
+  ├── unjynx_spacing.dart         (UnjynxSpacing: 8dp grid constants)
+  ├── unjynx_radius.dart          (UnjynxRadius: border radius constants)
+  ├── unjynx_elevation.dart       (UnjynxElevation: 5-level shadow/tint system)
+  ├── unjynx_icons.dart           (UnjynxIcons: custom SVG icon paths + sizing)
+  ├── unjynx_animations.dart      (UnjynxAnimations: duration + curve constants)
+  ├── unjynx_dark_theme.dart      (darkTheme ThemeData builder)
+  ├── unjynx_light_theme.dart     (lightTheme ThemeData builder)
+  └── extensions/
+      ├── context_extensions.dart (BuildContext extensions for easy access)
+      └── color_extensions.dart   (Color utility extensions)
+
+  All classes are abstract final (Dart 3) with static const members.
+  No instantiation. Pure namespace for constants.
+
+
+DS-2: UnjynxColors — Complete Color Token Reference
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  abstract final class UnjynxColors {
+
+    // ═══════════════════════════════════════════
+    // DARK MODE BRAND TOKENS
+    // ═══════════════════════════════════════════
+    static const brandMidnight      = Color(0xFF0F0A1A);  // True app bg
+    static const brandDeepPurple    = Color(0xFF1A0533);  // Nav, app bar
+    static const brandViolet        = Color(0xFF6B21A8);  // Active states, rings
+    static const brandElectricGold  = Color(0xFFFFD700);  // CTAs, streaks, glow
+    static const brandGoldMuted     = Color(0xFFB8960C);  // Pressed gold, borders
+
+    // ═══════════════════════════════════════════
+    // LIGHT MODE BRAND TOKENS
+    // ═══════════════════════════════════════════
+    static const brandPurpleMist    = Color(0xFFF8F5FF);  // App bg (purple off-white)
+    static const brandSoftLavender  = Color(0xFFF0EAFC);  // Nav, app bar
+    static const brandLightViolet   = Color(0xFFEDE5F7);  // Cards, sheets
+    static const brandRichGold      = Color(0xFFB8860B);  // CTAs (4.8:1 contrast)
+    static const brandGoldWash      = Color(0xFFFFF8E1);  // Selected card tint
+    static const brandGoldMutedLight= Color(0xFF996F00);  // Pressed gold (light)
+
+    // ═══════════════════════════════════════════
+    // SEMANTIC COLORS (shared, deepened for light)
+    // ═══════════════════════════════════════════
+    static const emerald            = Color(0xFF10B981);  // Success (dark)
+    static const deepEmerald        = Color(0xFF059669);  // Success (light)
+    static const amber              = Color(0xFFF59E0B);  // Warning (dark)
+    static const deepAmber          = Color(0xFFD97706);  // Warning (light)
+    static const rose               = Color(0xFFF43F5E);  // Error (dark)
+    static const deepRose           = Color(0xFFE11D48);  // Error (light)
+
+    // ═══════════════════════════════════════════
+    // CHANNEL BRAND COLORS
+    // ═══════════════════════════════════════════
+    // Dark mode
+    static const whatsApp           = Color(0xFF25D366);
+    static const telegram           = Color(0xFF06B6D4);
+    static const instagram          = Color(0xFFE4405F);
+    // Light mode (deepened for contrast)
+    static const whatsAppLight      = Color(0xFF16A34A);
+    static const telegramLight      = Color(0xFF0891B2);
+    static const instagramLight     = Color(0xFFDB2777);
+
+    // ═══════════════════════════════════════════
+    // LIGHT MODE TEXT COLORS
+    // ═══════════════════════════════════════════
+    static const textPrimary        = Color(0xFF1A0533);  // 18.5:1 on #F8F5FF
+    static const textSecondary      = Color(0xFF6B21A8);  // Purple as secondary
+    static const textTertiary       = Color(0xFF475569);  // 4.8:1 minimum
+
+    // ═══════════════════════════════════════════
+    // MATERIAL 3 SEED PALETTE (from #6B21A8)
+    // ═══════════════════════════════════════════
+    static const surfaceLight             = Color(0xFFFFF7FE);
+    static const surfaceContainerLight    = Color(0xFFF3EDF7);
+    static const surfaceContainerHighLight= Color(0xFFECE6F0);
+    static const surfaceDark              = Color(0xFF141218);
+    static const surfaceContainerDark     = Color(0xFF1D1B20);
+    static const surfaceContainerHighDark = Color(0xFF2B2930);
+    static const primaryLight             = Color(0xFF6B21A8);
+    static const primaryDark              = Color(0xFFD0BCFF);
+    static const onPrimaryLight           = Color(0xFFFFFFFF);
+    static const onPrimaryDark            = Color(0xFF381E72);
+    static const primaryContainerLight    = Color(0xFFEADDFF);
+    static const primaryContainerDark     = Color(0xFF4F378B);
+    static const secondaryLight           = Color(0xFF625B71);
+    static const secondaryDark            = Color(0xFFCCC2DC);
+    static const tertiaryLight            = Color(0xFF7D5260);
+    static const tertiaryDark             = Color(0xFFEFB8C8);
+    static const errorLight               = Color(0xFFB3261E);
+    static const errorDark                = Color(0xFFF2B8B5);
+
+    // ═══════════════════════════════════════════
+    // PROJECT PRESET COLORS (18 colors for E3)
+    // ═══════════════════════════════════════════
+    static const projectColors = [
+      Color(0xFF6B21A8), // Violet
+      Color(0xFF7C3AED), // Purple
+      Color(0xFF4F46E5), // Indigo
+      Color(0xFF2563EB), // Blue
+      Color(0xFF0891B2), // Cyan
+      Color(0xFF059669), // Emerald
+      Color(0xFF16A34A), // Green
+      Color(0xFF65A30D), // Lime
+      Color(0xFFCA8A04), // Yellow
+      Color(0xFFD97706), // Amber
+      Color(0xFFEA580C), // Orange
+      Color(0xFFDC2626), // Red
+      Color(0xFFE11D48), // Rose
+      Color(0xFFDB2777), // Pink
+      Color(0xFF9333EA), // Fuchsia
+      Color(0xFF475569), // Slate
+      Color(0xFF78716C), // Stone
+      Color(0xFF1A0533), // Midnight
+    ];
+
+    // ═══════════════════════════════════════════
+    // HEATMAP INTENSITY SCALE (I1)
+    // ═══════════════════════════════════════════
+    // Dark mode
+    static const heatmapEmptyDark   = Color(0xFF1D1B20);  // surface + 5% tint
+    static const heatmapLowDark     = Color(0xFF3D2A5C);  // violet@30%
+    static const heatmapMedDark     = Color(0xFF5A2E91);  // violet@60%
+    static const heatmapHighDark    = Color(0xFF6B21A8);  // violet@90%
+    static const heatmapMaxDark     = Color(0xFFFFD700);  // gold
+    // Light mode
+    static const heatmapEmptyLight  = Color(0xFFF0EAFC);  // softLavender
+    static const heatmapLowLight    = Color(0xFFD8C8F0);  // light violet
+    static const heatmapMedLight    = Color(0xFFA87BD8);  // medium violet
+    static const heatmapHighLight   = Color(0xFF7C3AED);  // vivid violet
+    static const heatmapMaxLight    = Color(0xFFB8860B);  // rich gold
+
+    // ═══════════════════════════════════════════
+    // PROGRESS RING COLORS
+    // ═══════════════════════════════════════════
+    static const ringTaskGold       = Color(0xFFFFD700);  // Outer ring (dark)
+    static const ringTaskGoldLight  = Color(0xFFB8860B);  // Outer ring (light)
+    static const ringFocusViolet    = Color(0xFF6B21A8);  // Middle ring (both)
+    static const ringHabitEmerald   = Color(0xFF10B981);  // Inner ring (both)
+    static const ringTrackDark      = Color(0x0DFFFFFF);  // 5% white
+    static const ringTrackLight     = Color(0x0F6B21A8);  // 6% violet
+  }
+
+
+DS-3: UnjynxTypography — Font System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Dependencies: google_fonts package
+
+  abstract final class UnjynxTypography {
+
+    // ═══════════════════════════════════════════
+    // PRIMARY: Outfit (Headings) — bold startup energy
+    // ═══════════════════════════════════════════
+    // Display Large:  Outfit 700, 36sp, height 1.15, spacing -0.5
+    // Display Medium: Outfit 600, 28sp, height 1.2,  spacing -0.25
+    // Headline Large: Outfit 600, 24sp, height 1.25, spacing 0
+    // Headline Medium:Outfit 500, 20sp, height 1.3,  spacing 0
+
+    // ═══════════════════════════════════════════
+    // PRIMARY: DM Sans (Body) — high readability
+    // ═══════════════════════════════════════════
+    // Title Large:    DM Sans 600, 18sp, height 1.35, spacing 0.15
+    // Title Medium:   DM Sans 500, 16sp, height 1.4,  spacing 0.15
+    // Body Large:     DM Sans 400, 16sp, height 1.6,  spacing 0.25
+    // Body Medium:    DM Sans 400, 14sp, height 1.5,  spacing 0.25
+    // Body Small:     DM Sans 400, 12sp, height 1.45, spacing 0.4
+    // Label Large:    DM Sans 500, 14sp, height 1.4,  spacing 0.1
+    // Label Small:    DM Sans 500, 11sp, height 1.35, spacing 0.5
+
+    // ═══════════════════════════════════════════
+    // SECONDARY: Bebas Neue (Stats/Numbers)
+    // ═══════════════════════════════════════════
+    // Used ONLY for: streak counters, ring percentages, stat numbers,
+    // level badges (game mode). All-caps, high-impact. Max 2-3 per screen.
+    //
+    // Stat Large:  Bebas Neue 400, 48sp, height 1.0, spacing 1.0
+    // Stat Medium: Bebas Neue 400, 32sp, height 1.0, spacing 0.5
+    // Stat Small:  Bebas Neue 400, 24sp, height 1.0, spacing 0.5
+
+    // ═══════════════════════════════════════════
+    // TERTIARY: Playfair Display (Quotes/Wisdom)
+    // ═══════════════════════════════════════════
+    // Used ONLY for: daily content quotes (Stoic, Indian, Poetic, Comeback).
+    // Serif elegance contrasts geometric UI. NOT for Productivity Hacks
+    // or Dark Humor (those use DM Sans to feel actionable/casual).
+    //
+    // Quote Large:  Playfair Display 400 italic, 22sp, height 1.6, spacing 0
+    // Quote Medium: Playfair Display 400 italic, 18sp, height 1.5, spacing 0
+    // Quote Small:  Playfair Display 400 italic, 16sp, height 1.45, spacing 0
+
+    // ═══════════════════════════════════════════
+    // IMPLEMENTATION METHODS
+    // ═══════════════════════════════════════════
+    // static TextStyle displayLarge({Color? color}) =>
+    //   GoogleFonts.outfit(fontSize: 36, fontWeight: FontWeight.w700,
+    //     height: 1.15, letterSpacing: -0.5, color: color);
+    //
+    // static TextStyle statLarge({Color? color}) =>
+    //   GoogleFonts.bebasNeue(fontSize: 48, height: 1.0,
+    //     letterSpacing: 1.0, color: color);
+    //
+    // static TextStyle quoteLarge({Color? color}) =>
+    //   GoogleFonts.playfairDisplay(fontSize: 22, fontStyle: FontStyle.italic,
+    //     height: 1.6, color: color);
+
+    // Build TextTheme for ThemeData:
+    // static TextTheme textTheme({required Brightness brightness}) { ... }
+    // Returns a full TextTheme with Outfit headings + DM Sans body,
+    // colors adjusted for brightness.
+  }
+
+
+DS-4: UnjynxSpacing — 8dp Grid System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  abstract final class UnjynxSpacing {
+    static const double xxs  = 2.0;   // Inline icon-text gaps
+    static const double xs   = 4.0;   // Tight element spacing
+    static const double sm   = 8.0;   // Within-component padding
+    static const double md   = 12.0;  // Between related elements
+    static const double base = 16.0;  // Standard padding, card content
+    static const double lg   = 24.0;  // Between sections
+    static const double xl   = 32.0;  // Major section gaps
+    static const double xxl  = 48.0;  // Screen-level spacing (2xl)
+    static const double xxxl = 64.0;  // Hero spacing (3xl)
+
+    // Common EdgeInsets shortcuts
+    static const screenH  = EdgeInsets.symmetric(horizontal: base);  // 16dp
+    static const cardAll  = EdgeInsets.all(base);                     // 16dp
+    static const sectionV = EdgeInsets.symmetric(vertical: lg);       // 24dp
+    static const listItem = EdgeInsets.symmetric(horizontal: base, vertical: sm);
+  }
+
+
+DS-5: UnjynxRadius — Border Radius Tokens
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  abstract final class UnjynxRadius {
+    static const double sm   = 8.0;    // Chips, small buttons
+    static const double md   = 12.0;   // Cards, input fields
+    static const double lg   = 16.0;   // Bottom sheets, dialogs
+    static const double xl   = 24.0;   // FAB, large cards
+    static const double full = 9999.0; // Avatars, circular buttons
+
+    // Pre-built BorderRadius
+    static final smAll   = BorderRadius.circular(sm);
+    static final mdAll   = BorderRadius.circular(md);
+    static final lgAll   = BorderRadius.circular(lg);
+    static final xlAll   = BorderRadius.circular(xl);
+    static final fullAll = BorderRadius.circular(full);
+    // Top-only for sheets
+    static final lgTop   = BorderRadius.only(
+      topLeft: Radius.circular(lg), topRight: Radius.circular(lg));
+  }
+
+
+DS-6: UnjynxElevation — Shadow & Tint System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  abstract final class UnjynxElevation {
+
+    // ═══════════════════════════════════════════
+    // DARK MODE: Tonal Surface Tint (Material 3)
+    // Higher elevation = lighter surface. No shadows.
+    // ═══════════════════════════════════════════
+    // Level 0:  0dp  — 0% tint   — Page bg (brandMidnight)
+    // Level 1:  1dp  — 5% tint   — Cards at rest, bottom nav
+    // Level 2:  3dp  — 8% tint   — Floating cards, app bar
+    // Level 3:  6dp  — 11% tint  — Bottom sheets, dialogs
+    // Level 4:  8dp  — 12% tint  — Menus, tooltips
+    // Level 5:  12dp — 14% tint  — FAB, snackbars
+    //
+    // Exception: FAB + modals get purple-tinted shadow:
+    // BoxShadow(color: Color(0x406B21A8), blurRadius: 24, offset: Offset(0, 8))
+
+    // ═══════════════════════════════════════════
+    // LIGHT MODE: Purple-Tinted Shadows
+    // Real shadows, NEVER generic gray #000000.
+    // ═══════════════════════════════════════════
+    static const level0Light = <BoxShadow>[];  // none
+    static const level1Light = [BoxShadow(
+      color: Color(0x0F1A0533), blurRadius: 3, offset: Offset(0, 1))];
+    static const level2Light = [BoxShadow(
+      color: Color(0x141A0533), blurRadius: 8, offset: Offset(0, 2))];
+    static const level3Light = [BoxShadow(
+      color: Color(0x1A1A0533), blurRadius: 16, offset: Offset(0, 4))];
+    static const level4Light = [BoxShadow(
+      color: Color(0x1F1A0533), blurRadius: 24, offset: Offset(0, 6))];
+    static const level5Light = [BoxShadow(
+      color: Color(0x241A0533), blurRadius: 32, offset: Offset(0, 8))];
+
+    // FAB shadow (used in both modes)
+    static const fabShadow = [BoxShadow(
+      color: Color(0x406B21A8), blurRadius: 24, offset: Offset(0, 8))];
+  }
+
+
+DS-7: UnjynxIcons — Iconography System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PRIMARY: Material Symbols Rounded (variable weight, fill, grade, optical size)
+    Default state:    weight 400, no fill, grade 0, optical size 24
+    Active/Selected:  weight 600, fill 1 (outlined -> filled transition)
+
+  CUSTOM SVG ICONS (assets/icons/):
+    - unjynx_logo.svg            (curse-breaking animation variant)
+    - ghost_mode.svg             (ghost with broken chain)
+    - progress_rings.svg         (three concentric arcs — nav/shortcuts)
+    - streak_flame.json          (Lottie — subtle warm amber/gold, not aggressive)
+    - channel_whatsapp.svg       (styled WhatsApp)
+    - channel_telegram.svg       (styled Telegram)
+    - channel_instagram.svg      (styled Instagram)
+
+  ICON SIZING CONSTANTS:
+    abstract final class UnjynxIconSize {
+      static const double bottomNav     = 24.0;  // 48x48 touch target
+      static const double appBarAction  = 24.0;  // 48x48 touch target
+      static const double inCard        = 20.0;  // 40x40 touch target
+      static const double inlineText    = 18.0;  // 36x36 touch target
+      static const double fab           = 24.0;  // 56x56 touch target
+      static const double largeFab      = 28.0;  // 96x96 touch target
+    }
+
+    abstract final class UnjynxTouchTarget {
+      static const double standard = 48.0;
+      static const double compact  = 40.0;
+      static const double minimum  = 36.0;
+      static const double fab      = 56.0;
+      static const double largeFab = 96.0;
+    }
+
+
+DS-8: UnjynxAnimations — Motion System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  abstract final class UnjynxAnimations {
+
+    // ═══════════════════════════════════════════
+    // DURATION TOKENS
+    // ═══════════════════════════════════════════
+    static const motionQuick     = Duration(milliseconds: 150);  // Micro feedback
+    static const motionStandard  = Duration(milliseconds: 250);  // UI transitions
+    static const motionEmphasis  = Duration(milliseconds: 350);  // Spring bounce
+    static const motionDramatic  = Duration(milliseconds: 500);  // Mode changes
+    static const motionCalm      = Duration(milliseconds: 600);  // Progress fill
+
+    // ═══════════════════════════════════════════
+    // CURVE TOKENS
+    // ═══════════════════════════════════════════
+    static const curveStandard   = Curves.easeInOut;
+    static const curveDecelerate = Curves.easeOut;
+    static const curveAccelerate = Curves.easeIn;
+    static const curveSpring     = Curves.elasticOut;
+    static const curveOvershoot  = Curves.easeOutBack;
+    static const curveBounce     = Curves.bounceOut;
+
+    // ═══════════════════════════════════════════
+    // SPRING CONFIGS (for AnimationController + SpringSimulation)
+    // ═══════════════════════════════════════════
+    // Ring fill spring:  mass=1, stiffness=150, damping=12
+    // Card press spring: mass=1, stiffness=300, damping=20
+    // Checkbox spring:   mass=1, stiffness=500, damping=15 (snappy overshoot)
+    // Ghost breathing:   3000ms sine cycle (Curves.easeInOut, repeat)
+
+    // ═══════════════════════════════════════════
+    // STAGGER DELAYS
+    // ═══════════════════════════════════════════
+    static const staggerSmall    = Duration(milliseconds: 30);   // List items
+    static const staggerMedium   = Duration(milliseconds: 50);   // Grid items
+    static const staggerLarge    = Duration(milliseconds: 80);   // Stat cards
+    static const staggerRing     = Duration(milliseconds: 100);  // Ring offsets
+
+    // ═══════════════════════════════════════════
+    // NAMED ANIMATION PRESETS
+    // ═══════════════════════════════════════════
+    // fadeUp:     opacity 0->1, translateY 16->0, motionStandard, easeOut
+    // scaleIn:    scale 0.9->1.0, opacity 0->1, motionStandard, easeOutBack
+    // slideRight: translateX -32->0, opacity 0->1, motionStandard, easeOut
+    // shimmerCycle: 800ms linear gradient sweep (skeleton loading)
+    // breathe:    scale 1.0->1.02, opacity 0.8->1.0, 3000ms sine, repeat
+    // countUp:    Tween<double> 0->value, motionCalm, easeOutExpo
+    // goldShimmer: gradient overlay sweep left->right, 1000ms, spring
+    // pulseGlow:  opacity 0.5->1.0->0.7, motionEmphasis (ring completion)
+  }
+
+
+DS-9: Dark Theme — ThemeData Builder
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  File: unjynx_dark_theme.dart
+
+  ThemeData buildDarkTheme() => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: UnjynxColors.brandViolet,
+      brightness: Brightness.dark,
+    ).copyWith(
+      surface: UnjynxColors.brandMidnight,
+      onSurface: Colors.white,
+      surfaceContainerLowest: UnjynxColors.brandMidnight,
+      surfaceContainerLow: UnjynxColors.surfaceContainerDark,
+      surfaceContainer: UnjynxColors.surfaceContainerDark,
+      surfaceContainerHigh: UnjynxColors.surfaceContainerHighDark,
+      primary: UnjynxColors.primaryDark,
+      onPrimary: UnjynxColors.onPrimaryDark,
+      primaryContainer: UnjynxColors.primaryContainerDark,
+      secondary: UnjynxColors.secondaryDark,
+      tertiary: UnjynxColors.tertiaryDark,
+      error: UnjynxColors.errorDark,
+    ),
+    scaffoldBackgroundColor: UnjynxColors.brandMidnight,
+    textTheme: UnjynxTypography.textTheme(brightness: Brightness.dark),
+    cardTheme: CardTheme(
+      color: UnjynxColors.surfaceContainerDark,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: UnjynxRadius.mdAll),
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: UnjynxColors.brandDeepPurple,
+      foregroundColor: Colors.white,
+      elevation: 0,
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: UnjynxColors.brandDeepPurple,
+      selectedItemColor: UnjynxColors.brandElectricGold,
+      unselectedItemColor: UnjynxColors.secondaryDark,
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: UnjynxColors.brandElectricGold,
+      foregroundColor: UnjynxColors.brandMidnight,
+      shape: RoundedRectangleBorder(borderRadius: UnjynxRadius.xlAll),
+    ),
+    dividerTheme: DividerThemeData(
+      color: Colors.white.withValues(alpha: 0.06),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: UnjynxColors.surfaceContainerDark,
+      border: OutlineInputBorder(borderRadius: UnjynxRadius.mdAll),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: UnjynxRadius.mdAll,
+        borderSide: BorderSide(color: UnjynxColors.brandViolet, width: 2),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: UnjynxColors.primaryContainerDark,
+      shape: RoundedRectangleBorder(borderRadius: UnjynxRadius.smAll),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: UnjynxColors.surfaceContainerHighDark,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: UnjynxRadius.mdAll),
+    ),
+  );
+
+
+DS-10: Light Theme — ThemeData Builder
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  File: unjynx_light_theme.dart
+
+  ThemeData buildLightTheme() => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: UnjynxColors.brandViolet,
+      brightness: Brightness.light,
+    ).copyWith(
+      surface: UnjynxColors.brandPurpleMist,
+      onSurface: UnjynxColors.textPrimary,
+      surfaceContainerLowest: Colors.white,
+      surfaceContainerLow: UnjynxColors.brandLightViolet,
+      surfaceContainer: UnjynxColors.brandSoftLavender,
+      surfaceContainerHigh: UnjynxColors.surfaceContainerHighLight,
+      primary: UnjynxColors.primaryLight,
+      onPrimary: UnjynxColors.onPrimaryLight,
+      primaryContainer: UnjynxColors.primaryContainerLight,
+      secondary: UnjynxColors.secondaryLight,
+      tertiary: UnjynxColors.tertiaryLight,
+      error: UnjynxColors.errorLight,
+    ),
+    scaffoldBackgroundColor: UnjynxColors.brandPurpleMist,
+    textTheme: UnjynxTypography.textTheme(brightness: Brightness.light),
+    cardTheme: CardTheme(
+      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: UnjynxRadius.mdAll,
+        side: BorderSide(
+          color: UnjynxColors.brandViolet.withValues(alpha: 0.08)),
+      ),
+      shadowColor: UnjynxColors.brandDeepPurple.withValues(alpha: 0.08),
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: UnjynxColors.brandSoftLavender,
+      foregroundColor: UnjynxColors.textPrimary,
+      elevation: 0,
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: UnjynxColors.brandSoftLavender,
+      selectedItemColor: UnjynxColors.brandViolet,
+      unselectedItemColor: UnjynxColors.secondaryLight,
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: UnjynxColors.brandRichGold,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: UnjynxRadius.xlAll),
+    ),
+    dividerTheme: DividerThemeData(
+      color: UnjynxColors.brandDeepPurple.withValues(alpha: 0.06),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(borderRadius: UnjynxRadius.mdAll),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: UnjynxRadius.mdAll,
+        borderSide: BorderSide(color: UnjynxColors.brandViolet, width: 2),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: UnjynxColors.primaryContainerLight,
+      shape: RoundedRectangleBorder(borderRadius: UnjynxRadius.smAll),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: Colors.white,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: UnjynxRadius.mdAll),
+    ),
+  );
+
+
+DS-11: Color Token → Material 3 ColorScheme Mapping
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  This table shows how UNJYNX brand tokens map to Material 3 ColorScheme roles,
+  ensuring all M3 widgets (Buttons, Cards, Chips, etc.) automatically use the
+  brand palette without manual color overrides.
+
+  ┌─────────────────────────┬─────────────────────┬─────────────────────┐
+  │ M3 ColorScheme Role     │ Dark Mode Value      │ Light Mode Value    │
+  ├─────────────────────────┼─────────────────────┼─────────────────────┤
+  │ surface                 │ brandMidnight        │ brandPurpleMist     │
+  │ onSurface               │ white                │ textPrimary         │
+  │ surfaceContainerLowest  │ brandMidnight        │ white               │
+  │ surfaceContainerLow     │ surfaceContainerDark │ brandLightViolet    │
+  │ surfaceContainer        │ surfaceContainerDark │ brandSoftLavender   │
+  │ surfaceContainerHigh    │ surfContainerHighDk  │ surfContainerHighLt │
+  │ primary                 │ #D0BCFF              │ #6B21A8 (violet)    │
+  │ onPrimary               │ #381E72              │ white               │
+  │ primaryContainer        │ #4F378B              │ #EADDFF             │
+  │ secondary               │ #CCC2DC              │ #625B71             │
+  │ tertiary                │ #EFB8C8              │ #7D5260             │
+  │ error                   │ #F2B8B5              │ #B3261E             │
+  └─────────────────────────┴─────────────────────┴─────────────────────┘
+
+  Custom brand tokens NOT mapped to M3 roles (used via UnjynxColors directly):
+  - brandElectricGold / brandRichGold → CTA buttons, streak flame, completion glow
+  - brandGoldMuted / brandGoldMutedLight → Pressed button states, borders
+  - brandGoldWash → Selected card background tint (light mode)
+  - emerald / deepEmerald → Success states, completed tasks
+  - amber / deepAmber → Warning states, due-soon
+  - rose / deepRose → Error states, overdue, delete
+  - Channel colors → Platform-specific accents (WhatsApp, Telegram, Instagram)
+
+
+DS-12: BuildContext Extensions — Ergonomic Access
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  File: extensions/context_extensions.dart
+
+  Extension methods on BuildContext for quick theme access:
+
+  extension UnjynxThemeX on BuildContext {
+    // M3 ColorScheme
+    ColorScheme get colors => Theme.of(this).colorScheme;
+
+    // TextTheme
+    TextTheme get textTheme => Theme.of(this).textTheme;
+
+    // Brightness check
+    bool get isDark => Theme.of(this).brightness == Brightness.dark;
+
+    // Brand color helpers (brightness-aware)
+    Color get brandGold => isDark
+      ? UnjynxColors.brandElectricGold
+      : UnjynxColors.brandRichGold;
+    Color get success => isDark
+      ? UnjynxColors.emerald
+      : UnjynxColors.deepEmerald;
+    Color get warning => isDark
+      ? UnjynxColors.amber
+      : UnjynxColors.deepAmber;
+    Color get danger => isDark
+      ? UnjynxColors.rose
+      : UnjynxColors.deepRose;
+
+    // Screen dimensions
+    double get screenWidth => MediaQuery.sizeOf(this).width;
+    double get screenHeight => MediaQuery.sizeOf(this).height;
+  }
+
+
+DS-13: Reusable Widget Library — Implementation Tasks
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Location: packages/core/lib/widgets/
+
+  WIDGET 1: UnjynxTaskCard
+  ─────────────────────────
+  File: packages/core/lib/widgets/unjynx_task_card.dart
+  Properties: task, onComplete, onTap, isCompact, showProject
+  Structure: Row[AnimatedCheckbox, Expanded Column[Title, ProjectDot+Name],
+    Column[PriorityFlag, DueTime]]
+  States: default, pressed (scale 0.98), completing (gold ripple + strikethrough),
+    overdue (left border 3dp rose), swipe-right (green check), swipe-left (actions)
+  Light mode: white bg + purple shadow, brandRichGold, brandDeepRose, textPrimary
+  Tests: 6 widget tests (render, complete animation, overdue state, swipe actions,
+    compact mode, project dot color)
+
+  WIDGET 2: UnjynxProgressRings
+  ──────────────────────────────
+  File: packages/core/lib/widgets/unjynx_progress_rings.dart
+  Properties: taskPercent, focusPercent, habitPercent, size (compact|standard|expanded)
+  Structure: Stack[3 CustomPaint arcs (gold/violet/emerald), Center Column[percent, label]]
+  Animation: Staggered fill (outer 600ms, middle 700ms, inner 800ms), spring physics,
+    completion glow (opacity pulse), all-complete gold shimmer
+  Painter: ProgressRingPainter extends CustomPainter
+    - drawArc with sweep = percent * 2 * pi, StrokeCap.round
+    - Track ring: 5% white (dark) / 6% violet (light)
+    - Stroke widths: outer 10dp, middle 8dp, inner 6dp
+  Light mode: Ring colors unchanged, track=ringTrackLight, text=textPrimary,
+    completion glow=brandRichGold
+  Tests: 5 widget tests (render 3 rings, correct colors, tap callback,
+    size variants, zero state)
+
+  WIDGET 3: UnjynxContentCard
+  ────────────────────────────
+  File: packages/core/lib/widgets/unjynx_content_card.dart
+  Properties: content (DailyContent), onSave, onShare
+  Structure: Card[CategoryBadge, QuoteText (Playfair Display), Author, Divider,
+    Row[SaveButton, ShareButton]]
+  Animation: Fade up + scale 0.95 (300ms), swipe for next, heart fill on save
+  Light mode: white bg + purple shadow, textPrimary quote, violet badge
+  Tests: 4 widget tests (render, save callback, share callback, swipe)
+
+  WIDGET 4: UnjynxChannelCard
+  ────────────────────────────
+  File: packages/core/lib/widgets/unjynx_channel_card.dart
+  Properties: channel (NotificationChannel), onConnect, onTest, onDisconnect
+  States: disconnected (muted + "Connect" gold button), connecting (pulse),
+    connected (full color + green chip + "Test"), pro-locked (badge + upgrade CTA)
+  Light mode: white bg + purple shadow, brandRichGold connect button,
+    deepEmerald connected chip
+  Tests: 4 widget tests (each state renders correctly)
+
+  WIDGET 5: UnjynxGhostModeScreen
+  ─────────────────────────────────
+  File: packages/core/lib/widgets/unjynx_ghost_mode_screen.dart
+  Properties: task (current focus task), onComplete, onExit
+  Structure: Full-screen deep purple gradient, centered breathing text (task title),
+    subtitle "This is all that matters right now", large gold complete button
+  Animation: Enter fade from black (500ms), breathing scale 1.0->1.02 (3s sine loop),
+    complete calm shimmer, exit reverse fade
+  ALWAYS uses dark mode aesthetics regardless of system theme. Entering from light
+  mode: UI crossfades from light bg to deep purple gradient seamlessly.
+  Tests: 4 widget tests (render, complete callback, exit callback, breathing animation)
+
+
+DS-14: Implementation Plan — Ordered Tasks
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Priority: MUST be completed before any Phase 2 screen work begins.
+  These theme files are imported by every screen in the app.
+
+  TASK DS.1: Add Dependencies (Day 1, 0.5 day)
+  ─────────────────────────────────────────────
+  Add to packages/core/pubspec.yaml:
+    - google_fonts: ^6.2.1 (Outfit, DM Sans, Bebas Neue, Playfair Display)
+    - flutter_svg: ^2.0.10 (custom SVG icons)
+    - lottie: ^3.1.2 (streak flame animation)
+  Run: melos bootstrap (or flutter pub get per package)
+
+  TASK DS.2: Create UnjynxColors (Day 1, 0.5 day)
+  ─────────────────────────────────────────────────
+  File: packages/core/lib/theme/unjynx_colors.dart
+  - Implement all color constants from DS-2 specification
+  - abstract final class, static const Color members
+  - projectColors list for E3 color picker
+  - heatmap intensity scale for I1
+  - ring colors for UnjynxProgressRings
+  Tests: 3 unit tests (projectColors has 18 items, heatmap has 5 per mode,
+    ring colors exist for both modes)
+
+  TASK DS.3: Create UnjynxTypography (Day 1, 0.5 day)
+  ────────────────────────────────────────────────────
+  File: packages/core/lib/theme/unjynx_typography.dart
+  - Implement all TextStyle factory methods from DS-3
+  - textTheme(brightness) method returns complete TextTheme
+  - Outfit for headings, DM Sans for body, Bebas Neue for stats,
+    Playfair Display for quotes
+  - Each method accepts optional Color parameter
+  Tests: 4 unit tests (textTheme has all roles, Outfit on display styles,
+    DM Sans on body styles, stat/quote styles use correct fonts)
+
+  TASK DS.4: Create UnjynxSpacing + UnjynxRadius (Day 2, 0.5 day)
+  ─────────────────────────────────────────────────────────────────
+  Files: unjynx_spacing.dart, unjynx_radius.dart
+  - All spacing constants from DS-4
+  - All radius constants + pre-built BorderRadius from DS-5
+  Tests: 2 unit tests (spacing values follow 8dp grid rationale,
+    radius pre-built matches circular values)
+
+  TASK DS.5: Create UnjynxElevation (Day 2, 0.5 day)
+  ──────────────────────────────────────────────────
+  File: packages/core/lib/theme/unjynx_elevation.dart
+  - Light mode shadow lists from DS-6
+  - FAB shadow constant
+  - Dark mode documentation (tonal, handled by M3 automatically)
+  Tests: 2 unit tests (light shadows have correct levels, FAB shadow exists)
+
+  TASK DS.6: Create UnjynxIcons + UnjynxAnimations (Day 2, 0.5 day)
+  ──────────────────────────────────────────────────────────────────
+  Files: unjynx_icons.dart, unjynx_animations.dart
+  - Icon sizing constants + touch targets from DS-7
+  - SVG asset path constants (assets/icons/*.svg)
+  - Animation durations, curves, stagger delays from DS-8
+  - Named animation preset documentation
+  Tests: 2 unit tests (icon sizes have matching touch targets,
+    animation durations ordered quick < standard < emphasis < dramatic < calm)
+
+  TASK DS.7: Build Dark + Light ThemeData (Day 3, 1 day)
+  ──────────────────────────────────────────────────────
+  Files: unjynx_dark_theme.dart, unjynx_light_theme.dart
+  - Full ThemeData from DS-9 and DS-10
+  - ColorScheme.fromSeed + copyWith for brand overrides
+  - textTheme from UnjynxTypography
+  - All component themes: card, appBar, bottomNav, FAB, divider, input, chip, snackbar
+  - Barrel export from unjynx_theme.dart
+  Tests: 6 unit tests (dark theme uses brandMidnight scaffold,
+    light theme uses brandPurpleMist scaffold, text theme has Outfit headings,
+    FAB uses gold, card shapes use mdAll radius, both themes are Material 3)
+
+  TASK DS.8: Create BuildContext Extensions (Day 3, 0.5 day)
+  ──────────────────────────────────────────────────────────
+  File: extensions/context_extensions.dart, color_extensions.dart
+  - Context extensions from DS-12
+  - isDark helper for brightness-aware color selection
+  - brandGold, success, warning, danger helpers
+  Tests: 4 unit tests (isDark correct for both themes, brandGold returns
+    correct color per brightness, success/warning/danger adapt)
+
+  TASK DS.9: Build Reusable Widget Library (Day 4-5, 2 days)
+  ──────────────────────────────────────────────────────────
+  5 widgets from DS-13:
+  Day 4: UnjynxTaskCard + UnjynxProgressRings + UnjynxContentCard
+  Day 5: UnjynxChannelCard + UnjynxGhostModeScreen
+  All widgets must:
+    - Use ONLY UnjynxColors/Typography/Spacing/Radius constants (no hardcoded values)
+    - Support both dark and light mode via context.isDark
+    - Be fully tested (23 widget tests total across 5 widgets)
+    - Accept callbacks for all interactions (no business logic inside)
+    - Use const constructors where possible
+    - Document all properties with /// dartdoc comments
+
+  TASK DS.10: Integration + Barrel Exports (Day 5, 0.5 day)
+  ──────────────────────────────────────────────────────────
+  - Update packages/core/lib/unjynx_core.dart barrel to export all theme files
+  - Update mobile app's MaterialApp to use buildDarkTheme() / buildLightTheme()
+  - Set themeMode: ThemeMode.system (dark is default brand experience)
+  - Verify: flutter run shows correct colors, fonts, spacing in both modes
+  - Create assets/icons/ directory, add placeholder SVGs
+  Tests: 2 integration tests (app launches with dark theme, app launches
+    with light theme via ThemeMode override)
+
+  ═══════════════════════════════════════════════════════════════════
+  DESIGN SYSTEM TOTAL
+  ═══════════════════════════════════════════════════════════════════
+  Duration: 5 days (before Phase 2 screens)
+  Files created: 12+ theme files + 5 widget files + 2 extension files
+  Tests: 32 (13 unit + 23 widget + 2 integration = 38 total)
+    Correction: 13 unit from DS.2-DS.8 + 23 widget from DS.9 + 2 integration
+    from DS.10 = 38 total tests
+  Dependencies added: google_fonts, flutter_svg, lottie
+  ═══════════════════════════════════════════════════════════════════
+
+
+================================================================================
+================================================================================
+  SECTION 3: SUMMARY
+================================================================================
+================================================================================
+
+  SCREENS IN THIS BATCH:
+  ┌────────┬──────────────────────────────┬──────────┬──────────────────┐
+  │ ID     │ Name                         │ Tier     │ Tests            │
+  ├────────┼──────────────────────────────┼──────────┼──────────────────┤
+  │ E1     │ Project List Screen          │ All      │ 14U + 8W + 3I    │
+  │ E3     │ Create/Edit Project Sheet    │ All      │ 12U + 8W + 2I    │
+  │ E4     │ Workspace Screen             │ Team     │ 10U + 8W + 3I    │
+  │ I1     │ Progress Hub Screen          │ Free+Pro │ 18U + 10W + 4I   │
+  ├────────┼──────────────────────────────┼──────────┼──────────────────┤
+  │ Total  │ 4 screens                    │          │ 54U + 34W + 12I  │
+  │        │                              │          │ = 100 screen tests│
+  └────────┴──────────────────────────────┴──────────┴──────────────────┘
+
+  DESIGN SYSTEM: 38 tests (13U + 23W + 2I)
+  GRAND TOTAL THIS BATCH: 138 tests
+
+  KEY DEPENDENCIES:
+  ─────────────────
+  Flutter:  google_fonts, flutter_svg, lottie, fl_chart, flutter_animate,
+            flutter_slidable, shimmer, flex_color_picker, cached_network_image,
+            image_picker, share_plus
+  Backend:  drizzle-orm, drizzle-zod, @hono/zod-validator, sharp (logo resize)
+
+  BACKEND ENDPOINTS IN THIS BATCH:
+  ─────────────────────────────────
+  E1:  GET /projects, GET /projects/:id, PATCH /projects/:id/favorite,
+       PATCH /projects/:id/archive, DELETE /projects/:id
+  E3:  POST /projects, PATCH /projects/:id, GET /projects/templates,
+       POST /projects/:id/members, DELETE /projects/:id/members/:userId
+  E4:  POST /workspaces, GET /workspaces, GET /workspaces/:id,
+       PATCH /workspaces/:id, DELETE /workspaces/:id,
+       GET /workspaces/:id/members, POST /workspaces/:id/members/invite,
+       PATCH /workspaces/:id/members/:userId/role,
+       DELETE /workspaces/:id/members/:userId,
+       GET /workspaces/:id/activity, GET /workspaces/:id/stats,
+       POST /workspaces/:id/logo
+  I1:  GET /progress/rings, GET /progress/rings/weekly,
+       GET /progress/streak, POST /progress/streak/freeze,
+       GET /progress/heatmap, GET /progress/insights,
+       GET /progress/bests, POST /progress/snapshot
+
+  TOTAL ENDPOINTS: 30
+
+  DSA ACROSS ALL SCREENS:
+  ───────────────────────
+  - B-tree composite indexes (project queries, progress snapshots)
+  - pg_trgm GIN index (project search, member search)
+  - Cursor-based pagination (activity feed, project list)
+  - 2D array quantile mapping (heatmap rendering)
+  - CustomPainter arc drawing (progress rings)
+  - SpringSimulation (ring animations, card press)
+  - Debounce timer (search input)
+  - Set membership O(1) (online presence, member dedup)
+  - Min-max normalization (heatmap intensity)
+  - SQL aggregation GROUP BY (weekly insights)
+
+  ML/DL (v1 rule-based → v2 ML):
+  ───────────────────────────────
+  - Insights engine: SQL aggregation → Prophet time series
+  - Deferred detection: count threshold → Isolation Forest
+  - Content rotation: weighted random → ALS matrix factorization
+
+
+################################################################################
+  END OF EXPANSION-P2C.doc
+  Generated: ${new Date().toISOString().split('T')[0]}
+  Screens: E1, E3, E4, I1 + Design System
+################################################################################
+`;
+
+fs.writeFileSync(outputPath, content, 'utf-8');
+
+const lines = content.split('\n').length;
+console.log('EXPANSION-P2C.doc written successfully');
+console.log('Path: ' + outputPath);
+console.log('Total lines: ' + lines);
+console.log('Sections: 3 (Screen Specs, Design System, Summary)');
+console.log('Screens covered: E1, E3, E4, I1');
+console.log('Design System sections: DS-1 through DS-14');

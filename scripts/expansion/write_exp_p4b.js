@@ -1,0 +1,2366 @@
+const fs = require('fs');
+const outputPath = 'C:/Users/SaveLIFE Foundation/Downloads/personal/Project- TODO Reminder app/scripts/expansion/EXPANSION-P4B.doc';
+
+const content = `
+################################################################################
+  EXPANSION P4B: TEAM, ADMIN, WIDGETS, WATCH, IMPORT, DELIGHT SYSTEMS
+  Phase: 4 | Screens: N1-N5, P1-P2
+  Systems: W1-W5 Widgets, Watch App, Task Import, Empty States,
+           Easter Eggs, Seasonal UI, Upgrade Prompts
+  Status: DETAILED SPEC
+################################################################################
+
+  This expansion covers Phase 4 screens and systems that require deeper
+  specification beyond the task-level plan. Each screen gets full data flow,
+  animation, algorithm, and test breakdowns. System sections cover cross-cutting
+  concerns: native widgets, wearable apps, data migration, and delight/retention
+  mechanics.
+
+  PREREQUISITES:
+  - Phase 3 complete (channels, content, AI)
+  - Team backend APIs from Task 4.6 deployed
+  - RevenueCat billing from Task 4.1 working
+  - Admin APIs from Task 4.9 deployed
+
+================================================================================
+================================================================================
+  SECTION A: TEAM & COLLABORATION SCREENS (N1-N5)
+================================================================================
+================================================================================
+
+
+SCREEN N1: TEAM DASHBOARD (Team Plan)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Central command center for team leads and members to monitor team health,
+  track cross-project progress, identify workload imbalances, and stay aligned
+  on upcoming deadlines. Replaces the need for separate project management
+  tools by surfacing the most actionable team metrics in one glanceable view.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+  Widgets:
+  - TeamDashboardScreen (Scaffold with CustomScrollView)
+  - TeamHeaderCard (team name, avatar grid of members, member count badge)
+  - TeamCompletionRings (3 concentric rings: Tasks/Focus/Habits aggregate)
+  - ActiveProjectsList (horizontal scroll, ProjectMiniCard with progress bar)
+  - WorkloadHeatmap (GridView, cells colored by task density per member)
+  - TeamActivityFeed (ListView.builder, ActivityTile with avatar + action text)
+  - UpcomingDeadlinesBanner (horizontal date-grouped chips, overdue = red)
+  - QuickActionRow (Invite, Create Project, View Reports - IconButton row)
+
+  State Management (Riverpod 3.x):
+  - teamDashboardProvider: AsyncNotifier<TeamDashboardState>
+    Fetches: GET /api/v1/teams/:id with ?include=projects,members,activity
+  - teamActivityProvider: StreamNotifier<List<TeamActivity>>
+    WebSocket subscription: ws://api/teams/:id/activity
+  - workloadHeatmapProvider: FutureProvider<Map<String, WorkloadData>>
+    Computed from member task counts + estimated hours
+
+  Drift Tables (local cache):
+  - team_cache (id, name, member_count, updated_at)
+  - team_activity_cache (id, team_id, user_id, action, target, created_at)
+
+  Packages:
+  - fl_chart 0.68+ (completion trend sparkline in project cards)
+  - cached_network_image (member avatars)
+
+  Files:
+  - packages/feature_teams/lib/presentation/screens/team_dashboard_screen.dart
+  - packages/feature_teams/lib/presentation/widgets/team_header_card.dart
+  - packages/feature_teams/lib/presentation/widgets/team_completion_rings.dart
+  - packages/feature_teams/lib/presentation/widgets/workload_heatmap.dart
+  - packages/feature_teams/lib/presentation/widgets/team_activity_feed.dart
+  - packages/feature_teams/lib/presentation/widgets/upcoming_deadlines_banner.dart
+  - packages/feature_teams/lib/providers/team_dashboard_provider.dart
+
+  BACKEND (Hono/TypeScript):
+  ─────────────────────────────
+  Endpoints:
+  GET  /api/v1/teams/:id
+    - Query params: ?include=projects,members,activity,deadlines
+    - Response: { team, projects[], members[], recentActivity[], deadlines[] }
+    - Auth: team member (any role)
+    - Cache: 60s TTL in Valkey, invalidated on team mutation
+
+  GET  /api/v1/teams/:id/workload
+    - Response: { members: [{ userId, name, taskCount, estimatedHours,
+      overdueCount, completionRate7d }] }
+    - Auth: Owner | Admin | Member (own data only for Member)
+
+  WebSocket: ws://api/v1/teams/:id/activity
+    - Emits: { type: 'team_activity', payload: TeamActivity }
+    - Triggered by: task create/complete/assign, member join/leave, comment
+
+  Business Logic:
+  - WorkloadCalculator (src/services/workload-calculator.ts):
+    Aggregates task_count, estimated_minutes, overdue_count per member
+    Flags overloaded: estimated_hours > 8 * working_days_remaining
+  - TeamMetricsAggregator (src/services/team-metrics.ts):
+    Computes team completion rate, average streak, project progress
+
+  Drizzle Tables:
+  - teams (id, name, avatar_url, owner_id, plan, created_at, updated_at)
+  - team_members (team_id, user_id, role, status, joined_at)
+  - team_activity (id, team_id, actor_id, action, target_type, target_id,
+    metadata, created_at)
+
+  DATA FLOW:
+  ──────────
+  1. User navigates to Team tab (go_router: /teams/:teamId)
+  2. teamDashboardProvider fires GET /api/v1/teams/:id?include=all
+  3. Response cached in Drift team_cache + team_activity_cache
+  4. WebSocket connects for real-time activity updates
+  5. WorkloadHeatmap computed client-side from member task data
+  6. Pull-to-refresh invalidates Valkey cache, re-fetches
+  7. Offline: shows cached data with "Last updated X ago" banner
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+  - Team rings animate on load (0 -> current, staggered 200ms per ring)
+  - Project cards: horizontal scroll with snap physics
+  - Activity feed: new items slide in from top with fade
+  - Workload heatmap cells: color transition on data change (300ms ease)
+  - Pull-to-refresh: UNJYNX logo curse-breaking animation
+  - Member avatars: press to show quick profile tooltip (name + role + stats)
+  - Deadline chips: overdue chips pulse subtly (opacity 0.7 -> 1.0 loop)
+
+  DSA / ALGORITHMS:
+  ─────────────────
+  - Workload Distribution Score: Gini coefficient across member task counts
+    Score 0.0 = perfectly balanced, 1.0 = all work on one person
+    Displayed as "Balanced" / "Slightly uneven" / "Unbalanced" label
+  - Activity Feed Deduplication: sliding window (5 min) groups rapid actions
+    "Alice completed 3 tasks" instead of 3 separate entries
+  - Deadline Priority Sort: multi-key sort (overdue first, then by due_date
+    ASC, then by priority DESC)
+
+  TESTS:
+  ──────
+  Unit: 6 (providers, workload calc, activity grouping, deadline sort,
+    ring aggregation, Gini coefficient)
+  Widget: 5 (dashboard layout, heatmap rendering, activity feed,
+    project cards scroll, quick actions)
+  Integration: 3 (API fetch + cache, WebSocket activity stream,
+    pull-to-refresh flow)
+  Total: 14 tests
+
+
+SCREEN N2: MEMBER MANAGEMENT (Team Plan - Admin)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Allows team Owners and Admins to invite new members, manage roles, control
+  project access, and monitor individual member performance. Enforces RBAC
+  (Role-Based Access Control) with four distinct permission levels, ensuring
+  data security while enabling flexible team structures.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+  Widgets:
+  - MemberManagementScreen (Scaffold with SliverAppBar + SliverList)
+  - MemberListTile (avatar, name, role badge, status indicator, stats row)
+  - InviteSheet (BottomSheet with 3 tabs: Email, Link, QR)
+  - RoleSelector (SegmentedButton: Owner | Admin | Member | Viewer)
+  - ProjectAccessSheet (CheckboxListTile per project, "All" toggle)
+  - MemberDetailSheet (full stats: tasks assigned, completion rate, channels)
+  - BulkActionBar (appears on long-press selection: change role, remove)
+
+  State Management (Riverpod 3.x):
+  - teamMembersProvider: AsyncNotifier<List<TeamMember>>
+    Fetches: GET /api/v1/teams/:id/members
+  - inviteStateProvider: StateNotifier<InviteState>
+    Manages invite flow: idle -> generating -> ready -> sent
+  - memberSelectionProvider: StateNotifier<Set<String>>
+    Tracks multi-select for bulk actions
+
+  Drift Tables:
+  - team_members_cache (team_id, user_id, name, avatar_url, role, status,
+    task_count, completion_rate, joined_at)
+
+  Packages:
+  - qr_flutter 4.x (QR code generation for invite link)
+  - share_plus 10.x (share invite link via system sheet)
+
+  Files:
+  - packages/feature_teams/lib/presentation/screens/member_management_screen.dart
+  - packages/feature_teams/lib/presentation/widgets/member_list_tile.dart
+  - packages/feature_teams/lib/presentation/widgets/invite_sheet.dart
+  - packages/feature_teams/lib/presentation/widgets/role_selector.dart
+  - packages/feature_teams/lib/presentation/widgets/project_access_sheet.dart
+  - packages/feature_teams/lib/providers/team_members_provider.dart
+  - packages/feature_teams/lib/providers/invite_state_provider.dart
+
+  BACKEND (Hono/TypeScript):
+  ─────────────────────────────
+  Endpoints:
+  GET    /api/v1/teams/:id/members
+    - Response: { members: [{ userId, name, email, avatarUrl, role, status,
+      taskCount, completionRate, channelPreference, joinedAt }] }
+    - Auth: any team member (Members see limited stats, Viewers see names only)
+
+  POST   /api/v1/teams/:id/invite
+    - Body: { method: 'email' | 'link' | 'qr', email?, role, projectAccess }
+    - Response: { inviteId, inviteUrl, expiresAt }
+    - Auth: Owner | Admin
+    - Logic: generates signed JWT invite token (48h expiry)
+    - Side effect: sends invite email/notification if method=email
+
+  POST   /api/v1/teams/:id/invite/:inviteId/accept
+    - Auth: any authenticated user (with valid invite token)
+    - Logic: adds user to team with specified role + project access
+
+  PATCH  /api/v1/teams/:id/members/:userId
+    - Body: { role?, status?, projectAccess? }
+    - Auth: Owner (can change any), Admin (can change Member/Viewer)
+    - Validation: cannot demote last Owner, cannot self-promote
+
+  DELETE /api/v1/teams/:id/members/:userId
+    - Auth: Owner | Admin (cannot remove Owner unless self + another Owner exists)
+    - Side effect: reassign or unassign member's tasks
+
+  Business Logic:
+  - RBACEnforcer (src/middleware/rbac.ts):
+    Permission matrix as const object, checked per-endpoint
+    Hierarchical: Owner > Admin > Member > Viewer
+  - InviteTokenService (src/services/invite-token.ts):
+    JWT with claims: { teamId, role, projectAccess, invitedBy, expiresAt }
+    One-time use: marked as used after acceptance
+  - MemberRemovalService (src/services/member-removal.ts):
+    On remove: unassign tasks OR reassign to team default
+    Preserves comments and activity history (soft reference)
+
+  Drizzle Tables:
+  - team_invites (id, team_id, invited_by, method, email, role,
+    project_access, token, status, expires_at, accepted_at, created_at)
+  - team_member_project_access (team_id, user_id, project_id, granted_by)
+
+  DATA FLOW:
+  ──────────
+  1. Admin opens Member Management from Team Dashboard
+  2. teamMembersProvider fetches GET /api/v1/teams/:id/members
+  3. Cached in Drift team_members_cache for offline viewing
+  4. Invite flow: Admin taps "+" -> InviteSheet opens
+     a. Email tab: enter email -> POST invite -> confirmation toast
+     b. Link tab: POST invite -> copy link or share via share_plus
+     c. QR tab: POST invite -> qr_flutter renders QR from invite URL
+  5. Role change: tap member -> MemberDetailSheet -> RoleSelector
+     -> PATCH /api/v1/teams/:id/members/:userId -> optimistic UI update
+  6. Remove: swipe left on member -> confirm dialog -> DELETE endpoint
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+  - Member list: staggered fade-in on load (50ms delay per item)
+  - Role badge: color morph animation on role change (300ms)
+  - Invite sheet: slide-up with spring physics
+  - QR code: generates with particle "materialization" effect (Lottie)
+  - Status indicators: green pulse for active, amber for invited, grey for deactivated
+  - Swipe-to-remove: red background reveal with trash icon
+  - Bulk selection: checkbox scale-in animation, action bar slides up from bottom
+  - Success toast on invite sent: envelope icon flies toward member list
+
+  DSA / ALGORITHMS:
+  ─────────────────
+  - RBAC Permission Matrix: O(1) lookup via role-permission map
+    Enforced both client-side (UI gating) and server-side (middleware)
+  - Invite Token: HMAC-SHA256 signed JWT with one-time-use flag
+    Prevents replay attacks, 48h expiry window
+  - Member Sort: multi-key (role hierarchy DESC, then name ASC)
+    Owner first, then Admin, then Member, then Viewer
+  - Ownership Transfer Validation: graph check ensures at least 1 Owner
+    remains after any role change or member removal
+
+  TESTS:
+  ──────
+  Unit: 7 (RBAC matrix, invite token generation/validation, role change
+    validation, ownership transfer check, member sort, project access merge,
+    bulk action state)
+  Widget: 5 (member list rendering, invite sheet tabs, role selector,
+    QR code display, bulk action bar)
+  Integration: 4 (invite flow end-to-end, role change API + UI update,
+    member removal + task reassignment, accept invite flow)
+  Total: 16 tests
+
+
+SCREEN N3: SHARED PROJECT VIEW (Team Plan)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Extends the standard Project Detail (E2) with team-specific capabilities:
+  task assignment, assignee filtering, workload visualization, threaded
+  comments with @mentions, and a real-time activity sidebar. Enables teams
+  to collaborate on shared projects without leaving UNJYNX for Slack or Jira.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+  Widgets:
+  - SharedProjectScreen (extends ProjectDetailScreen with team overlays)
+  - AssigneeColumn (in task list: avatar chip, tap to reassign)
+  - AssigneeFilterBar (horizontal chip row: "All" + member avatars, multi-select)
+  - WorkloadBalanceIndicator (horizontal bar chart: tasks per assignee)
+  - CommentThread (ListView of CommentBubble, nested replies 1 level deep)
+  - CommentInput (TextField + @mention autocomplete + send button)
+  - MentionOverlay (OverlayEntry: filtered member list on @ trigger)
+  - ActivitySidebar (Drawer: chronological activity for this project only)
+  - AssigneeSelector (BottomSheet: member list with search, single select)
+
+  State Management (Riverpod 3.x):
+  - sharedProjectProvider: AsyncNotifier<SharedProjectState>
+    Extends projectDetailProvider with assignee data
+  - assigneeFilterProvider: StateNotifier<Set<String>>
+    Active filter: which assignees to show (empty = all)
+  - taskCommentsProvider(taskId): AsyncNotifier<List<Comment>>
+    Fetches: GET /api/v1/tasks/:id/comments
+  - commentInputProvider: StateNotifier<CommentInputState>
+    Tracks: text, mention suggestions, sending state
+  - projectActivityProvider(projectId): StreamNotifier<List<Activity>>
+    WebSocket: ws://api/v1/projects/:id/activity
+
+  Drift Tables:
+  - task_assignments (task_id, assignee_id, assigned_by, assigned_at)
+  - task_comments (id, task_id, author_id, body, mentions, parent_id,
+    created_at, updated_at)
+
+  Packages:
+  - flutter_mentions 2.x (mention detection + autocomplete in text field)
+
+  Files:
+  - packages/feature_teams/lib/presentation/screens/shared_project_screen.dart
+  - packages/feature_teams/lib/presentation/widgets/assignee_column.dart
+  - packages/feature_teams/lib/presentation/widgets/assignee_filter_bar.dart
+  - packages/feature_teams/lib/presentation/widgets/comment_thread.dart
+  - packages/feature_teams/lib/presentation/widgets/comment_input.dart
+  - packages/feature_teams/lib/presentation/widgets/mention_overlay.dart
+  - packages/feature_teams/lib/presentation/widgets/activity_sidebar.dart
+  - packages/feature_teams/lib/providers/shared_project_provider.dart
+  - packages/feature_teams/lib/providers/task_comments_provider.dart
+
+  BACKEND (Hono/TypeScript):
+  ─────────────────────────────
+  Endpoints:
+  PATCH  /api/v1/tasks/:id/assign
+    - Body: { assigneeId }
+    - Auth: Owner | Admin | Member (own tasks only for Member)
+    - Side effect: notification to assignee via preferred channel
+    - Side effect: team_activity entry created
+
+  GET    /api/v1/tasks/:id/comments
+    - Query: ?page=1&limit=20&sort=created_at:asc
+    - Response: { comments: [{ id, authorId, authorName, authorAvatar,
+      body, mentions, parentId, createdAt }], total, hasMore }
+    - Auth: any project member
+
+  POST   /api/v1/tasks/:id/comments
+    - Body: { body, mentions: string[], parentId? }
+    - Auth: Owner | Admin | Member
+    - Side effect: notification to mentioned users
+    - Side effect: notification to task assignee (if not author)
+    - Validation: body max 2000 chars, mentions must be team members
+
+  DELETE /api/v1/tasks/:id/comments/:commentId
+    - Auth: comment author | Owner | Admin
+    - Soft delete: body replaced with "[deleted]", preserves thread structure
+
+  GET    /api/v1/projects/:id/workload
+    - Response: { members: [{ userId, name, taskCount, completedCount,
+      overdueCount }] }
+
+  WebSocket: ws://api/v1/projects/:id/activity
+    - Emits: task_created, task_completed, task_assigned, comment_added
+    - Scoped to project members only
+
+  Business Logic:
+  - MentionParser (src/services/mention-parser.ts):
+    Extracts @username from comment body, resolves to user IDs
+    Validates all mentioned users are project members
+  - AssignmentNotifier (src/services/assignment-notifier.ts):
+    Sends notification via assignee's preferred channel
+    Template: "[Assigner] assigned you: [Task Title] in [Project]"
+  - CommentNotifier (src/services/comment-notifier.ts):
+    Sends to: all @mentioned users + task assignee (deduplicated)
+
+  Drizzle Tables:
+  - task_comments (id, task_id, author_id, body, mentions jsonb,
+    parent_id, is_deleted, created_at, updated_at)
+  - task_assignments (task_id, user_id, assigned_by, created_at)
+
+  DATA FLOW:
+  ──────────
+  1. User opens shared project via go_router: /projects/:id (team context)
+  2. sharedProjectProvider detects team project, fetches with assignee data
+  3. Task list rendered with AssigneeColumn (avatar chips)
+  4. Filter: user taps assignee chip in filter bar -> assigneeFilterProvider
+     updates -> task list filters client-side (already have all data)
+  5. Comment flow: tap task -> scroll to comments -> load taskCommentsProvider
+     -> type comment with @mention -> POST -> optimistic add to list
+  6. @mention: typing "@" triggers MentionOverlay with member search
+     -> select member -> @username inserted into text
+  7. Assignment: tap assignee avatar -> AssigneeSelector sheet -> select member
+     -> PATCH /assign -> optimistic UI update + notification sent
+  8. Activity sidebar: swipe from right edge -> Drawer with real-time stream
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+  - Assignee avatar: scale bounce on assignment change
+  - Filter chips: selected state with brand purple fill, spring animation
+  - Comment bubbles: slide in from bottom with stagger
+  - @mention overlay: fade in + slide up, keyboard-aware positioning
+  - Activity sidebar: slide from right with backdrop blur
+  - Workload bar chart: animated fill on load (300ms stagger per bar)
+  - New comment indicator: subtle glow pulse on task card with unread comments
+  - Swipe right on comment: reply action with indented thread
+
+  DSA / ALGORITHMS:
+  ─────────────────
+  - @Mention Trie: prefix trie of team member names for O(k) autocomplete
+    where k = length of typed prefix. Rebuilt on team member changes.
+  - Comment Threading: tree structure with max depth 1 (flat replies)
+    Rendered as parent + indented children, sorted by created_at ASC
+  - Assignee Filter: client-side Set intersection of selected assignee IDs
+    with task.assigneeId for O(n) filtering
+  - Workload Balance Score: standard deviation of task counts across members
+    Low SD = balanced, high SD = unbalanced (warning threshold configurable)
+
+  TESTS:
+  ──────
+  Unit: 7 (mention parser, trie autocomplete, comment threading, assignee
+    filter, workload balance calc, assignment validation, notification dedup)
+  Widget: 6 (assignee column render, filter bar interaction, comment thread
+    layout, mention overlay, activity sidebar, workload indicator)
+  Integration: 4 (assign task flow, comment with mention flow, real-time
+    activity stream, filter + sort combined)
+  Total: 17 tests
+
+
+SCREEN N4: TEAM REPORTS (Team Plan)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Provides team leads with actionable analytics on team productivity, individual
+  contributions, project health, and channel usage. Enables data-driven
+  decisions about workload distribution, deadline management, and communication
+  patterns. Export capability (PDF/CSV/API) supports executive reporting.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+  Widgets:
+  - TeamReportsScreen (Scaffold with TabBar: Overview | Members | Projects | Channels)
+  - OverviewTab:
+    - TeamProductivityChart (line chart: tasks completed per week, 12-week trend)
+    - CompletionRateGauge (circular gauge: team-wide completion %)
+    - OverdueTasksCard (count + trend arrow + assignee breakdown)
+  - MembersTab:
+    - ContributionBreakdown (stacked bar chart: tasks per member per week)
+    - MemberRankingList (sorted by completion rate, expandable detail)
+    - TimeTrackingSummary (bar chart: Pomodoro + Ghost Mode hours per member)
+  - ProjectsTab:
+    - ProjectCompletionRates (horizontal bar chart: % complete per project)
+    - ProjectHealthIndicator (green/amber/red dot per project based on overdue %)
+    - BurndownChart (line: remaining tasks over time vs ideal line)
+  - ChannelsTab:
+    - ChannelUsagePie (donut chart: reminders sent per channel)
+    - DeliverySuccessRates (bar chart: success % per channel)
+    - ChannelCostTracker (Team plan: monthly cost per channel)
+  - DateRangeSelector (chip row: 7d | 30d | 90d | Custom)
+  - ExportButton (FAB: PDF | CSV | Share)
+
+  State Management (Riverpod 3.x):
+  - teamReportsProvider(dateRange): AsyncNotifier<TeamReportsData>
+    Fetches: GET /api/v1/teams/:id/reports?range=30d
+  - reportDateRangeProvider: StateNotifier<DateRange>
+  - reportExportProvider: StateNotifier<ExportState>
+    Manages: format selection, generation progress, download
+
+  Packages:
+  - fl_chart 0.68+ (all chart types)
+  - pdf 3.x (PDF generation for export)
+  - printing 5.x (print/share PDF)
+  - share_plus 10.x (share exported file)
+
+  Files:
+  - packages/feature_teams/lib/presentation/screens/team_reports_screen.dart
+  - packages/feature_teams/lib/presentation/widgets/reports/productivity_chart.dart
+  - packages/feature_teams/lib/presentation/widgets/reports/contribution_breakdown.dart
+  - packages/feature_teams/lib/presentation/widgets/reports/burndown_chart.dart
+  - packages/feature_teams/lib/presentation/widgets/reports/channel_usage_pie.dart
+  - packages/feature_teams/lib/presentation/widgets/reports/export_button.dart
+  - packages/feature_teams/lib/providers/team_reports_provider.dart
+
+  BACKEND (Hono/TypeScript):
+  ─────────────────────────────
+  Endpoints:
+  GET  /api/v1/teams/:id/reports
+    - Query: ?range=7d|30d|90d|custom&from=DATE&to=DATE&type=overview|members|
+      projects|channels
+    - Response: {
+        overview: { completionRate, totalCompleted, totalCreated, overdue,
+          trend: number[] },
+        members: [{ userId, name, completed, created, overdue, completionRate,
+          pomodoroMinutes, ghostModeMinutes }],
+        projects: [{ projectId, name, totalTasks, completed, overdue,
+          burndown: { date, remaining }[] }],
+        channels: [{ channel, sent, delivered, failed, cost }]
+      }
+    - Auth: Owner | Admin (full), Member (own data in members tab)
+    - Cache: 5 min TTL (reports are expensive queries)
+
+  GET  /api/v1/teams/:id/reports/export
+    - Query: ?format=pdf|csv&range=30d
+    - Response: binary file download (Content-Disposition: attachment)
+    - Auth: Owner | Admin
+    - Async: for large teams, returns 202 + jobId, polls for completion
+
+  Business Logic:
+  - ReportAggregator (src/services/report-aggregator.ts):
+    SQL aggregation queries with date windowing
+    Uses materialized views for 90d+ ranges (refreshed hourly)
+  - BurndownCalculator (src/services/burndown-calculator.ts):
+    Computes ideal line (total_tasks / days_remaining)
+    Actual line from daily snapshot of remaining tasks
+  - PDFReportGenerator (src/services/pdf-report-generator.ts):
+    Uses puppeteer-core to render HTML report template to PDF
+    Includes charts as SVG, tables, branding
+
+  Drizzle Tables:
+  - team_daily_snapshots (team_id, date, total_tasks, completed, created,
+    overdue, members_active)
+  - member_daily_snapshots (team_id, user_id, date, completed, created,
+    overdue, pomodoro_min, ghost_mode_min)
+
+  DATA FLOW:
+  ──────────
+  1. User opens Reports from Team Dashboard quick action
+  2. Default: Overview tab, 30d range
+  3. teamReportsProvider fetches GET /api/v1/teams/:id/reports?range=30d
+  4. Backend runs aggregation queries (cached 5 min in Valkey)
+  5. Charts render with staggered animations
+  6. Tab switch: new type param in API call (or client filters if data exists)
+  7. Date range change: new API call with updated range
+  8. Export: user taps FAB -> format picker -> POST export request
+     -> progress indicator -> download/share when ready
+  9. Offline: shows cached report data with "Generated on [date]" label
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+  - Charts: staggered draw-in animation (line charts trace, bars grow up)
+  - Tab switch: shared element transition on active tab indicator
+  - Date range chips: selected chip scales up with brand purple fill
+  - Export FAB: morphs into format picker (Material 3 FAB expansion)
+  - Completion rate gauge: needle sweeps from 0 to value on load
+  - Member ranking: numbers count up animation (0 -> actual value, 600ms)
+  - Burndown chart: ideal line draws first (grey), then actual (brand purple)
+  - Pull-to-refresh: regenerates report with fresh data
+
+  DSA / ALGORITHMS:
+  ─────────────────
+  - Time-Windowed Aggregation: SQL window functions for rolling averages
+    Daily snapshots stored in materialized table, queried with date range
+  - Burndown Projection: linear regression on last 7 data points to
+    project completion date (displayed as dashed line extension)
+  - Contribution Fairness Index: coefficient of variation (CV) of member
+    task counts. CV < 0.3 = fair, 0.3-0.6 = moderate, > 0.6 = unfair
+  - Channel Cost Optimization: ranks channels by cost-per-successful-delivery
+    Suggests cheaper alternatives for high-cost, low-success channels
+
+  TESTS:
+  ──────
+  Unit: 8 (report aggregator, burndown calc, fairness index, cost optimizer,
+    date range validation, PDF generation, CSV formatting, chart data transform)
+  Widget: 5 (overview tab charts, member ranking list, burndown chart render,
+    channel pie chart, export button states)
+  Integration: 3 (full report fetch + render, export PDF flow, date range
+    change + re-fetch)
+  Total: 16 tests
+
+
+SCREEN N5: ASYNC STANDUP (Team Plan)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Automates daily standup reports by extracting "done yesterday" and "planned
+  today" from actual task activity, requiring only manual "blockers" input.
+  Delivered to the team's preferred channel (Slack/Discord/Telegram/WhatsApp/
+  Email) at a configured time, eliminating synchronous standup meetings for
+  distributed teams.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+  Widgets:
+  - AsyncStandupScreen (Scaffold with date navigation header + member sections)
+  - StandupDateNavigator (left/right arrows + date display, swipe to change)
+  - MemberStandupCard (Card per member with 3 sections):
+    - DoneYesterdaySection (auto-filled: completed tasks, green check icons)
+    - PlannedTodaySection (auto-filled: today's tasks, blue dot icons)
+    - BlockersSection (manual TextFormField, red flag icon)
+  - StandupConfigSheet (BottomSheet: delivery time, channel, enabled toggle)
+  - StandupHistoryList (ListView: past standups with expand/collapse)
+  - StandupDeliveryStatus (chip: "Sent at 9:30 AM via Slack" or "Pending")
+  - EmptyStandupState (illustration: "No activity yet today. Check back later.")
+
+  State Management (Riverpod 3.x):
+  - todayStandupProvider: AsyncNotifier<StandupData>
+    Fetches: GET /api/v1/teams/:id/standup?date=today
+    Auto-computes done/planned from task activity
+  - standupBlockersProvider: StateNotifier<Map<String, String>>
+    Maps userId -> blocker text (local draft, synced on submit)
+  - standupConfigProvider: AsyncNotifier<StandupConfig>
+    Fetches/updates: GET/PUT /api/v1/teams/:id/standup/config
+  - standupHistoryProvider: AsyncNotifier<List<StandupSummary>>
+    Fetches: GET /api/v1/teams/:id/standup/history?limit=14
+
+  Drift Tables:
+  - standup_cache (team_id, date, data_json, delivered_at, channel)
+  - standup_blockers_draft (team_id, user_id, date, text, synced)
+
+  Files:
+  - packages/feature_teams/lib/presentation/screens/async_standup_screen.dart
+  - packages/feature_teams/lib/presentation/widgets/standup/member_standup_card.dart
+  - packages/feature_teams/lib/presentation/widgets/standup/standup_config_sheet.dart
+  - packages/feature_teams/lib/presentation/widgets/standup/standup_history_list.dart
+  - packages/feature_teams/lib/providers/standup_provider.dart
+  - packages/feature_teams/lib/providers/standup_config_provider.dart
+
+  BACKEND (Hono/TypeScript):
+  ─────────────────────────────
+  Endpoints:
+  GET  /api/v1/teams/:id/standup
+    - Query: ?date=YYYY-MM-DD (defaults to today)
+    - Response: {
+        date, deliveredAt, channel,
+        members: [{
+          userId, name, avatarUrl,
+          doneYesterday: [{ taskId, title, completedAt }],
+          plannedToday: [{ taskId, title, dueDate, priority }],
+          blockers: string | null
+        }]
+      }
+    - Auth: any team member
+    - Logic: queries tasks WHERE completed_at BETWEEN yesterday_start AND
+      yesterday_end for "done", WHERE due_date = today for "planned"
+
+  POST /api/v1/teams/:id/standup
+    - Body: { blockers: string }
+    - Auth: any team member (submits own blockers)
+    - Validation: max 500 chars
+
+  GET  /api/v1/teams/:id/standup/config
+    - Response: { enabled, deliveryTime, timezone, channel, dayOfWeek[] }
+  PUT  /api/v1/teams/:id/standup/config
+    - Body: { enabled, deliveryTime, timezone, channel, dayOfWeek[] }
+    - Auth: Owner | Admin
+
+  GET  /api/v1/teams/:id/standup/history
+    - Query: ?limit=14&offset=0
+    - Response: { standups: [{ date, memberCount, blockerCount, deliveredAt }] }
+
+  Business Logic:
+  - StandupGenerator (src/services/standup-generator.ts):
+    Cron job at team's configured time (BullMQ repeatable job)
+    1. Query completed tasks (yesterday) per member
+    2. Query due tasks (today) per member
+    3. Fetch submitted blockers
+    4. Format standup message (Markdown for Slack/Discord, plain for others)
+    5. Deliver via configured channel
+  - StandupFormatter (src/services/standup-formatter.ts):
+    Templates per channel:
+    - Slack: Block Kit JSON with sections + dividers
+    - Discord: Embed with fields
+    - Telegram: Markdown with bold headers
+    - WhatsApp: Simple text with emojis
+    - Email: HTML template with tables
+  - StandupScheduler (src/services/standup-scheduler.ts):
+    BullMQ cron job per team, respects timezone + day-of-week config
+    Skips weekends if configured, handles timezone DST transitions
+
+  Drizzle Tables:
+  - standup_configs (team_id, enabled, delivery_time, timezone, channel,
+    days_of_week, created_at, updated_at)
+  - standup_entries (id, team_id, date, user_id, blockers, submitted_at)
+  - standup_deliveries (id, team_id, date, channel, message_id,
+    delivered_at, status)
+
+  DATA FLOW:
+  ──────────
+  1. User opens Standup from Team Dashboard
+  2. todayStandupProvider fetches GET /api/v1/teams/:id/standup?date=today
+  3. Backend auto-computes done/planned from task tables
+  4. Blockers shown if already submitted, otherwise empty input field
+  5. User enters blockers -> saved locally in Drift (standup_blockers_draft)
+  6. User taps "Submit Blockers" -> POST /api/v1/teams/:id/standup
+  7. At configured delivery time: BullMQ job runs StandupGenerator
+     -> formats message -> delivers to channel -> marks standup_deliveries
+  8. Standup history: swipe left/right date navigator or scroll history list
+  9. Offline: blockers draft saved in Drift, synced when online
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+  - Date navigator: swipe left/right with parallax date transition
+  - Member cards: staggered slide-in from bottom (80ms per card)
+  - Done section tasks: fade in with green checkmark micro-animation
+  - Planned section tasks: fade in with blue dot pulse
+  - Blocker input: expands smoothly on tap, red border glow on focus
+  - Submit button: morphs to checkmark on successful submission
+  - Delivery status chip: animates from "Pending" -> "Sent at [time]"
+  - History items: accordion expand/collapse with height animation
+
+  DSA / ALGORITHMS:
+  ─────────────────
+  - Task Completion Window: SQL BETWEEN with timezone-aware date boundaries
+    Yesterday = user's timezone midnight-to-midnight, not UTC
+  - Standup Cron Scheduling: BullMQ cron expression from team config
+    Handles DST: stores delivery_time as local time + timezone IANA string
+    Recalculates cron on timezone rule changes
+  - Message Deduplication: idempotency key = team_id + date + channel
+    Prevents double delivery on BullMQ job retry
+  - Blocker Keyword Detection: simple regex scan for urgency words
+    ("blocked", "waiting on", "can't proceed") -> flags for team lead
+
+  TESTS:
+  ──────
+  Unit: 7 (standup generator, formatter per channel, scheduler timezone,
+    completion window calc, blocker keyword detection, deduplication,
+    config validation)
+  Widget: 5 (standup card layout, date navigator, blocker input, config sheet,
+    history list)
+  Integration: 4 (full standup generation flow, blocker submit + fetch,
+    channel delivery mock, date navigation + API fetch)
+  Total: 16 tests
+
+
+================================================================================
+================================================================================
+  SECTION B: ADMIN SCREENS (P1-P2)
+================================================================================
+================================================================================
+
+
+SCREEN P1: COMPANY ADMIN DASHBOARD (Team Plan - Owner/Admin)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  In-app administrative hub for team Owners and Admins to manage billing,
+  monitor team health, invite members, and access support. Serves as the
+  mobile counterpart to the web admin portal (Q1-Q10), providing essential
+  admin functions without requiring a desktop browser.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+  Widgets:
+  - CompanyAdminScreen (Scaffold with CustomScrollView)
+  - AdminAccessGuard (wrapper: checks user.role == Owner | Admin, else 403 screen)
+  - TeamOverviewCard (Card: active users count, total tasks, completion rate)
+  - BillingSummaryCard (Card: current plan badge, next billing date, per-seat
+    cost, total monthly, "Manage" button -> M2)
+  - MemberQuickList (compact list: top 5 members by activity, "View All" -> N2)
+  - QuickActionsGrid (2x2 grid: Invite Member, Export Data, View Reports,
+    Contact Support)
+  - SupportSection (ListTile group: Contact UNJYNX, View Docs, FAQs,
+    Report Bug, Feature Request)
+  - AdminBanner (conditional: shows billing warnings, seat limit approaching,
+    plan expiry)
+
+  State Management (Riverpod 3.x):
+  - companyAdminProvider: AsyncNotifier<CompanyAdminState>
+    Fetches: GET /api/v1/teams/:id (admin view with billing)
+  - billingAlertProvider: FutureProvider<BillingAlert?>
+    Checks: days until renewal, payment issues, seat usage vs limit
+
+  Files:
+  - packages/feature_teams/lib/presentation/screens/company_admin_screen.dart
+  - packages/feature_teams/lib/presentation/widgets/admin/team_overview_card.dart
+  - packages/feature_teams/lib/presentation/widgets/admin/billing_summary_card.dart
+  - packages/feature_teams/lib/presentation/widgets/admin/quick_actions_grid.dart
+  - packages/feature_teams/lib/presentation/widgets/admin/support_section.dart
+  - packages/feature_teams/lib/providers/company_admin_provider.dart
+
+  BACKEND (Hono/TypeScript):
+  ─────────────────────────────
+  Endpoints:
+  GET  /api/v1/teams/:id/admin
+    - Response: {
+        team: { name, plan, memberCount, seatLimit },
+        billing: { plan, monthlyTotal, perSeatCost, nextBillingDate,
+          paymentMethod, invoiceCount },
+        stats: { activeUsers7d, totalTasks, completionRate30d,
+          tasksCreatedToday },
+        alerts: [{ type, message, severity }]
+      }
+    - Auth: Owner | Admin only (403 for Member/Viewer)
+
+  POST /api/v1/teams/:id/admin/export
+    - Body: { format: 'json' | 'csv', includeActivity: boolean }
+    - Response: 202 Accepted + { jobId, estimatedTime }
+    - Async: BullMQ job generates export, notifies when ready
+    - Auth: Owner only
+
+  POST /api/v1/support/ticket
+    - Body: { type, subject, description, attachmentUrls? }
+    - Auth: any authenticated user
+    - Creates ticket in support system (email to support@unjynx.com)
+
+  Business Logic:
+  - BillingAlertService (src/services/billing-alert.ts):
+    Checks: payment overdue, seat limit 90% reached, plan expiring in 7d
+    Returns prioritized alert list
+  - AdminAccessMiddleware (src/middleware/admin-access.ts):
+    Validates team membership + Owner/Admin role
+    Returns 403 with message for insufficient permissions
+
+  DATA FLOW:
+  ──────────
+  1. User navigates: Profile -> Admin Panel (visible only if Owner/Admin)
+  2. AdminAccessGuard verifies role client-side (go_router guard)
+  3. companyAdminProvider fetches GET /api/v1/teams/:id/admin
+  4. Dashboard renders with overview, billing, quick actions
+  5. Billing alerts shown as banner at top if present
+  6. Quick actions: each navigates to respective screen (N2, N4, M2)
+  7. Support: taps open external links or in-app ticket form
+  8. Export: POST triggers async job, toast shows "Export preparing..."
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+  - Overview card stats: count-up animation on load (0 -> value, 800ms)
+  - Billing card: subtle gradient shift based on plan (purple=Pro, gold=Team)
+  - Quick action buttons: ripple + scale (0.95) on press
+  - Alert banner: slide down from top on load, dismiss with swipe up
+  - Support tiles: standard Material 3 ListTile interaction
+  - Export button: morphs to progress indicator while generating
+
+  DSA / ALGORITHMS:
+  ─────────────────
+  - Alert Priority Queue: alerts sorted by severity (critical > warning > info)
+    Max 3 alerts shown, others accessible via "View All"
+  - Seat Utilization: active_members / seat_limit ratio
+    > 0.9 triggers "approaching limit" warning
+  - Admin Route Guard: client-side role check in go_router redirect
+    + server-side middleware double-check (defense in depth)
+
+  TESTS:
+  ──────
+  Unit: 4 (billing alert calc, seat utilization, admin access guard,
+    export job creation)
+  Widget: 4 (admin dashboard layout, billing card, quick actions, alert banner)
+  Integration: 2 (admin fetch + render, export flow)
+  Total: 10 tests
+
+
+SCREEN P2: CONTENT MANAGEMENT REDIRECT (Super Admin Only)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  A minimal redirect screen that informs Super Admin users that content
+  management (daily quotes, categories, scheduling) is only available through
+  the web admin portal (Q4). Prevents confusion by clearly directing users
+  to the appropriate platform rather than providing a degraded mobile CMS.
+
+  FRONTEND (Flutter):
+  ─────────────────────
+  Widgets:
+  - ContentManagementRedirectScreen (Scaffold with centered content)
+  - RedirectIllustration (Lottie: laptop with content cards flowing into it)
+  - RedirectMessage (Text: "Content management is available on the web portal")
+  - WebPortalButton (ElevatedButton: "Open Web Portal" -> launches URL)
+  - RecentContentPreview (optional: shows last 5 content items, read-only)
+
+  State Management (Riverpod 3.x):
+  - (minimal state - mostly static UI)
+  - recentContentProvider: FutureProvider<List<ContentItem>>
+    Fetches: GET /api/v1/admin/content?limit=5 (read-only preview)
+
+  Files:
+  - packages/feature_teams/lib/presentation/screens/content_mgmt_redirect_screen.dart
+
+  BACKEND (Hono/TypeScript):
+  ─────────────────────────────
+  No new endpoints. Uses existing:
+  - GET /api/v1/admin/content (from Task 4.9 Admin APIs)
+
+  DATA FLOW:
+  ──────────
+  1. Super Admin navigates: Profile -> Admin Panel -> Content Management
+  2. Screen shows redirect illustration + message
+  3. "Open Web Portal" launches url_launcher to admin.unjynx.com/content
+  4. Optional: recent content preview loads from existing admin endpoint
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+  - Lottie illustration: laptop animation loops (3s, subtle)
+  - Web portal button: standard Material 3 elevation on press
+  - URL launch: brief loading indicator while browser opens
+
+  DSA / ALGORITHMS:
+  ─────────────────
+  - None (simple redirect screen)
+
+  TESTS:
+  ──────
+  Unit: 1 (URL construction)
+  Widget: 2 (redirect screen layout, button tap launches URL)
+  Integration: 0
+  Total: 3 tests
+
+
+================================================================================
+================================================================================
+  SECTION C: HOME SCREEN WIDGETS SYSTEM (W1-W5)
+================================================================================
+================================================================================
+
+  ARCHITECTURE OVERVIEW:
+  ──────────────────────
+  Flutter cannot render native home screen widgets. The architecture uses a
+  three-layer bridge:
+
+  Layer 1: Flutter App (data source)
+    - home_widget 6.x package manages the data bridge
+    - On task change: serialize widget data to SharedPreferences (Android)
+      or UserDefaults via App Group (iOS)
+    - Call HomeWidget.updateWidget() to trigger native widget refresh
+
+  Layer 2: Native Widget Code
+    - iOS: SwiftUI WidgetExtension (WidgetKit framework)
+      Location: ios/UnjynxWidgets/
+    - Android: Jetpack Compose GlanceAppWidget
+      Location: android/app/src/main/java/.../widget/
+
+  Layer 3: System Widget Host
+    - iOS: WidgetKit timeline provider (TimelineProvider protocol)
+    - Android: AppWidgetProvider with GlanceAppWidget
+
+  DATA BRIDGE (home_widget):
+  ─────────────────────────
+  Flutter writes data to shared storage:
+  - Key: "widget_tasks_today" -> JSON array of { title, time, priority, done }
+  - Key: "widget_progress" -> JSON { tasks: 0.7, focus: 0.5, habits: 0.3 }
+  - Key: "widget_streak" -> int (current streak count)
+  - Key: "widget_quote" -> JSON { text, author, category }
+  - Key: "widget_task_count" -> int (remaining tasks today)
+
+  Update triggers:
+  1. Timer: every 15 minutes (WidgetKit timeline / AlarmManager)
+  2. Task change callback: HomeWidget.updateWidget() called after any
+     task CRUD operation in the app
+  3. App foreground: widget data refreshed on app resume
+
+  Flutter integration (in app startup):
+    HomeWidget.setAppGroupId('group.com.metaminds.unjynx');
+    HomeWidget.registerInteractivityCallback(widgetInteractionCallback);
+
+  Callback handler (deep links from widget taps):
+    - 'unjynx://home' -> navigate to Home screen
+    - 'unjynx://task/:id' -> navigate to Task Detail
+    - 'unjynx://quick-add' -> open Quick Create Sheet
+    - 'unjynx://progress' -> navigate to Progress Hub
+    - 'unjynx://content' -> navigate to Daily Content Feed
+    - 'unjynx://task/:id/complete' -> complete task + haptic + update widget
+
+  WIDGET THEMING:
+  ───────────────
+  Widgets respect SYSTEM theme (not app theme). A user may use dark app
+  with light system, or vice versa.
+
+  Dark Widget Theme:
+  - Background: Midnight Purple #0F0A1A
+  - Primary text: Snow White #F5F5F5
+  - Secondary text: Lavender Mist #B8A9D4
+  - Accent: Gold #FFD700
+  - Ring colors: Gold (tasks), Violet #8B5CF6 (focus), Emerald #10B981 (habits)
+  - Border radius: 16dp
+
+  Light Widget Theme:
+  - Background: Purple Mist #F8F5FF
+  - Primary text: Midnight Purple #1A0A2E
+  - Secondary text: Deep Purple #4A3570
+  - Accent: Rich Gold #B8860B
+  - Ring colors: Rich Gold (tasks), Deep Violet #7C3AED (focus), Teal #059669 (habits)
+  - Border radius: 16dp
+
+
+WIDGET W1: TODAY'S TASKS
+Phase: 4 | Tier: Free (Small/Medium), Pro (Large)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  The primary home screen widget. Displays today's tasks with completion
+  tracking, allowing users to see and complete tasks without opening the app.
+
+  SMALL (2x2):
+  - Layout: Centered progress ring (single outer ring, tasks only)
+  - Inside ring: task count number (e.g., "3")
+  - Below ring: "left today" label
+  - Tap anywhere: deep link unjynx://home -> opens Home screen
+  - No direct task interaction (too small)
+
+  MEDIUM (4x2):
+  - Layout: Left side = compact progress ring, Right side = task list
+  - Task list: next 3 tasks (title truncated to 1 line + due time)
+  - Each task row has checkbox (tappable -> complete directly from widget)
+  - Checkbox tap: haptic feedback, strike-through text, ring updates
+  - Ring: single outer ring showing tasks completion %
+  - Tap task title: deep link unjynx://task/:id -> opens Task Detail
+  - Tap ring: deep link unjynx://progress -> opens Progress Hub
+
+  LARGE (4x4) - Pro only:
+  - Layout: Top = 3 concentric progress rings + center %, Bottom = task list
+  - Task list: next 5 tasks with checkboxes (title + time + priority dot)
+  - Bottom row: daily content quote (1 line, truncated with ellipsis)
+  - Ring interaction: tap -> deep link to Progress Hub
+  - Task checkbox: complete directly, haptic, ring updates
+  - Quote tap: deep link unjynx://content -> opens Daily Content Feed
+
+  iOS SwiftUI Implementation (ios/UnjynxWidgets/TodayTasksWidget.swift):
+  - struct TodayTasksWidget: Widget (WidgetConfiguration)
+  - TimelineProvider: fetches from UserDefaults (App Group)
+  - Entry: TodayTasksEntry (date, tasks, progress, quote)
+  - Views: SmallTodayView, MediumTodayView, LargeTodayView
+  - supportedFamilies: [.systemSmall, .systemMedium, .systemLarge]
+
+  Android Compose Implementation (android/.../widget/TodayTasksWidget.kt):
+  - class TodayTasksWidget: GlanceAppWidget()
+  - GlanceTheme with UnjynxWidgetColors
+  - Composables: SmallTodayContent(), MediumTodayContent(), LargeTodayContent()
+  - Size modes: SizeMode.Responsive with breakpoints at 2x2, 4x2, 4x4
+  - SharedPreferences data source via GlanceAppWidgetReceiver
+
+  TESTS:
+  ──────
+  Flutter (data bridge): 3 (data serialization, update trigger, callback routing)
+  Note: Native widget UI tests are in Xcode (XCTest) and Android (Compose test)
+  separately from Flutter test suite.
+
+
+WIDGET W2: QUICK ADD
+Phase: 4 | Tier: Free
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Single-purpose widget for rapid task creation. One tap launches UNJYNX
+  directly into the Quick Create Sheet, eliminating the need to navigate
+  through the app.
+
+  SMALL (2x1):
+  - Layout: UNJYNX logo icon (left) + "Add task" text (right)
+  - Tap: deep link unjynx://quick-add -> opens app at Quick Create Sheet
+  - Background: brand gradient (subtle purple -> midnight)
+  - No data needed (static widget, no refresh required)
+
+  iOS SwiftUI Implementation (ios/UnjynxWidgets/QuickAddWidget.swift):
+  - struct QuickAddWidget: Widget
+  - StaticConfiguration (no timeline needed - purely static)
+  - View: HStack with Image + Text, Link destination = deep link URL
+
+  Android Compose Implementation (android/.../widget/QuickAddWidget.kt):
+  - class QuickAddWidget: GlanceAppWidget()
+  - Single Row composable with Image + Text
+  - actionStartActivity with deep link Intent
+
+  TESTS:
+  ──────
+  Flutter (data bridge): 1 (deep link callback routing)
+
+
+WIDGET W3: PROGRESS RINGS
+Phase: 4 | Tier: Free
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Glanceable progress visualization showing the three concentric rings
+  (Tasks/Focus/Habits) at a glance. Motivates ring closure through visual
+  incompleteness, leveraging the same psychology as Apple Watch activity rings.
+
+  SMALL (2x2):
+  - Layout: Three concentric rings centered, percentage in center
+  - Outer ring: Tasks (Gold)
+  - Middle ring: Focus (Violet)
+  - Inner ring: Habits (Emerald)
+  - Center text: combined completion % (weighted average)
+  - Tap: deep link unjynx://progress -> opens Progress Hub
+  - Custom painting: arcs with rounded stroke caps
+
+  iOS SwiftUI Implementation (ios/UnjynxWidgets/ProgressRingsWidget.swift):
+  - Custom Shape with trimmed circles for each ring
+  - AngularGradient for ring color fills
+  - Text overlay for center percentage
+
+  Android Compose Implementation (android/.../widget/ProgressRingsWidget.kt):
+  - Canvas composable with drawArc for each ring
+  - StrokeCap.Round for rounded ends
+  - GlanceModifier.cornerRadius(16.dp)
+
+  Data keys read:
+  - "widget_progress" -> { tasks: float, focus: float, habits: float }
+
+  TESTS:
+  ──────
+  Flutter (data bridge): 2 (progress data serialization, percentage calculation)
+
+
+WIDGET W4: DAILY CONTENT
+Phase: 4 | Tier: Pro Only
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Surfaces the day's inspirational content directly on the home screen,
+  creating a daily touchpoint that reinforces the habit of returning to
+  UNJYNX. Only available to Pro users as a premium perk.
+
+  MEDIUM (4x2):
+  - Layout: Quote text (2 lines max, ellipsis overflow) + Author name
+  - Category badge: small colored chip (e.g., "Mahabharata", "Stan Lee")
+  - Background: subtle gradient with brand colors
+  - Tap: deep link unjynx://content -> opens Daily Content Feed
+  - Refreshes: daily at content delivery time + every 15 min check
+
+  iOS SwiftUI Implementation (ios/UnjynxWidgets/DailyContentWidget.swift):
+  - TimelineProvider with daily reload policy
+  - VStack: Text (quote, .body, 2 lines) + HStack(author, category badge)
+  - IntentConfiguration for category preference (future)
+
+  Android Compose Implementation (android/.../widget/DailyContentWidget.kt):
+  - GlanceAppWidget with daily update period
+  - Column: Text (quote) + Row(author, CategoryBadge composable)
+
+  Data keys read:
+  - "widget_quote" -> { text: string, author: string, category: string }
+
+  Tier gating:
+  - Flutter checks user plan before writing quote data to shared storage
+  - If free user: widget shows "Upgrade to Pro for daily wisdom" with
+    deep link to billing screen
+
+  TESTS:
+  ──────
+  Flutter (data bridge): 2 (quote data serialization, tier gating logic)
+
+
+WIDGET W5: STREAK
+Phase: 4 | Tier: Free (Android Only)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Minimal streak display for Android home screens. iOS does not support 1x1
+  widgets, so this is Android-exclusive. Shows current streak count with a
+  flame icon, reinforcing streak continuity motivation.
+
+  SMALL (1x1) - Android Only:
+  - Layout: Flame icon (top) + streak number (bottom, bold)
+  - Background: midnight purple with subtle gold gradient
+  - Tap: deep link unjynx://progress -> opens Progress Hub
+  - No flame animation (static widget, system limitation)
+
+  Android Compose Implementation (android/.../widget/StreakWidget.kt):
+  - class StreakWidget: GlanceAppWidget()
+  - Column: Image (flame drawable) + Text (streak number)
+  - SizeMode.Single (1x1 only)
+  - Minimal data: reads "widget_streak" key from SharedPreferences
+
+  iOS: Not available (WidgetKit minimum is systemSmall = 2x2)
+
+  Data keys read:
+  - "widget_streak" -> int
+
+  TESTS:
+  ──────
+  Flutter (data bridge): 1 (streak data serialization)
+
+
+iOS LOCK SCREEN WIDGETS (iOS 16+ via WidgetKit)
+Phase: 4 | Tier: Free (Tasks Remaining + Streak), Pro (Next Task + Rings)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Four lock screen widget variants providing glanceable information without
+  unlocking the device. All lock screen widgets are read-only (iOS limitation
+  -- no interactive elements on lock screen).
+
+  WIDGET 1: Tasks Remaining (Circular, accessoryCircular)
+  - Shows: number inside a ring outline (e.g., "5")
+  - Ring fill: proportional to completion (5 of 8 = 62.5% fill)
+  - Tap: launches UNJYNX to Home screen
+  - Free tier
+
+  WIDGET 2: Streak Counter (Circular, accessoryCircular)
+  - Shows: flame icon (SF Symbol) + streak number
+  - Layout: icon above, number below
+  - Tap: launches UNJYNX to Progress Hub
+  - Free tier
+
+  WIDGET 3: Next Task (Rectangular, accessoryRectangular)
+  - Shows: task title (1 line) + due time (right-aligned)
+  - Priority indicator: colored left border (P1=red, P2=amber, P3=blue, P4=grey)
+  - Tap: launches UNJYNX to Task Detail
+  - Pro tier
+
+  WIDGET 4: Progress Rings (Circular, accessoryCircular)
+  - Shows: three concentric mini rings (gold/violet/emerald)
+  - Simplified rendering (no text, just rings)
+  - Tap: launches UNJYNX to Progress Hub
+  - Pro tier
+
+  Implementation (ios/UnjynxWidgets/LockScreenWidgets.swift):
+  - WidgetBundle containing all 4 lock screen widgets
+  - Each uses accessoryCircular or accessoryRectangular family
+  - TimelineProvider: refreshes every 15 min + on app foreground
+  - Data source: UserDefaults via App Group (same as home screen widgets)
+  - Tinting: respects iOS lock screen tint (vibrantSecondary)
+
+  TESTS:
+  ──────
+  Flutter (data bridge): 2 (lock screen data keys, tier gating for Pro widgets)
+
+
+WIDGET SYSTEM TESTS SUMMARY:
+  Flutter data bridge tests: 11 total
+  (Native widget tests live in Xcode XCTest and Android instrumented tests,
+   outside Flutter test runner)
+
+
+================================================================================
+================================================================================
+  SECTION D: WATCH APP SPECIFICATION
+================================================================================
+================================================================================
+
+  TIER ACCESS: Pro only (watch app is a Pro subscription incentive)
+  v1 SCOPE: View tasks + complete tasks. NO task creation on watch.
+
+
+APPLE WATCH APP (watchOS 10+, SwiftUI)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Companion app for Apple Watch allowing Pro users to view today's tasks,
+  complete them with a swipe or button, and glance at progress rings and
+  streak from their wrist. Syncs near-instantly with paired iPhone via
+  Watch Connectivity framework.
+
+  PROJECT STRUCTURE:
+  - ios/UnjynxWatch/ (watchOS app target)
+  - ios/UnjynxWatch/Views/TaskListView.swift
+  - ios/UnjynxWatch/Views/TaskDetailView.swift
+  - ios/UnjynxWatch/Views/ProgressRingsView.swift
+  - ios/UnjynxWatch/Views/StreakView.swift
+  - ios/UnjynxWatch/Models/WatchTask.swift
+  - ios/UnjynxWatch/Services/WatchConnectivityService.swift
+  - ios/UnjynxWatch/Complications/
+
+  SCREEN 1: TASK LIST (Main Screen)
+  ─────────────────────────────────
+  - NavigationStack with List of today's tasks
+  - Each row: Text(title, .body) + Text(dueTime, .caption) + Circle(priorityColor)
+  - Max 10 tasks shown (scrollable via Digital Crown)
+  - Tap task row -> NavigationLink to Task Detail
+  - Swipe right on task row -> "Done" action (green background)
+    -> haptic confirmation (WKHapticType.success)
+    -> task removed from list with slide-out animation
+    -> sync completion to iPhone immediately
+  - Empty state: "All done!" with checkmark icon
+  - Pull down: refresh from iPhone (WCSession transferUserInfo)
+
+  SCREEN 2: TASK DETAIL (Simplified)
+  ───────────────────────────────────
+  - ScrollView with VStack:
+    - Text(title, .headline) - full text, multi-line
+    - Divider
+    - HStack: Image(calendar) + Text(dueDate + time)
+    - HStack: Image(flag) + Text(priority) with color
+    - HStack: Image(folder) + Text(projectName)
+    - Spacer
+    - Button("Done", role: .none) - large, green, centered, fills width
+  - Done button tap: haptic + dismiss + sync completion
+  - NO editing capability (view and complete only)
+  - Back: system back gesture or toolbar back button
+
+  SCREEN 3: PROGRESS RINGS (Glanceable)
+  ──────────────────────────────────────
+  - Three concentric rings (same colors as phone app):
+    - Outer: Gold (Tasks)
+    - Middle: Violet (Focus)
+    - Inner: Emerald (Habits)
+  - Center: percentage text or "Close your rings" if < 50%
+  - Tap: no action (display only on watch - screen is too small for navigation)
+  - Ring rendering: SwiftUI Shape with trim(from:to:) animation
+  - Rings animate on appearance (0 -> current value, 1s with spring)
+
+  SCREEN 4: STREAK COUNTER
+  ─────────────────────────
+  - Centered layout:
+    - Large flame icon (SF Symbol: flame.fill, orange gradient)
+    - Streak number (large, bold, gold color)
+    - Motivational text:
+      - streak > 0: "Keep going!"
+      - streak >= 7: "On fire!"
+      - streak >= 30: "Unstoppable!"
+      - streak >= 365: "Immortal."
+      - streak == 0: "Light the flame today."
+  - Display only, no interaction
+
+  COMPLICATIONS (Watch Face Widgets):
+  ───────────────────────────────────
+  1. Tasks Left Today (Circular Small, CLKComplicationFamily.circularSmall):
+     - Shows: number in circle (e.g., "5")
+     - Tap: launches watch app to Task List
+     - TimelineProvider: refreshes every 15 min
+
+  2. Streak (Circular Small):
+     - Shows: flame icon + number
+     - Tap: launches watch app to Streak screen
+
+  3. Next Task (Modular Large, CLKComplicationFamily.modularLarge):
+     - Shows: task title (1 line) + due time
+     - Tap: launches watch app to Task Detail for that task
+
+  4. Progress Rings (Graphic Corner, CLKComplicationFamily.graphicCorner):
+     - Shows: mini ring graphic (3 arcs)
+     - Tap: launches watch app to Progress Rings screen
+
+  SYNC (Watch Connectivity):
+  ──────────────────────────
+  - WCSession.default configured in both iOS app and watchOS app
+  - iPhone -> Watch: transferUserInfo for task list updates
+    Payload: { tasks: [WatchTask], progress: Progress, streak: Int }
+    Triggered: on task change, every 15 min background refresh
+  - Watch -> iPhone: sendMessage for task completion
+    Payload: { action: "complete", taskId: String, completedAt: Date }
+    Real-time: if iPhone reachable, instant. Otherwise queued.
+  - Background refresh: WKApplicationRefreshBackgroundTask
+    Requests complication update + fetches latest from iPhone
+
+  Flutter Bridge:
+  - packages/service_watch/lib/watch_connector_ios.dart
+    Uses MethodChannel('com.metaminds.unjynx/watch')
+    Methods: updateTasks(List<Task>), onTaskCompleted(String taskId)
+  - iOS side: FlutterMethodChannel handler in AppDelegate.swift
+    Bridges between Flutter and WCSessionDelegate
+
+
+WEAR OS APP (Wear OS 4+, Jetpack Compose)
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PURPOSE:
+  Companion app for Wear OS smartwatches, functionally identical to the
+  Apple Watch app. View tasks, complete them, check progress and streak.
+  Syncs with paired Android phone via Wearable Data Layer API.
+
+  PROJECT STRUCTURE:
+  - android/wear/ (Wear OS module)
+  - android/wear/src/main/java/.../presentation/TaskListScreen.kt
+  - android/wear/src/main/java/.../presentation/TaskDetailScreen.kt
+  - android/wear/src/main/java/.../presentation/ProgressRingsScreen.kt
+  - android/wear/src/main/java/.../presentation/StreakScreen.kt
+  - android/wear/src/main/java/.../data/WearDataLayerService.kt
+  - android/wear/src/main/java/.../tile/
+
+  SCREENS: Same 4 screens as watchOS (identical functionality):
+  1. Task List: ScalingLazyColumn of today's tasks, swipe to complete
+  2. Task Detail: title, due, priority, project, large "Done" Chip
+  3. Progress Rings: Canvas with 3 arcs, center text
+  4. Streak: flame icon + number + motivational text
+
+  Key Wear OS differences from watchOS:
+  - Uses Horologist library for consistent Wear OS UX patterns
+  - ScalingLazyColumn instead of List (handles round screen edge fading)
+  - Chip composable for "Done" button (Wear OS design language)
+  - Rotary input via RotaryScrollableDefaults for scrolling
+
+  TILES (Wear OS equivalent of complications):
+  ────────────────────────────────────────────
+  1. Today's Tasks Tile:
+     - Shows: next 3 tasks with title + time
+     - Each task has CompactChip "Done" button (complete directly from tile)
+     - Tap task title: launches watch app to Task Detail
+     - TileService with onTileRequest + onResourcesRequest
+
+  2. Progress Rings Tile:
+     - Shows: 3 concentric arcs with percentage labels
+     - Tap: launches watch app to Progress Rings
+     - ArcLine layout elements for ring rendering
+
+  SYNC (Wearable Data Layer API):
+  ────────────────────────────────
+  - Phone -> Watch: DataClient.putDataItem for task list updates
+    DataMap keys: "tasks" (JSON), "progress" (JSON), "streak" (Int)
+    Triggered: on task change, periodic sync (15 min)
+  - Watch -> Phone: MessageClient.sendMessage for task completion
+    Path: "/task/complete", data: taskId + completedAt
+    Real-time: if phone connected, instant. Otherwise queued via DataClient.
+  - Capability detection: CapabilityClient to verify phone app installed
+  - Sync conflict: phone is source of truth, watch is read + complete only
+
+  Flutter Bridge:
+  - packages/service_watch/lib/watch_connector_android.dart
+    Uses MethodChannel('com.metaminds.unjynx/wear')
+    Methods: updateTasks(List<Task>), onTaskCompleted(String taskId)
+  - Android side: WearDataLayerService extends WearableListenerService
+    Bridges between Flutter and DataClient/MessageClient
+
+  WATCH APP TESTS SUMMARY:
+  ────────────────────────
+  Apple Watch (XCTest): 5 (task list render, completion sync, complication
+    data, WCSession delegate, background refresh)
+  Wear OS (Compose Test + JUnit): 5 (task list render, completion message,
+    tile data, DataLayer listener, rotary scroll)
+  Flutter bridge: 4 (method channel calls, task serialization,
+    completion callback, platform detection)
+  Total: 14 tests
+
+
+================================================================================
+================================================================================
+  SECTION E: TASK IMPORT & DATA MIGRATION (v1)
+================================================================================
+================================================================================
+
+  PURPOSE:
+  Enable users switching from competing apps to import their existing tasks
+  without manual re-entry. Supports 5 import sources and 3 export formats.
+  Critical for user acquisition -- if import is painful, users will not switch
+  no matter how good UNJYNX is.
+
+
+TASK IMPORT SYSTEM
+Phase: 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  IMPORT SOURCES (v1):
+  ────────────────────
+  1. Todoist CSV
+     - Export format: Todoist Settings -> Backup -> Download CSV
+     - Fields mapped: TYPE, CONTENT, PRIORITY, INDENT, AUTHOR,
+       RESPONSIBLE, DATE, DATE_LANG, TIMEZONE
+     - Priority mapping: Todoist P1 (urgent) -> UNJYNX P1,
+       P2 -> P2, P3 -> P3, P4 -> P4
+     - Recurring: Todoist "every day" -> RRULE:FREQ=DAILY
+     - Labels -> UNJYNX tags
+
+  2. TickTick CSV
+     - Export format: TickTick Settings -> Backup -> Export as CSV
+     - Fields mapped: Title, Content, Is Check list, Start Date,
+       Due Date, Reminder, Repeat, Priority, Status, List Name, Tags
+     - Priority mapping: TickTick 0 (none) -> P4, 1 (low) -> P3,
+       3 (medium) -> P2, 5 (high) -> P1
+     - Subtasks: extracted from Content if "Is Check list" = true
+     - Lists -> UNJYNX projects (auto-created if not exists)
+
+  3. Apple Reminders (CalDAV)
+     - Method: iCloud CalDAV API (requires Apple ID + app-specific password)
+     - OAuth: not available, uses CalDAV basic auth over HTTPS
+     - Data: reminders, lists, due dates, priority, notes, completion status
+     - Lists -> UNJYNX projects
+     - Priority: Apple 1-4 scale -> UNJYNX P1-P4
+     - Recurring: Apple RRULE preserved as-is (RFC 5545 compatible)
+
+  4. Google Tasks (OAuth 2.0)
+     - Method: Google Tasks API v1 (REST)
+     - OAuth: standard Google OAuth flow with tasks.readonly scope
+     - Data: tasks, task lists, due dates, notes, status, parent (subtasks)
+     - Task lists -> UNJYNX projects
+     - Subtasks: nested tasks mapped to UNJYNX subtasks
+     - Completed tasks: imported with completed status
+
+  5. Generic CSV
+     - User uploads any CSV file
+     - Column Mapping UI: user maps each CSV column to UNJYNX field
+       Available mappings: title, description, due_date, priority, project,
+       tags, status, created_at
+     - Date format auto-detection: tries ISO 8601, US (MM/DD/YYYY),
+       EU (DD/MM/YYYY), custom pattern
+     - Preview: shows first 10 rows with mapped columns highlighted
+
+  IMPORT FLOW:
+  ────────────
+  1. Settings -> Data -> "Import tasks" -> Select source
+  2. Source-specific step:
+     a. CSV sources (Todoist, TickTick, Generic):
+        - Help text: "Export your tasks from [App] as CSV" with link to
+          help article showing screenshots of export process
+        - file_picker opens file browser (filter: .csv, max 10MB)
+        - Upload to backend: POST /api/v1/import/upload (multipart)
+     b. API sources (Apple Reminders, Google Tasks):
+        - OAuth/auth flow in WebView or system browser
+        - Select which lists to import (checkbox per list)
+  3. Preview Screen:
+     - Shows first 10 parsed tasks in table format
+     - Column mapping confirmation (auto-detected, user can adjust)
+     - Task count: "[N] tasks found, [M] with due dates, [K] completed"
+     - Duplicate detection summary: "[D] potential duplicates found"
+  4. Import Configuration:
+     - Target project: existing project or create new
+     - Duplicate handling: Skip (default) | Import anyway | Replace existing
+     - Include completed tasks: toggle (default off)
+  5. Import Execution:
+     - Progress bar with task count ("[47/203] importing...")
+     - Cancelable (stops import, keeps already-imported tasks)
+     - Background-capable (can leave screen, notification on completion)
+  6. Completion:
+     - Summary: "[N] tasks imported! [M] skipped (duplicates).
+       [K] errors." with expandable error details
+     - Banner on Home: "Welcome from [App]! Your [N] tasks are ready."
+
+  DUPLICATE DETECTION:
+  ────────────────────
+  Algorithm: match by normalized_title + due_date
+  - normalized_title: lowercase, trim, collapse whitespace
+  - due_date: date only (ignore time for matching)
+  - Match threshold: exact match on both fields = duplicate
+  - User choice per duplicate: Skip | Import anyway | Replace existing
+  - Bulk choice: apply same decision to all duplicates
+
+  FRONTEND (Flutter):
+  ─────────────────────
+  Widgets:
+  - ImportSourceSelector (ListView: 5 source options with icons + descriptions)
+  - CSVUploadScreen (file_picker trigger + upload progress)
+  - OAuthFlowScreen (WebView for Google/Apple auth)
+  - ImportPreviewScreen (DataTable with mapped columns + stats)
+  - ColumnMappingSheet (BottomSheet: dropdown per CSV column -> UNJYNX field)
+  - ImportProgressScreen (LinearProgressIndicator + task counter + cancel button)
+  - ImportSummaryScreen (stats card + error details expandable + home CTA)
+
+  State Management (Riverpod 3.x):
+  - importFlowProvider: StateNotifier<ImportFlowState>
+    States: idle -> source_selected -> file_uploaded -> previewing ->
+    mapping -> importing -> complete -> error
+  - importPreviewProvider: AsyncNotifier<ImportPreview>
+    Fetches: POST /api/v1/import/preview
+  - importProgressProvider: StreamNotifier<ImportProgress>
+    WebSocket or SSE: progress updates during import execution
+
+  Packages:
+  - file_picker 8.x (CSV file selection)
+  - csv 6.x (client-side CSV preview parsing)
+
+  Files:
+  - packages/feature_settings/lib/presentation/screens/import/import_source_screen.dart
+  - packages/feature_settings/lib/presentation/screens/import/csv_upload_screen.dart
+  - packages/feature_settings/lib/presentation/screens/import/import_preview_screen.dart
+  - packages/feature_settings/lib/presentation/screens/import/import_progress_screen.dart
+  - packages/feature_settings/lib/presentation/screens/import/import_summary_screen.dart
+  - packages/feature_settings/lib/presentation/widgets/column_mapping_sheet.dart
+  - packages/feature_settings/lib/providers/import_flow_provider.dart
+
+  BACKEND (Hono/TypeScript):
+  ─────────────────────────────
+  Endpoints:
+  POST /api/v1/import/upload
+    - Body: multipart/form-data (file, source: 'todoist' | 'ticktick' | 'generic')
+    - Validation: file type .csv, max 10MB, max 5000 rows
+    - Response: { uploadId, rowCount, columns[], sampleRows[] }
+    - Storage: temp file in MinIO (TTL 1 hour)
+
+  POST /api/v1/import/preview
+    - Body: { uploadId, columnMapping?, source }
+    - Response: { tasks: Task[10], totalCount, duplicateCount,
+      withDueDates, completed, mappingSuggestions }
+    - Logic: parse CSV, auto-detect column mapping, detect duplicates
+
+  POST /api/v1/import/execute
+    - Body: { uploadId, columnMapping, targetProjectId, duplicateAction,
+      includeCompleted }
+    - Response: 202 Accepted + { jobId }
+    - Async: BullMQ job processes import in background
+    - Progress: published to Redis pub/sub channel for client streaming
+
+  GET  /api/v1/import/status/:jobId
+    - Response: { status, imported, skipped, errors, total, progress% }
+
+  POST /api/v1/import/google-tasks
+    - Body: { accessToken, taskListIds[] }
+    - Logic: fetches from Google Tasks API, maps to UNJYNX format
+    - Same preview -> execute flow as CSV
+
+  POST /api/v1/import/apple-reminders
+    - Body: { username, appPassword, listIds[] }
+    - Logic: CalDAV PROPFIND + REPORT to fetch reminders
+    - Same preview -> execute flow as CSV
+
+  Business Logic:
+  - CSVParser (src/services/import/csv-parser.ts):
+    Uses papaparse for robust CSV parsing (handles quotes, escapes, BOM)
+    Auto-detects delimiter (comma, semicolon, tab)
+  - ColumnMapper (src/services/import/column-mapper.ts):
+    Fuzzy matching of CSV headers to UNJYNX fields
+    Confidence score per mapping (> 0.8 = auto-accept, < 0.8 = ask user)
+  - TodoistAdapter (src/services/import/todoist-adapter.ts):
+    Todoist-specific CSV format parsing + field mapping
+  - TickTickAdapter (src/services/import/ticktick-adapter.ts):
+    TickTick-specific CSV format + checklist extraction
+  - GoogleTasksAdapter (src/services/import/google-tasks-adapter.ts):
+    Google Tasks API client + OAuth token handling
+  - AppleRemindersAdapter (src/services/import/apple-reminders-adapter.ts):
+    CalDAV client for iCloud reminders
+  - DuplicateDetector (src/services/import/duplicate-detector.ts):
+    Normalizes titles, compares with existing tasks, returns match list
+  - ImportExecutor (src/services/import/import-executor.ts):
+    BullMQ job processor: batch insert (50 tasks per batch),
+    progress reporting, error collection, rollback on critical failure
+
+  Drizzle Tables:
+  - import_jobs (id, user_id, source, status, total_count, imported_count,
+    skipped_count, error_count, upload_id, config_json, started_at,
+    completed_at, created_at)
+  - import_errors (id, job_id, row_number, field, error_message, raw_data)
+
+  EXPORT FORMATS (GDPR Article 20 - Data Portability):
+  ────────────────────────────────────────────────────
+  1. CSV: all tasks with all fields (title, project, due_date, priority,
+     tags, status, created_at, completed_at, recurrence_rule, notes)
+  2. JSON: full structured data (tasks, projects, settings, activity log,
+     sync metadata) - machine-readable for developers
+  3. ICS: calendar events for tasks with due dates (RFC 5545 compliant)
+     Importable into Google Calendar, Apple Calendar, Outlook
+
+  Export Endpoints:
+  GET  /api/v1/export/csv   -> Content-Type: text/csv
+  GET  /api/v1/export/json  -> Content-Type: application/json
+  GET  /api/v1/export/ics   -> Content-Type: text/calendar
+  POST /api/v1/data/request -> GDPR full data request (JSON via email, 72h)
+  DELETE /api/v1/data/account -> Account deletion (type DELETE, 30 day window)
+
+  DATA FLOW:
+  ──────────
+  1. User: Settings -> Data -> Import Tasks
+  2. Select source (e.g., Todoist CSV)
+  3. file_picker opens -> user selects .csv file
+  4. POST /api/v1/import/upload -> returns uploadId + sample data
+  5. POST /api/v1/import/preview -> shows preview + duplicate count
+  6. User confirms mapping + duplicate strategy
+  7. POST /api/v1/import/execute -> returns jobId (202 Accepted)
+  8. Client polls GET /api/v1/import/status/:jobId OR WebSocket for progress
+  9. Progress bar updates in real-time
+  10. Completion: summary screen with stats
+  11. Home banner: "Welcome from Todoist! Your 203 tasks are ready."
+
+  INTERACTIONS & ANIMATIONS:
+  ──────────────────────────
+  - Source selection: card scale on press, icon glow on selected
+  - File upload: progress ring animation around file icon
+  - Preview table: rows fade in staggered (30ms per row)
+  - Column mapping: dropdown springs open, mapped columns highlight green
+  - Import progress: animated progress bar with task count ticker
+  - Completion: confetti burst (Lottie, 2s) + stats count-up animation
+  - Error rows: expand/collapse accordion with red accent
+
+  DSA / ALGORITHMS:
+  ─────────────────
+  - Column Mapping: Levenshtein distance between CSV headers and UNJYNX
+    field names, normalized by max length. Score > 0.8 = auto-map.
+    Falls back to common synonym dictionary (e.g., "task" = "title",
+    "deadline" = "due_date", "tag" = "tags")
+  - Date Format Detection: tries 6 common formats against first 10 non-null
+    date values. Format with most successful parses wins.
+    Formats: ISO 8601, US, EU, Unix timestamp, relative ("tomorrow"), custom
+  - Duplicate Detection: hash(normalize(title) + date_only(due_date))
+    compared against Set of existing task hashes. O(n) scan.
+  - Batch Import: chunks of 50 tasks per database transaction
+    On chunk failure: retry once, then skip chunk and log errors
+    Progress = (processed_chunks / total_chunks) * 100
+
+  TESTS:
+  ──────
+  Unit: 10 (CSV parser, column mapper, Todoist adapter, TickTick adapter,
+    Google Tasks adapter, Apple Reminders adapter, duplicate detector,
+    date format detection, import executor, export formatters)
+  Widget: 5 (source selector, preview table, column mapping, progress screen,
+    summary screen)
+  Integration: 5 (Todoist CSV end-to-end, TickTick CSV end-to-end,
+    generic CSV with custom mapping, Google Tasks OAuth flow mock,
+    export all 3 formats)
+  Total: 20 tests
+
+
+================================================================================
+================================================================================
+  SECTION F: EMPTY STATES (10 Illustrated States)
+================================================================================
+================================================================================
+
+  DESIGN PRINCIPLES:
+  ──────────────────
+  - Every empty state is an opportunity to guide, delight, and motivate
+  - NEVER a dead end: always include a CTA or suggestion
+  - Custom illustrations: flat style + subtle grain texture, brand palette
+  - Lottie animations: 2-3s loops, subtle movement (not distracting)
+  - Two color variants per illustration: dark mode + light mode
+  - Dark mode: lighter elements on dark backgrounds (glowing, luminous)
+  - Light mode: deeper purple/gold tones on light #F8F5FF (bold, grounded)
+  - Gold accents: #FFD700 (dark) -> #B8860B (light)
+  - Background elements (particles, sparkles): reduce opacity 30% in light mode
+
+  IMPLEMENTATION:
+  ───────────────
+  Package: lottie 3.x (Lottie animations from JSON)
+  Base widget: EmptyStateView (reusable across all screens)
+
+  EmptyStateView parameters:
+  - animationAsset: String (path to Lottie JSON)
+  - title: String (primary message)
+  - subtitle: String? (secondary message, muted)
+  - ctaText: String? (button label)
+  - ctaOnPressed: VoidCallback? (button action)
+  - ctaStyle: EmptyStateCTAStyle (prominent | muted)
+
+  File: packages/core/lib/presentation/widgets/empty_state_view.dart
+
+  Lottie assets: assets/animations/empty_states/
+  - no_tasks_today.json (dark) + no_tasks_today_light.json
+  - new_user_first_task.json (dark) + new_user_first_task_light.json
+  - no_projects.json (dark) + no_projects_light.json
+  - search_no_results.json (dark) + search_no_results_light.json
+  - no_completed.json (dark) + no_completed_light.json
+  - ghost_mode_done.json (dark) + ghost_mode_done_light.json
+  - no_streak.json (dark) + no_streak_light.json
+  - no_content.json (dark) + no_content_light.json
+  - no_team_members.json (dark) + no_team_members_light.json
+  - offline.json (dark) + offline_light.json
+
+
+  STATE 1: NO TASKS TODAY
+  ───────────────────────
+  Screen: Home (Tab 1) when today's task list is empty
+  Illustration: Animated character lounging on a cloud, reading a book
+  Animation: cloud bobs gently, pages turn slowly, subtle sparkle particles
+  Message: "Nothing on the plate. Go live your life!"
+  CTA: "Or add something" (muted link style, not prominent button)
+  CTA action: opens Quick Create Sheet
+
+  STATE 2: NO TASKS EVER (New User)
+  ──────────────────────────────────
+  Screen: Home (Tab 1) when user has zero tasks in database
+  Illustration: UNJYNX mascot breaking chains, gold particles flying
+  Animation: chains shatter on loop, particles drift upward, mascot celebrates
+  Message: "Your first curse to break is just one tap away."
+  CTA: "Create your first task" (gold prominent button)
+  CTA action: opens Quick Create Sheet
+  Note: this state only shows once. After first task, switches to State 1
+  when empty.
+
+  STATE 3: NO PROJECTS
+  ────────────────────
+  Screen: Projects (Tab 2) when project list is empty
+  Illustration: Blueprint paper unrolling with sparkles at the edges
+  Animation: paper unfurls slowly, sparkles trace the edges, grid lines draw
+  Message: "Every empire started with a plan."
+  CTA: "Start a project" (brand purple button)
+  CTA action: opens Create Project (E3)
+
+  STATE 4: SEARCH NO RESULTS
+  ──────────────────────────
+  Screen: Search results when query returns zero matches
+  Illustration: Magnifying glass examining an empty treasure chest
+  Animation: magnifying glass tilts side-to-side, chest lid creaks open/shut
+  Message: "Nothing here... yet. The curse hides things well."
+  CTA: "Try different words" (muted link style)
+  CTA action: focuses search input, selects all text
+
+  STATE 5: NO COMPLETED TASKS
+  ───────────────────────────
+  Screen: Completed Tasks filter view when no tasks are marked done
+  Illustration: Empty trophy case with one spotlight beam shining down
+  Animation: spotlight sways gently, dust particles float in beam
+  Message: "This shelf is hungry for trophies."
+  CTA: "Go complete something!" (brand purple button)
+  CTA action: navigates to Home (Tab 1)
+
+  STATE 6: GHOST MODE - ALL DONE
+  ──────────────────────────────
+  Screen: Ghost Mode when the single surfaced task is completed
+  Illustration: Zen garden with raked sand patterns, single lotus flower
+  Animation: sand ripples slowly outward, lotus petals glow faintly
+  Message: "Peace. You've conquered the day."
+  CTA: "Exit Ghost Mode" (muted link style)
+  CTA action: exits Ghost Mode, returns to normal Home view
+
+  STATE 7: NO STREAK YET
+  ──────────────────────
+  Screen: Progress Hub streak section when streak == 0
+  Illustration: Unlit torch with a single spark floating near the tip
+  Animation: spark drifts toward torch, almost touching, resets (loop)
+  Message: "One task today lights the flame."
+  CTA: "View today's tasks" (brand purple button)
+  CTA action: navigates to Home (Tab 1)
+
+  STATE 8: NO CONTENT SELECTED
+  ────────────────────────────
+  Screen: Daily Content when user has not selected any content categories
+  Illustration: Book with golden pages, closed, soft glow from within
+  Animation: book pulses with inner glow, golden light leaks from pages
+  Message: "Wisdom awaits. Pick your daily dose."
+  CTA: "Choose categories" (brand purple button)
+  CTA action: opens Content Category Selector (K2)
+
+  STATE 9: NO TEAM MEMBERS
+  ────────────────────────
+  Screen: Team Dashboard (N1) when team has only the owner
+  Illustration: Empty round table with one chair occupied (crown on chair)
+  Animation: empty chairs slide in one by one, then slide out (waiting)
+  Message: "Knights needed. Build your round table."
+  CTA: "Invite members" (brand purple button)
+  CTA action: opens Invite Sheet (N2)
+
+  STATE 10: OFFLINE
+  ─────────────────
+  Screen: Any screen when device has no internet connection
+  Illustration: Cloud character sleeping with "ZZZ" floating above
+  Animation: cloud snores gently, ZZZ bubbles drift up and pop
+  Message: "We're offline. Your tasks are still here -- they live
+  on your device."
+  CTA: "Retry connection" (brand purple button)
+  CTA action: triggers connectivity check, refreshes if connected
+
+  EMPTY STATE TESTS:
+  ──────────────────
+  Widget tests: 10 (one per empty state: verify illustration, message, CTA
+    renders correctly in both light and dark themes)
+  Unit tests: 2 (empty state selection logic, theme variant selection)
+  Total: 12 tests
+
+
+================================================================================
+================================================================================
+  SECTION G: EASTER EGGS (10 Hidden Interactions)
+================================================================================
+================================================================================
+
+  PHILOSOPHY:
+  Easter eggs reward curiosity and create shareable moments. They should be
+  discovered organically, never obstruct workflow, and create stories users
+  tell their friends. Each egg is logged as an achievement (visible only
+  after discovery).
+
+  IMPLEMENTATION:
+  ───────────────
+  - EasterEggDetector service (singleton, listens across app)
+  - Detected triggers invoke EasterEggPresenter (overlay animations)
+  - Discovered eggs stored in Drift: easter_eggs_found (egg_id, found_at)
+  - Achievements screen shows discovered eggs (hidden until found)
+
+  Files:
+  - packages/core/lib/services/easter_egg_detector.dart
+  - packages/core/lib/presentation/widgets/easter_egg_overlay.dart
+
+
+  EGG 1: EXCELSIOR
+  Trigger: Type "excelsior" (case-insensitive) in any task title input
+  Response: Stan Lee quote appears in comic-book style speech bubble with
+    "EXCELSIOR!" in bold comic font, panel border effect, brief burst of
+    comic dots (Lottie, 3s). Task title input retains the text.
+  Frequency: every time (no cooldown)
+
+  EGG 2: ANSWER TO EVERYTHING
+  Trigger: Complete exactly the 42nd task (lifetime task completion count)
+  Response: Toast message: "You've found the answer to life, the universe,
+    and everything." Badge unlocked: "42" with galaxy icon.
+  Frequency: once (permanent badge)
+
+  EGG 3: CURSE GLITCH
+  Trigger: Shake phone 10 times rapidly (accelerometer, within 5 seconds)
+  Response: Screen briefly "glitches" (RGB offset + scan lines effect, 1.5s)
+    then "self-repairs" with a sparkle ripple from center outward.
+    No data affected, purely visual.
+  Frequency: once per session (cooldown: app restart)
+
+  EGG 4: WAKANDA FOREVER
+  Trigger: Name a project exactly "Wakanda" (case-insensitive)
+  Response: Project card gets vibranium-styled theme: dark metallic purple
+    gradient with iridescent shimmer overlay. Persists as long as project
+    has the name. Revert: rename the project.
+  Frequency: persistent (style tied to project name)
+
+  EGG 5: NIGHT OWL SUPREME
+  Trigger: Complete any task between 3:33:00 AM and 3:33:59 AM (local time)
+  Response: "Night Owl Supreme" rare badge unlocked with owl icon + crescent
+    moon. Toast: "The witching hour rewards the dedicated."
+  Frequency: once (permanent badge, extremely rare)
+
+  EGG 6: IMMORTAL
+  Trigger: Reach a 365-day streak
+  Response: "Immortal" badge unlocked. Permanent subtle gold aura glow
+    around profile avatar (CustomPainter radial gradient animation, always
+    visible on Profile screen). Toast: "A year of unbroken will. Immortal."
+  Frequency: once (permanent badge + permanent avatar effect)
+
+  EGG 7: REPULSOR
+  Trigger: Type "I am Iron Man" (case-insensitive) as a task title
+  Response: Task priority auto-sets to P1 (highest) with a brief repulsor
+    sound effect (custom audio, 0.5s). Priority chip glows red briefly.
+  Frequency: every time
+
+  EGG 8: PINKY AND THE BRAIN
+  Trigger: Create a task with title exactly "Take over the world"
+    (case-insensitive)
+  Response: Snackbar appears: "One task at a time, Pinky." with brain emoji.
+    Task is created normally.
+  Frequency: every time
+
+  EGG 9: JOURNEY RECAP
+  Trigger: Complete the 1000th task (lifetime completion count)
+  Response: Full-screen cinematic overlay: personal journey recap with stats
+    (total tasks, projects, streak record, days since joining, most productive
+    day, favorite project). Accompanied by subtle epic background music
+    (custom composition, 15s, auto-fades). Shareable as image via share_plus.
+  Frequency: once (can replay from Achievements screen)
+
+  EGG 10: PERSONALITY CRISIS
+  Trigger: Set all 5 AI persona slots (v2 feature, when AI personas ship)
+  Response: "Personality Crisis" badge unlocked. Toast: "You contain
+    multitudes." Badge icon: masks (comedy/tragedy).
+  Frequency: once (permanent badge)
+
+  EASTER EGG TESTS:
+  ─────────────────
+  Unit: 5 (trigger detection for text-based eggs, shake detection threshold,
+    time-window check for Night Owl, completion count tracking, project name
+    style resolver)
+  Widget: 3 (comic bubble overlay, glitch effect, journey recap screen)
+  Total: 8 tests
+
+
+================================================================================
+================================================================================
+  SECTION H: SEASONAL & CONTEXTUAL UI VARIATIONS (10 Triggers)
+================================================================================
+================================================================================
+
+  PHILOSOPHY:
+  The app should feel alive and aware of the world around the user. Seasonal
+  variations create delight without disrupting workflow. All effects are subtle,
+  respect both light and dark modes, and can be disabled in Settings ->
+  Appearance -> "Seasonal Effects" toggle.
+
+  IMPLEMENTATION:
+  ───────────────
+  - SeasonalThemeService (checks date, weather API, user data)
+  - SeasonalOverlay widget (wraps Scaffold, applies effects)
+  - Effects stored as theme modifiers (not full theme replacements)
+  - Particle effects: custom CustomPainter or Lottie overlays
+
+  Files:
+  - packages/core/lib/services/seasonal_theme_service.dart
+  - packages/core/lib/presentation/widgets/seasonal_overlay.dart
+  - packages/core/lib/presentation/widgets/particles/snow_painter.dart
+  - packages/core/lib/presentation/widgets/particles/confetti_painter.dart
+  - packages/core/lib/presentation/widgets/particles/rain_painter.dart
+
+
+  SEASON 1: NEW YEAR (January 1-7)
+  Trigger: System date is Jan 1-7 (any year)
+  UI Change: Gold confetti particles on all task completions (CustomPainter,
+    30 particles, 2s duration, gravity + wind physics). Banner on Home:
+    "New Year, New Curses to Break" with fireworks Lottie (3s loop).
+  Light mode: confetti uses #B8860B gold + deeper tones for visibility.
+
+  SEASON 2: DIWALI (Date varies, fetched from API)
+  Trigger: 5-day window around Diwali (calculated from Hindu calendar API
+    or hardcoded for next 5 years)
+  UI Change: Diya lamp icons replace streak flame icons across the app.
+    Warm orange tint (#FF8C00 at 5% opacity) overlaid on progress rings.
+    Subtle oil lamp glow animation on streak counter.
+  Light mode: warm orange tint works naturally on both modes.
+
+  SEASON 3: HALLOWEEN (October 25-31)
+  Trigger: System date is Oct 25-31
+  UI Change: Ghost Mode icon becomes spookier (ghost with glowing eyes).
+    Purple fog effect on Home screen background (rgba(107,33,168,0.08) dark,
+    rgba(107,33,168,0.06) light). Completion sound option: spooky laugh.
+  Light mode: fog uses lighter opacity to avoid muddiness.
+
+  SEASON 4: CHRISTMAS (December 20-31)
+  Trigger: System date is Dec 20-31
+  UI Change: Snowfall particle effect on Home screen (CustomPainter, 20
+    snowflakes, gentle drift with wind variance). Completion sound option:
+    sleigh bells. Subtle holly accent on profile avatar frame.
+  Light mode: snowflakes use slightly darker tones (#D4D4D8) for visibility.
+
+  SEASON 5: USER BIRTHDAY
+  Trigger: System date matches user.birthday (from profile settings)
+  UI Change: Cake icon replaces profile avatar badge for the day. Warm
+    confetti burst on first task completion of the day. Banner: "Happy
+    birthday! All your rings glow today." - rings get golden glow overlay.
+  Implementation: birthday stored in Drift user_settings, checked on app start.
+
+  SEASON 6: MONDAY MORNING (Every Monday, 6 AM - 12 PM)
+  Trigger: Day == Monday AND local time between 6:00 AM and 12:00 PM
+  UI Change: Motivational extra card at top of Home task list: "Monday energy
+    detected. Here's your battle plan." Card shows today's task count + most
+    important task highlighted. Subtle blue energy gradient on card.
+  Dismissible: swipe to dismiss, does not reappear until next Monday.
+
+  SEASON 7: FRIDAY EVENING (Every Friday, 5 PM - 11:59 PM)
+  Trigger: Day == Friday AND local time after 5:00 PM
+  UI Change: Tone shifts in UI copy. Home greeting: "It's Friday. Clear 3
+    tasks and call it a win." Completion celebrations are slightly more
+    enthusiastic (ring animations 20% faster, haptics slightly stronger).
+    Weekend badge appears: sunglasses icon in app bar.
+  Subtle, opt-out-able via seasonal effects toggle.
+
+  SEASON 8: LATE NIGHT (11 PM - 5 AM)
+  Trigger: Local time between 11:00 PM and 5:00 AM
+  UI Change: UI dims further beyond dark mode (background shifts to #080510).
+    Text softens to lavender (#B8A9D4). Subtle pulsing reminder at bottom:
+    "Night owl mode. Don't forget to sleep." (dismissible).
+    Reduces animation intensity by 50% to be less stimulating.
+  Light mode: shifts to warmer, lower-contrast variant (cream tones),
+    NOT full dark mode switch.
+
+  SEASON 9: RAINY WEATHER (Requires location permission)
+  Trigger: Weather API reports rain/thunderstorm at user's location
+  UI Change: Subtle rain animation on Home screen background (CustomPainter,
+    thin rain lines, gentle). Indoor-friendly tasks surfaced first in
+    suggestions. Cozy message: "Perfect weather for clearing tasks."
+  Permission: requires location (optional). If denied, this trigger never fires.
+  API: OpenWeatherMap free tier (60 calls/min, cached 30 min).
+
+  SEASON 10: USER IDLE 7+ DAYS
+  Trigger: Last task activity (create/complete/edit) was 7+ days ago
+  UI Change: Streak flame icon shows "dying ember" animation (flame flickers,
+    dims, glows red-orange instead of gold). Emotional re-engagement message
+    on Home: "We missed you. Your tasks haven't gone anywhere." with gentle
+    CTA: "Pick up where you left off" -> shows oldest incomplete task.
+  Copy is kind, never guilt-inducing. No "your streak is dying!" language.
+
+  SEASONAL UI TESTS:
+  ──────────────────
+  Unit: 5 (date range detection, weather API integration, birthday check,
+    time-of-day detection, idle detection)
+  Widget: 4 (particle effects rendering, seasonal overlay composition,
+    banner display, icon replacement)
+  Total: 9 tests
+
+
+================================================================================
+================================================================================
+  SECTION I: ADAPTIVE COMPLETION FEEDBACK SYSTEM
+================================================================================
+================================================================================
+
+  PURPOSE:
+  Prevents celebration fatigue by maturing feedback with the user. New users
+  get rich sensory feedback to build habit associations. Power users get speed
+  and efficiency. The user is always in control.
+
+  IMPLEMENTATION:
+  ───────────────
+  - CompletionFeedbackService (determines intensity based on user maturity)
+  - User maturity: computed from account_age + total_completions
+  - Stored in Drift: user_feedback_config (maturity_level, custom_preference)
+
+  File: packages/core/lib/services/completion_feedback_service.dart
+
+  MATURITY LEVELS:
+  ────────────────
+
+  NEW USERS (First 2 weeks, < 50 completions):
+  - Checkbox animation: full spring (overshoot 1.3x, settle 400ms)
+  - Sound: soft "ding" at normal volume
+  - Haptic: medium impact (HapticFeedback.mediumImpact)
+  - Milestones (10th, 25th, 50th task): slightly richer feedback
+    - Extra ring pulse, brief message fade-in
+    - "10 down. The curse weakens."
+    - "25 tasks conquered. You're getting dangerous."
+    - "50! Half a century of broken curses."
+  - Goal: establish sensory association "task done = that felt good"
+
+  REGULAR USERS (2 weeks - 3 months, 50-500 completions):
+  - Checkbox animation: faster, crisper (same spring physics, 250ms)
+  - Sound: quieter (70% volume) - brain already associates motion
+  - Haptic: unchanged (physical feedback remains consistent)
+  - Ring closure moments become primary reward (closing a ring > checkbox)
+  - Weekly insight card is the main "reward" - information over animation
+  - Milestones: 100th task gets brief unique moment (stat summary, not confetti)
+
+  POWER USERS (3+ months, 500+ completions):
+  - Checkbox animation: minimal by default (fast check, 150ms, no overshoot)
+  - Sound: very quiet or off (user preference respected)
+  - Haptic: light tap (HapticFeedback.lightImpact)
+  - Settings -> Completion Feedback -> Minimal / Standard / Expressive
+    (user explicitly chooses their preferred intensity)
+  - Major milestones (500th, 1000th, 365-day streak, project completion):
+    personalized stat summary, NOT confetti
+  - The heatmap becoming greener IS the reward (GitHub contribution psychology)
+
+  WHY THIS WORKS:
+  - No fantasy language ("Apprentice/Breaker/Slayer/Legend" - alienates pros)
+  - No artificial tiers that feel like video game progression
+  - Adapts to HOW user uses app, not just HOW MUCH
+  - 40-year-old lawyer and 20-year-old student get different feedback
+  - User controls intensity, not the system
+
+  FEEDBACK TESTS:
+  ───────────────
+  Unit: 4 (maturity level calculation, feedback config resolution,
+    milestone detection, custom preference override)
+  Widget: 2 (animation intensity verification, settings UI)
+  Total: 6 tests
+
+
+================================================================================
+================================================================================
+  SECTION J: UPGRADE PROMPTS (6 Natural Strategies)
+================================================================================
+================================================================================
+
+  PHILOSOPHY:
+  Upgrade prompts must feel like UNLOCKING POWER, not hitting a paywall.
+  The user should feel "I want that" not "They blocked me." Every prompt
+  is contextual, respectful, and appears at most once per session.
+
+  IMPLEMENTATION:
+  ───────────────
+  - UpgradePromptService (determines which prompt to show and when)
+  - UpgradePromptTracker (Drift table: tracks last shown, shown count,
+    dismissed count, converted)
+  - UpgradePromptWidget (reusable overlay/sheet/inline component)
+  - Cooldown: max 1 prompt per session, min 24h between same prompt type
+
+  Files:
+  - packages/core/lib/services/upgrade_prompt_service.dart
+  - packages/core/lib/presentation/widgets/upgrade_prompt_widget.dart
+
+
+  STRATEGY 1: THE GLIMPSE (Show, Don't Block)
+  ────────────────────────────────────────────
+  Trigger: Free user creates 11th project (exceeds free limit of 10)
+  Implementation:
+  - Project creation UI works normally (no blocking dialog)
+  - New project card renders with shimmering "Pro" badge overlay
+  - SnackBar: "Your 11th project! Upgrade to Pro for unlimited.
+    For now, archive one to continue."
+  - User sees the value (creation worked) but must take action (archive or upgrade)
+  - CTA in SnackBar: "Upgrade" button -> opens M2 Billing screen
+  - Alternative: "Archive a project" link -> opens project list with archive option
+
+  STRATEGY 2: THE TASTE (Free Trial of Feature)
+  ──────────────────────────────────────────────
+  Trigger: Free user first attempts to connect WhatsApp channel
+  Implementation:
+  - Allow ONE test message for free (WhatsApp reminder actually sends)
+  - After successful delivery, BottomSheet appears:
+    "That felt good, right? WhatsApp reminders are Pro. 7 days free."
+  - CTA: "Start free trial" (prominent) | "Maybe later" (muted)
+  - Free trial auto-starts only if user taps CTA (never auto-enroll)
+  - Trial tracked in RevenueCat (7-day, no payment method required initially)
+
+  STRATEGY 3: THE SOCIAL PROOF NUDGE
+  ───────────────────────────────────
+  Trigger: Free user completes 50th task (lifetime)
+  Implementation:
+  - Day 1: info card on Home (no CTA): "You're more productive than 73%
+    of UNJYNX users. Pro users average 2.4x more completions."
+  - Day 2: same card reappears with CTA: "See what Pro unlocks"
+    -> opens M2 Billing with comparison table
+  - Percentile calculated server-side from anonymized user stats
+  - No pressure: pure information, then gentle CTA next day
+
+  STRATEGY 4: THE CONTEXTUAL HELPER
+  ──────────────────────────────────
+  Trigger: Free user manually schedules 3+ tasks in one session
+    (detected by task edit with due_date change, 3+ times in 10 min)
+  Implementation:
+  - Inline card appears below third scheduled task:
+    "AI could do this in 3 seconds. Want to try?"
+  - CTA: "Auto-schedule" -> runs AI scheduling demo on remaining unscheduled
+    tasks (results shown in preview, not applied)
+  - After demo: "That's a Pro feature. Unlock it?" with "Upgrade" CTA
+  - Demo is real (uses AI endpoint with demo flag, limited to 1 per user)
+
+  STRATEGY 5: THE MILESTONE GIFT
+  ──────────────────────────────
+  Trigger: Free user reaches 30-day streak
+  Implementation:
+  - Celebration screen: "You've earned 3 days of Pro! Experience everything."
+  - Pro access automatically activated for 72 hours (no payment, no opt-in)
+  - User didn't ask for it -> creates reciprocity (Cialdini principle)
+  - After 72h: gentle reminder: "Your Pro trial ended. Miss anything?"
+    with list of Pro features they actually used during the 3 days
+  - Tracked: which Pro features accessed during gift period -> personalized
+    upgrade messaging afterward
+
+  STRATEGY 6: THE MISSING PIECE
+  ─────────────────────────────
+  Trigger: Free user views Progress Dashboard (I1 basic version)
+  Implementation:
+  - Basic charts render normally (completion trend, basic stats)
+  - Below visible charts: blurred area with glassmorphism overlay
+  - Label on blur: "Your full productivity DNA -- unlock with Pro"
+  - Blur contains: advanced charts (heatmap, category breakdown,
+    procrastination pattern) -- rendered but blurred
+  - CTA: "Unlock full dashboard" -> opens M2 Billing
+  - Visual FOMO without blocking core functionality
+
+  WHERE PROMPTS NEVER APPEAR (Sacred Spaces):
+  ────────────────────────────────────────────
+  - During Ghost Mode (calm space, zero interruptions)
+  - During Morning/Evening rituals (flow state protected)
+  - During active Pomodoro sessions (focus time is sacred)
+  - Immediately after a failed task or bad day (empathy > sales)
+  - More than once per session (respect for attention)
+  - On overdue task warnings (user is already stressed)
+
+  Sacred space detection:
+  - GhostModeProvider.isActive
+  - RitualProvider.isInProgress
+  - PomodoroProvider.isRunning
+  - OverdueTaskDetector.hasOverdueShownThisSession
+
+  UPGRADE PROMPT TESTS:
+  ─────────────────────
+  Unit: 6 (trigger detection per strategy, cooldown enforcement,
+    sacred space blocking, session tracking, percentile calc, trial activation)
+  Widget: 4 (Glimpse snackbar, Taste bottom sheet, Missing Piece blur,
+    gift celebration screen)
+  Integration: 2 (full upgrade flow end-to-end, sacred space override test)
+  Total: 12 tests
+
+
+================================================================================
+================================================================================
+  SECTION K: INTERACTION PATTERNS & MICRO-INTERACTIONS
+================================================================================
+================================================================================
+
+  COMPLETION FEEDBACK TABLE (Default Experience):
+  ────────────────────────────────────────────────
+  | Trigger                    | Visual                              | Sound              | Haptic         |
+  | Task completed             | Checkbox spring + ring fills         | Soft ding          | Medium impact  |
+  | Last task of day           | Rings close gold shimmer + "All done"| Warm completion     | Strong tap     |
+  | Streak milestone (7,30,100)| Counter glows gold, spring increment | Gentle chime       | Success pattern|
+  | Morning ritual complete    | Sunrise gradient wash across card    | Calm bell          | Gentle pulse   |
+  | Ghost Mode exit (done)     | Breathing circle contracts, shimmer  | Zen tone           | Soft tap       |
+  | Pomodoro complete          | Timer ring fills gold smoothly       | Timer bell         | Strong tap     |
+
+  WITH GAME MODE (Adds to above):
+  | Trigger                    | Additional Visual                   | Additional Info     |
+  | Task completed             | "+5 XP" fades in below checkbox     | XP bar nudges       |
+  | Last task of day           | "+20 XP" badge, rings pulse          | Level-up hint       |
+  | Streak milestone           | Achievement badge slides from bottom | Unique per tier     |
+  | Level up                   | Level number gold flash on Profile   | Toast notification  |
+  | Achievement unlocked       | Badge in toast with description      | Theme/sound noted   |
+
+  WHAT WE DELIBERATELY DO NOT DO:
+  - No full-screen confetti on every completion (desensitizes in 3 days)
+  - No XP numbers flying across screen by default
+  - No "COMBO!" or "STREAK BONUS!" language
+  - No loot boxes, mystery boxes, or randomized rewards
+  - No sounds that would embarrass user in a meeting
+
+  RETENTION HOOKS (9 ethical hooks):
+  ──────────────────────────────────
+  1. Streak Continuity (Self): private counter + freeze protection (Pro: 1/week)
+     Kind copy on break: "Your streak reset. Your 847 completed tasks didn't."
+  2. Ring Closure (Self): visual incompleteness motivates (Apple Watch proven)
+  3. Daily Content Hook (Hunt): morning quote creates daily open habit
+  4. Weekly Insight Card (Hunt): new personal insight every Monday
+  5. Completion Momentum (Self): surface next task after completion
+  6. Gentle Re-engagement (Tribe): after 48h, ONE message via preferred channel
+     "[Name], just checking in. 3 tasks waiting whenever you're ready."
+  7. Ritual Anchoring (Self): morning/evening rituals create temporal anchors
+  8. Future Self Projection (Self): "At this pace, you'll finish [Project] by [Date]"
+  9. Social Proof (Tribe): "12,847 tasks completed by UNJYNX users today"
+
+  HOOKS DELIBERATELY REMOVED:
+  - Variable ratio XP multipliers (slot machine psychology)
+  - Time Debt visualization (anxiety-inducing)
+  - Progress endowment toward badges (only in Game Mode)
+  - Loss aversion messaging ("Your streak is at RISK!")
+
+  MICRO-INTERACTIONS:
+  ───────────────────
+  - Task card press: scale(1.02) + shadow elevation (100ms ease)
+  - Checkbox tap: spring animation (overshoot then settle, 300ms)
+  - Pull to refresh: UNJYNX logo curse-breaking animation
+  - Loading states: skeleton screens with purple shimmer (never spinners)
+  - Error states: "Oops, the curse struck again. Tap to retry."
+  - Swipe actions: rubber-band physics, color reveal (green=complete, red=delete)
+  - Tab switch: shared element transitions between tabs
+  - Sheet dismiss: drag-down with velocity detection (flick=dismiss, slow=snap back)
+
+  FIRST-TIME DELIGHT MOMENTS (8 one-time animations):
+  ────────────────────────────────────────────────────
+  1. First app open: logo curse-breaking reveal (chains shatter, gold dust settles)
+  2. First task created: chains shatter around task, gold dust, ring first move
+  3. First task completed: ring nudges with warm glow. "One down. The curse weakens."
+  4. First streak (3 days): torch-lighting animation, flame appears permanently
+  5. First Ghost Mode: tutorial overlay with breathing circle
+  6. First channel connected: icon flies into connected channels row with dock sound
+  7. First morning ritual completed: sunrise gradient fills screen bottom-to-top
+  8. First 3 rings closed: all rings pulse gold. "Your first perfect day."
+
+
+================================================================================
+================================================================================
+  SECTION L: CROSS-CUTTING TESTS SUMMARY
+================================================================================
+================================================================================
+
+  SECTION A - Team Screens (N1-N5):
+    N1 Team Dashboard:     14 tests
+    N2 Member Management:  16 tests
+    N3 Shared Project:     17 tests
+    N4 Team Reports:       16 tests
+    N5 Async Standup:      16 tests
+    Subtotal:              79 tests
+
+  SECTION B - Admin Screens (P1-P2):
+    P1 Company Admin:      10 tests
+    P2 Content Redirect:    3 tests
+    Subtotal:              13 tests
+
+  SECTION C - Widget System (W1-W5 + Lock Screen):
+    Flutter data bridge:   11 tests
+    (Native tests in Xcode/Android separately)
+
+  SECTION D - Watch App:
+    Flutter bridge:         4 tests
+    Apple Watch (XCTest):   5 tests
+    Wear OS (JUnit):        5 tests
+    Subtotal:              14 tests
+
+  SECTION E - Task Import:
+    Import system:         20 tests
+
+  SECTION F - Empty States:
+    Empty state views:     12 tests
+
+  SECTION G - Easter Eggs:
+    Easter egg system:      8 tests
+
+  SECTION H - Seasonal UI:
+    Seasonal system:        9 tests
+
+  SECTION I - Completion Feedback:
+    Feedback system:        6 tests
+
+  SECTION J - Upgrade Prompts:
+    Upgrade system:        12 tests
+
+  ─────────────────────────────────
+  EXPANSION P4B TOTAL:    184 tests
+  ─────────────────────────────────
+
+  Note: This is IN ADDITION to the ~155 tests in the base Phase 4 plan
+  (COMPREHENSIVE-PHASE-PLAN.doc Task 4.1-4.11). Combined Phase 4 total
+  with expansions: ~339 tests.
+
+################################################################################
+  END OF EXPANSION P4B
+################################################################################
+`;
+
+fs.writeFileSync(outputPath, content.trimStart());
+
+// Count lines properly
+const written = fs.readFileSync(outputPath, 'utf8');
+const lineCount = written.split('\n').length;
+console.log('EXPANSION-P4B.doc written successfully.');
+console.log('Line count:', lineCount);

@@ -1,0 +1,95 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  DEPLOY_DIR: /opt/unjynx/app
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy to server
+        env:
+          SSH_KEY: ~/.ssh/deploy_key
+          HOST: ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}
+        run: |
+          SSH_CMD="ssh -i $SSH_KEY -o StrictHostKeyChecking=no $HOST"
+
+          # 1. Sync backend code to server (exclude dev files)
+          echo "==> Syncing backend code..."
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='coverage' \
+            --exclude='.github' \
+            -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
+            ./ \
+            $HOST:${{ env.DEPLOY_DIR }}/
+
+          # 2. Rebuild and restart backend container only
+          echo "==> Rebuilding backend container..."
+          $SSH_CMD "cd /opt/unjynx && docker compose build --no-cache backend"
+
+          echo "==> Restarting backend..."
+          $SSH_CMD "cd /opt/unjynx && docker compose up -d backend"
+
+          # 3. Wait for health check
+          echo "==> Waiting for backend to be healthy..."
+          for i in $(seq 1 30); do
+            if $SSH_CMD "curl -sf http://127.0.0.1:3000/health" > /dev/null 2>&1; then
+              echo "Backend is healthy!"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "Health check failed after 30 attempts"
+              $SSH_CMD "cd /opt/unjynx && docker compose logs --tail=50 backend"
+              exit 1
+            fi
+            echo "  Attempt $i/30 - waiting..."
+            sleep 2
+          done
+
+          # 4. Show deployment info
+          echo ""
+          echo "==> Deployment complete!"
+          $SSH_CMD "cd /opt/unjynx && docker compose ps"
+
+      - name: Verify external access
+        run: |
+          sleep 3
+          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "http://${{ secrets.SERVER_HOST }}/health" || echo "000")
+          echo "Health endpoint returned: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "External access verified!"
+          else
+            echo "Warning: External access returned $STATUS (may need firewall/DNS config)"
+          fi

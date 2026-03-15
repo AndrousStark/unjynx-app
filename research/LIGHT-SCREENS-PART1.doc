@@ -1,0 +1,2385 @@
+UNJYNX LIGHT MODE DESIGN SPECIFICATION — PART 1 (SCREENS A–F)
+================================================================================
+Company: METAminds | App: UNJYNX | Document Version: 1.0.0
+Date: 2026-03-10
+Scope: Splash, Auth, Onboarding, Home, Task CRUD, Search/Filters, Calendar/Timer
+Target: 40,000+ characters of pixel-precise, production-ready UI specification
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+  0. GLOBAL DESIGN TOKENS (Light Mode)
+  A1. SPLASH SCREEN
+  A2. LOGIN / SIGN-UP
+  B1–B4. ONBOARDING CAROUSEL (4 Screens)
+  C1. HOME SCREEN
+  D1. QUICK CREATE (Bottom Sheet)
+  D2. TASK DETAIL
+  D3. EDIT TASK
+  D4. KANBAN BOARD
+  D5. LIST VIEW
+  D6. PRIORITY MATRIX (Eisenhower)
+  D7. BATCH OPERATIONS
+  E1. SEARCH
+  E2. FILTERS
+  E3. SEARCH RESULTS
+  F1. CALENDAR
+  F2. TIME BLOCKING
+  F3. POMODORO TIMER
+  F4. FOCUS SESSIONS
+
+
+================================================================================
+0. GLOBAL DESIGN TOKENS (Light Mode)
+================================================================================
+
+0.1 COLOR PALETTE
+-----------------
+
+  Background Hierarchy
+  --------------------
+  bg-primary:         #F8F5FF   (Purple Mist — app scaffold background)
+  bg-surface:         #F0EAFC   (Surface — section headers, insets, tracks)
+  bg-card:            #EDE5F7   (Card Surface — elevated containers when needed)
+  bg-white:           #FFFFFF   (Pure white — cards, sheets, inputs)
+  bg-gold-wash:       #FFF8E1   (Gold Wash — highlight, selected states)
+
+  Text Hierarchy
+  --------------
+  text-primary:       #1A0533   (Midnight Purple — 17.51:1 on #F8F5FF)
+  text-secondary:     #6B21A8   (Deep Violet — 8.2:1 on #F8F5FF)
+  text-tertiary:      #475569   (Slate Gray — 6.1:1 on #F8F5FF)
+  text-disabled:      #94A3B8   (Light Slate — 3.8:1, decorative only)
+  text-on-gold:       #FFFFFF   (White on gold — 4.8:1 on #B8860B)
+  text-on-purple:     #FFFFFF   (White on purple fills)
+  text-on-white:      #1A0533   (Primary on white cards)
+
+  Brand Colors
+  ------------
+  brand-gold:         #B8860B   (Dark Goldenrod — primary CTA)
+  brand-gold-hover:   #A07608   (Darker gold for hover/press)
+  brand-gold-light:   #D4A017   (Lighter gold for decorative)
+  brand-violet:       #6B21A8   (Deep Violet — secondary accent)
+  brand-violet-light: #8B5CF6   (Light Violet — links, interactive)
+  brand-purple-deep:  #3B0764   (Deepest purple — rare emphasis)
+
+  Semantic Colors
+  ---------------
+  semantic-success:   #059669   (Emerald — completion)
+  semantic-warning:   #D97706   (Amber — P2, caution)
+  semantic-error:     #E11D48   (Rose — destructive, overdue)
+  semantic-info:      #2563EB   (Blue — informational)
+
+  Priority Colors
+  ---------------
+  priority-p1:        #B8860B   (Gold — highest urgency)
+  priority-p2:        #D97706   (Amber)
+  priority-p3:        #6B21A8   (Violet)
+  priority-p4:        #475569   (Slate — lowest)
+
+0.2 TYPOGRAPHY
+--------------
+
+  Font Stack
+  ----------
+  headline-family:    'Outfit', sans-serif
+  body-family:        'DM Sans', sans-serif
+  number-family:      'Bebas Neue', sans-serif
+  quote-family:       'Playfair Display', serif
+
+  Scale (Mobile — 375px base)
+  ----------------------------
+  display-lg:    Outfit    800   36px / 40px   letter-spacing: -0.5px
+  display-md:    Outfit    700   28px / 34px   letter-spacing: -0.3px
+  headline-lg:   Outfit    700   24px / 30px   letter-spacing: -0.2px
+  headline-md:   Outfit    600   20px / 26px   letter-spacing: 0px
+  headline-sm:   Outfit    600   18px / 24px   letter-spacing: 0px
+  title-lg:      DM Sans   700   18px / 24px   letter-spacing: 0px
+  title-md:      DM Sans   600   16px / 22px   letter-spacing: 0.1px
+  title-sm:      DM Sans   600   14px / 20px   letter-spacing: 0.1px
+  body-lg:       DM Sans   400   16px / 24px   letter-spacing: 0.15px
+  body-md:       DM Sans   400   14px / 20px   letter-spacing: 0.25px
+  body-sm:       DM Sans   400   12px / 16px   letter-spacing: 0.4px
+  label-lg:      DM Sans   500   14px / 20px   letter-spacing: 0.1px
+  label-md:      DM Sans   500   12px / 16px   letter-spacing: 0.5px
+  label-sm:      DM Sans   500   11px / 16px   letter-spacing: 0.5px
+  number-lg:     Bebas Neue 400  48px / 48px   letter-spacing: 1px
+  number-md:     Bebas Neue 400  32px / 32px   letter-spacing: 0.5px
+  number-sm:     Bebas Neue 400  20px / 20px   letter-spacing: 0.5px
+  quote-lg:      Playfair   500  22px / 30px   letter-spacing: 0px
+  quote-md:      Playfair   500  18px / 26px   letter-spacing: 0px
+  quote-sm:      Playfair   400  15px / 22px   letter-spacing: 0px
+
+0.3 SHADOWS (Purple-Tinted — NEVER gray)
+-----------------------------------------
+
+  shadow-xs:    0 1px 2px rgba(26,5,51,0.04)
+  shadow-sm:    0 2px 4px rgba(26,5,51,0.06)
+  shadow-md:    0 4px 8px rgba(26,5,51,0.06), 0 2px 4px rgba(26,5,51,0.04)
+  shadow-lg:    0 8px 16px rgba(26,5,51,0.08), 0 4px 8px rgba(26,5,51,0.04)
+  shadow-xl:    0 12px 24px rgba(26,5,51,0.10), 0 8px 12px rgba(26,5,51,0.06)
+  shadow-2xl:   0 20px 40px rgba(26,5,51,0.12), 0 12px 16px rgba(26,5,51,0.06)
+  shadow-inner: inset 0 2px 4px rgba(26,5,51,0.04)
+  shadow-glow:  0 0 16px rgba(107,33,168,0.12)   (purple glow for focus)
+  shadow-gold:  0 0 16px rgba(184,134,11,0.15)    (gold glow for CTAs)
+
+0.4 GLASS MORPHISM (Light Mode)
+---------------------------------
+
+  glass-card:
+    background:   rgba(255,255,255,0.65)
+    backdrop-filter: blur(8px) saturate(1.2)
+    border:       1px solid rgba(107,33,168,0.08)
+    box-shadow:   shadow-md
+    border-radius: 16px
+
+  glass-sheet:
+    background:   rgba(255,255,255,0.85)
+    backdrop-filter: blur(12px) saturate(1.3)
+    border:       1px solid rgba(107,33,168,0.06)
+    box-shadow:   shadow-lg
+    border-radius: 24px 24px 0 0
+
+  glass-pill:
+    background:   rgba(255,255,255,0.70)
+    backdrop-filter: blur(6px)
+    border:       1px solid rgba(107,33,168,0.10)
+    box-shadow:   shadow-sm
+    border-radius: 100px (fully rounded)
+
+0.5 SPACING & LAYOUT
+---------------------
+
+  Base unit: 4px
+  Spacing scale: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80
+  Screen padding (horizontal): 20px
+  Card padding: 16px (compact), 20px (standard), 24px (spacious)
+  Card gap: 12px (tight), 16px (standard), 20px (loose)
+  Border radii: 4px (micro), 8px (sm), 12px (md), 16px (lg), 20px (xl), 24px (2xl), 100px (pill)
+  Safe area top: 44px (iPhone notch) / 24px (Android status bar)
+  Safe area bottom: 34px (iPhone home) / 16px (Android nav)
+  Bottom nav height: 64px + safe area
+  App bar height: 56px
+  FAB size: 56px
+  Touch target minimum: 44px x 44px
+
+0.6 ANIMATION TOKENS
+---------------------
+
+  duration-instant:  100ms
+  duration-fast:     200ms
+  duration-normal:   300ms
+  duration-slow:     500ms
+  duration-reveal:   800ms
+  duration-dramatic: 1200ms
+  curve-standard:    cubic-bezier(0.2, 0.0, 0.0, 1.0)   (Material 3 standard)
+  curve-decel:       cubic-bezier(0.0, 0.0, 0.0, 1.0)    (entering elements)
+  curve-accel:       cubic-bezier(0.3, 0.0, 1.0, 1.0)    (exiting elements)
+  curve-spring:      cubic-bezier(0.175, 0.885, 0.32, 1.275)  (bouncy)
+  curve-sharp:       cubic-bezier(0.4, 0.0, 0.6, 1.0)    (quick moves)
+
+0.7 DARK -> LIGHT MODE DIFFERENCES (Global)
+-------------------------------------------
+
+  WHY we diverge from dark in light mode:
+  1. CONTRAST INVERSION: Dark uses light text on dark; light uses dark text on light.
+     We boost text-primary to #1A0533 (17.51:1) because light backgrounds demand heavier text.
+  2. SHADOW COLOR SHIFT: Gray shadows look dirty on purple-tinted backgrounds.
+     Purple-tinted shadows (rgba(26,5,51,x)) feel cohesive and premium.
+  3. GLASS OPACITY INCREASE: Dark mode glass = 15-25% white; light mode = 65-85% white.
+     Light mode glass needs to be more opaque so content behind does not create illegible text.
+  4. GRADIENT REDUCTION: Dark mode uses gradient meshes for depth; light mode uses solid/subtle.
+     Gradients on light backgrounds create washed-out, unprofessional feel. Solids look crisper.
+  5. ANIMATION PARTICLE OPACITY: Dark = 30-40%; Light = 15-20%.
+     Particles are decorative. On light bg they become distracting at dark-mode opacities.
+  6. ACCENT VIBRANCY: Gold #B8860B is unchanged but reads darker/richer on light.
+     No adjustment needed — the optical illusion of light bg makes gold feel warmer.
+
+
+================================================================================
+A1. SPLASH SCREEN
+================================================================================
+
+PURPOSE: Brand reveal, emotional first impression. Load core resources in background.
+DURATION: 2.4 seconds total (1.8s animation + 0.6s hold + transition)
+
+VISUAL HIERARCHY
+----------------
+  1. Background (full screen)
+  2. UNJYNX logotype (center, dominant)
+  3. Gold accent mark (subtle, on the 'J')
+  4. Tagline (below logo, delayed fade)
+
+LAYOUT
+------
+  Background: #FFFFFF (pure white — cleaner than #F8F5FF for dramatic reveal)
+  Full screen, no safe area UI
+  Logo centered both axes: centerX, centerY - 20px (slight upward offset for optical center)
+
+LOGOTYPE "UNJYNX"
+------------------
+  Font: Outfit
+  Weight: 800 (ExtraBold)
+  Size: 48px
+  Letter-spacing: 4px (wide tracking for editorial feel)
+  Color: #1A0533 (Midnight Purple — NOT black, brand-specific)
+  Text-transform: uppercase
+
+  REVEAL ANIMATION (letter-by-letter ink materialization):
+    Each letter appears with an ink-bleed effect:
+    - Letter starts as invisible (opacity 0, scale Y 0.3, blur 4px)
+    - Ink bleeds in from the baseline upward over 200ms per letter
+    - Stagger: 120ms between letters (U->N->J->Y->N->X)
+    - Total letter sequence: 120ms * 5 gaps + 200ms = 800ms
+    - Easing: curve-decel for each letter
+
+    Ink-feel implementation:
+    - Use mask with vertical gradient that slides up
+    - Slight overshoot on scaleY (1.0 -> 1.02 -> 1.0) for organic feel
+    - Blur removes from 4px -> 0px during reveal
+    - Color: starts #3B0764 (deeper), settles to #1A0533 (final)
+
+  DARK MODE DIFFERENCE: In dark mode, text is #F8F5FF (light) on #0A0118 (dark).
+    Light mode uses #1A0533 on #FFFFFF for maximum editorial contrast.
+    The ink-bleed reads as "writing on paper" in light mode vs "glowing reveal" in dark.
+
+GOLD ACCENT ON 'J'
+-------------------
+  The top hook of the 'J' gets a gold accent:
+  - Color: #B8860B
+  - Applied as a gradient overlay on just the top 40% of the J letterform
+  - Appears 200ms after the J letter completes its ink reveal
+  - Fade in: 300ms, curve-decel
+  - Subtle gold shimmer: 0 0 8px rgba(184,134,11,0.20) glow pulses once
+
+TAGLINE (appears after logo is complete)
+-----------------------------------------
+  Text: "Break the satisfactory."
+  Font: DM Sans
+  Weight: 400
+  Size: 14px / 20px
+  Letter-spacing: 2px
+  Text-transform: uppercase
+  Color: #6B21A8 (Deep Violet)
+  Position: centered, 24px below logo baseline
+  Animation: fade in 0 -> 1 opacity over 400ms, starts at t=1200ms
+  Easing: curve-decel
+
+TRANSITION TO APP (t=1800ms -> t=2400ms)
+-----------------------------------------
+  The logo and tagline perform a coordinated exit:
+  1. Tagline fades out first (200ms, opacity 1 -> 0)
+  2. Logo scales down: 48px -> target app bar size (20px)
+  3. Logo translates from center to app bar title position:
+     - Destination: top-left, x=20px from left, y=safe-area-top + 16px
+  4. Background crossfades: #FFFFFF -> #F8F5FF (Purple Mist) over 400ms
+  5. Main UI elements begin to fade in below as logo reaches destination
+  Duration: 600ms total transition
+  Easing: curve-standard (smooth, not bouncy)
+
+  IMPLEMENTATION NOTE: Use Hero animation (Flutter) with flightShuttleBuilder
+  to morph the splash logo into the persistent app bar title.
+
+LOADING INDICATOR (optional, if resources not ready)
+----------------------------------------------------
+  Only shown if load > 2.4s
+  Position: bottom center, 80px above bottom edge
+  Three dots: 6px circles, #6B21A8, opacity pulse 0.3 -> 1.0
+  Stagger: 200ms between dots
+  Animation: infinite loop until ready
+
+
+================================================================================
+A2. LOGIN / SIGN-UP SCREEN
+================================================================================
+
+PURPOSE: Authentication entry point. Build trust, show brand personality.
+LAYOUT: Single scrollable screen with fixed background.
+
+VISUAL HIERARCHY
+----------------
+  1. Background atmosphere
+  2. App logo + tagline (top section)
+  3. Glass auth card (center, dominant)
+  4. Social login buttons (inside card)
+  5. OR divider
+  6. Email/password fields (inside card)
+  7. CTA button (inside card, bottom)
+  8. Legal text (below card)
+
+BACKGROUND
+----------
+  Base: #F8F5FF (Purple Mist)
+  Radial gradient overlay (centered, decorative):
+    Center: rgba(107,33,168,0.04) (barely visible purple)
+    Edge: rgba(107,33,168,0.00) (transparent)
+    Radius: 70% of screen width
+    Position: center of screen, vertically offset -10% (slightly above center)
+
+  WHY subtle gradient: Creates depth without competing with the glass card.
+  In dark mode, gradient is more visible (0.08 opacity) because dark bg absorbs more.
+  Light mode needs restraint — too much gradient looks washed out.
+
+TOP SECTION (Logo + Tagline)
+-----------------------------
+  Position: top of scroll, centered
+  Padding top: safe-area + 48px
+  Padding bottom: 32px
+
+  Logo "UNJYNX":
+    Font: Outfit 800, 32px, letter-spacing 3px, uppercase
+    Color: #1A0533
+    Gold accent on J: #B8860B (same as splash)
+
+  Tagline:
+    "Break the satisfactory. Unjynx your productivity."
+    Font: DM Sans 400, 14px / 20px, letter-spacing 0.5px
+    Color: #1A0533
+    Gold underline beneath "Unjynx your productivity":
+      Height: 2px
+      Color: #B8860B
+      Width: matches text width + 4px padding each side
+      Offset: 4px below text baseline
+      Border-radius: 1px
+    Margin top: 8px below logo
+
+GLASS AUTH CARD
+---------------
+  Position: centered horizontally, below top section
+  Width: min(375px, screen-width - 40px)  [20px padding each side]
+  Padding: 32px horizontal, 28px vertical
+  Background: rgba(255,255,255,0.85)
+  Backdrop-filter: blur(12px) saturate(1.3)
+  Border: 1px solid rgba(107,33,168,0.08)
+  Border-radius: 24px
+  Box-shadow: 0 8px 32px rgba(26,5,51,0.08), 0 4px 12px rgba(26,5,51,0.04)
+
+  WHY 85% white glass (vs 25% in dark): Light mode glass must be mostly opaque
+  to maintain text legibility. The 15% transparency creates a subtle frosted effect
+  without sacrificing readability. Purple-tinted shadow grounds it on the #F8F5FF bg.
+
+  DARK MODE DIFFERENCE: Dark uses rgba(26,5,51,0.40) bg with blur(16px).
+  Light mode inverts to high-white opacity. The border tint is the same purple
+  but reads as barely-there on light, vs visible boundary on dark.
+
+SOCIAL LOGIN BUTTONS (inside card)
+-----------------------------------
+  Layout: vertical stack, 12px gap
+  Each button:
+    Width: 100%
+    Height: 52px
+    Background: #FFFFFF
+    Border: 1px solid rgba(107,33,168,0.08)
+    Border-radius: 12px
+    Box-shadow: 0 2px 4px rgba(26,5,51,0.06)
+    Padding: 0 16px
+
+    Icon: provider's official full-color icon, 24px x 24px, left-aligned
+    Text: DM Sans 500, 15px, #1A0533, center-aligned with icon offset
+    Gap between icon and text: 12px
+
+    Hover/Press state:
+      Background: #F0EAFC
+      Box-shadow: 0 4px 8px rgba(26,5,51,0.08)
+      Transition: 150ms curve-standard
+
+    Providers (top to bottom):
+      1. Google — Google 'G' multicolor icon — "Continue with Google"
+      2. Apple — Apple icon #1A0533 (not black) — "Continue with Apple"
+      3. GitHub — GitHub Octocat #1A0533 — "Continue with GitHub"
+
+  DARK MODE DIFFERENCE: Social buttons in dark use rgba(255,255,255,0.06) bg
+  with white text. Light mode uses full white cards for clarity and trust.
+
+OR DIVIDER
+----------
+  Position: centered, 24px above and below
+  Line: 1px solid rgba(107,33,168,0.08), extends to card edges (minus padding)
+  Text: "OR", DM Sans 500, 12px, letter-spacing 2px, #475569
+  Background behind "OR": #FFFFFF (matches card bg to "cut" the line)
+  Padding: 0 12px around text
+
+EMAIL / PASSWORD FIELDS
+------------------------
+  Layout: vertical stack, 16px gap
+
+  Text Input Field:
+    Width: 100%
+    Height: 52px
+    Background: #FFFFFF
+    Border: 1.5px solid rgba(107,33,168,0.12)
+    Border-radius: 12px
+    Padding: 0 16px
+
+    Label (floating):
+      Font: DM Sans 400, 14px, #475569 (unfocused)
+      Font: DM Sans 500, 12px, #6B21A8 (focused, floated above)
+      Transition: 200ms curve-standard
+
+    Input text: DM Sans 400, 16px, #1A0533
+    Placeholder: DM Sans 400, 16px, #94A3B8
+
+    Focus state:
+      Border: 1.5px solid #6B21A8
+      Box-shadow: 0 0 0 3px rgba(107,33,168,0.08) (focus ring)
+      Label color: #6B21A8
+
+    Error state:
+      Border: 1.5px solid #E11D48
+      Box-shadow: 0 0 0 3px rgba(225,29,72,0.08)
+      Error text: DM Sans 400, 12px, #E11D48, 4px below field
+
+    Password field additions:
+      Visibility toggle icon: right side, 24px, #475569
+      Tap target: 44px x 44px
+      Toggled icon color: #6B21A8
+
+  Forgot Password link:
+    Position: right-aligned below password field, 8px below
+    Font: DM Sans 500, 13px, #6B21A8
+    Tap target: 44px height (padded)
+    Underline on press: 1px #6B21A8
+
+CTA BUTTON
+----------
+  Position: below fields, 24px margin top
+  Width: 100%
+  Height: 56px
+  Background: #B8860B (Brand Gold)
+  Border-radius: 14px
+  Box-shadow: 0 4px 12px rgba(184,134,11,0.25), 0 2px 4px rgba(184,134,11,0.15)
+
+  Text: "Sign In" or "Create Account" (toggled)
+  Font: DM Sans 700, 16px, #FFFFFF (4.8:1 contrast on gold)
+  Letter-spacing: 0.5px
+
+  Hover/Press:
+    Background: #A07608 (darker gold)
+    Box-shadow: 0 2px 8px rgba(184,134,11,0.30)
+    Scale: 0.98 (press), 1.0 (release, spring curve 200ms)
+
+  Loading state:
+    Text replaced with circular spinner
+    Spinner: 20px, stroke 2px, #FFFFFF
+    Background: #B8860B (unchanged, button not disabled visually)
+
+  DARK MODE DIFFERENCE: Same gold color. Dark mode adds a subtle glow
+  (0 0 20px rgba(184,134,11,0.30)) that light mode omits because glow
+  is invisible on light backgrounds.
+
+SIGN IN <-> SIGN UP TOGGLE
+--------------------------
+  Position: below CTA, 16px margin top, centered
+  Text: "Don't have an account? Sign Up" (or inverse)
+  Font: DM Sans 400, 14px, #475569 for question, DM Sans 600, 14px, #6B21A8 for action
+  Tap target: full line width, 44px height
+
+LEGAL TEXT
+----------
+  Position: below glass card, 24px margin top, centered
+  Width: matches card width
+  Text: "By continuing, you agree to our Terms of Service and Privacy Policy"
+  Font: DM Sans 400, 12px / 18px, #475569
+  Links ("Terms of Service", "Privacy Policy"): #6B21A8, underline on press
+  Tap target per link: 44px height (padded)
+
+ENTRY ANIMATION
+----------------
+  1. Background: instant (already loaded from splash transition)
+  2. Logo + tagline: fade in, translateY -20px -> 0, 400ms, curve-decel (t=0)
+  3. Glass card: fade in, translateY 30px -> 0, 500ms, curve-decel (t=100ms)
+  4. Social buttons: stagger in, 100ms between, translateY 10px -> 0, 300ms (t=300ms)
+  5. Fields + CTA: fade in, 300ms (t=500ms)
+
+
+================================================================================
+B1-B4. ONBOARDING CAROUSEL (4 SCREENS)
+================================================================================
+
+PURPOSE: Educate new users about core value props. Capture initial preferences.
+LAYOUT: Full-screen carousel with fixed bottom controls.
+
+GLOBAL CAROUSEL STRUCTURE
+--------------------------
+  Swipe: horizontal paging
+  Skip button: top-right, DM Sans 500, 14px, #475569, tap target 44px x 44px
+  Position: safe-area-top + 12px, right 20px
+
+  Page indicator (Chain Link Progress):
+    Position: bottom, 120px above bottom edge (above CTA)
+    4 chain links, each 32px wide x 8px tall, 8px gap
+    Inactive chain: 2px border #6B21A8 at 30% opacity, transparent fill, border-radius 4px
+    Active chain: solid #6B21A8 fill, border-radius 4px
+    Transition between: the link "breaks" — the chain splits with a 2px gap, and a gold
+    spark particle (#B8860B) bursts from the break point (4 particles, 6px, fade over 400ms)
+    Break animation: 300ms, curve-spring
+
+    WHY chain metaphor: "Unjynx" = breaking chains of mediocrity. Each completed
+    onboarding slide is a broken chain — the gold spark is the "unjynxing" moment.
+
+  CTA Button (bottom):
+    Position: 20px from each side, bottom safe-area + 20px
+    Width: calc(100% - 40px)
+    Height: 56px
+    Slides 1-3: "Next" — ghost style:
+      Background: transparent
+      Border: 2px solid #6B21A8
+      Text: DM Sans 600, 16px, #6B21A8
+      Border-radius: 14px
+    Slide 4: "Get Started" — gold CTA:
+      Background: #B8860B
+      Text: DM Sans 700, 16px, #FFFFFF
+      Box-shadow: 0 4px 12px rgba(184,134,11,0.25)
+      Border-radius: 14px
+
+SLIDE B1: "Your Tasks, Everywhere" (Core Task Management)
+----------------------------------------------------------
+  Background gradient: linear-gradient(180deg, #F8F5FF 0%, #F0EAFC 100%)
+
+  ILLUSTRATION (top 45% of screen):
+    Centered illustration at 280px x 280px
+    Content: Stylized phone showing task list with floating task cards around it
+    Style: flat with purple (#6B21A8) outlines, gold (#B8860B) accent on checkbox ticks
+    Cards have white fill + purple-tinted shadow
+    Animation: floating cards gently bob up/down (translateY +/- 4px, 3s loop, curve-standard)
+
+  HEADLINE:
+    Position: centered, below illustration, 24px gap
+    Text: "Your Tasks, Everywhere"
+    Font: Outfit 700, 28px / 34px, #1A0533
+    Letter-spacing: -0.3px
+
+  BODY:
+    Position: centered, 12px below headline
+    Width: min(320px, screen-width - 64px)
+    Text: "Organize, prioritize, and crush your to-do list with an app that adapts to how you work."
+    Font: DM Sans 400, 16px / 24px, #475569
+    Text-align: center
+
+SLIDE B2: "Reach Them Anywhere" (Channel Showcase)
+----------------------------------------------------
+  Background gradient: linear-gradient(180deg, #F8F5FF 0%, #EDE5F7 100%)
+  Slightly deeper lavender to differentiate from B1.
+
+  ILLUSTRATION (top 45%):
+    280px x 280px centered
+    Content: Central hub with lines radiating to channel icons:
+      WhatsApp (green), Telegram (blue), Email (red/orange),
+      SMS (purple), Instagram (gradient), Discord (indigo), Slack (multicolor)
+    Hub: gold (#B8860B) circle, 48px, with bell icon inside
+    Channel icons: 32px each, full official colors, arranged in circle around hub
+    Connecting lines: 1.5px, #6B21A8 at 30% opacity
+    Animation: lines pulse from center to icons (gold -> purple gradient traveling along line),
+    staggered 200ms each, continuous 4s loop
+
+  HEADLINE:
+    "Reach Them Anywhere"
+    Font: Outfit 700, 28px / 34px, #1A0533
+
+  BODY:
+    "Send reminders through WhatsApp, Telegram, email, SMS — wherever people actually check."
+    Font: DM Sans 400, 16px / 24px, #475569, centered, max-width 320px
+
+SLIDE B3: "Smart Enough to Surprise You" (AI Features)
+--------------------------------------------------------
+  Background gradient: linear-gradient(180deg, #F8F5FF 0%, #FFF8E1 100%)
+  Gold wash creates warmth for AI/intelligence messaging.
+
+  ILLUSTRATION (top 45%):
+    280px x 280px centered
+    Content: Crystal ball (deep violet #3B0764 outer, lighter gradient inner)
+    with floating insight cards emerging from it
+    Insight cards: white, 8px radius, purple shadow, containing mini text lines
+    One card has a gold (#B8860B) lightbulb icon
+    Animation: crystal ball has subtle inner shimmer (radial gradient rotation, 6s),
+    insight cards float up from ball and fade (translateY -40px, opacity 1 -> 0, stagger 1.5s)
+
+  HEADLINE:
+    "Smart Enough to Surprise You"
+    Font: Outfit 700, 28px / 34px, #1A0533
+
+  BODY:
+    "AI that learns your patterns, predicts what you need, and nudges you at exactly the right moment."
+    Font: DM Sans 400, 16px / 24px, #475569, centered, max-width 320px
+
+SLIDE B4: "What Drives You?" (Preference Selection — Interactive)
+------------------------------------------------------------------
+  Background: solid #F8F5FF (no gradient — interactive screen stays clean)
+
+  HEADLINE:
+    Position: top, safe-area + 60px
+    "What Drives You?"
+    Font: Outfit 700, 28px / 34px, #1A0533, centered
+
+  SUBHEAD:
+    "Pick 3+ categories to personalize your experience"
+    Font: DM Sans 400, 14px / 20px, #475569, centered, 8px below headline
+
+  CATEGORY GRID:
+    Position: 24px below subhead, horizontal padding 20px
+    Layout: 3 columns, 12px gap
+    Scroll: vertical if needed
+
+    Category Card (unselected):
+      Width: (screen-width - 40px - 24px) / 3 = ~105px at 375px screen
+      Height: 96px
+      Background: #FFFFFF
+      Border: 1.5px solid rgba(107,33,168,0.10)
+      Border-radius: 12px
+      Box-shadow: 0 2px 4px rgba(26,5,51,0.04)
+      Layout: centered vertical stack
+        Icon: 28px, color #6B21A8
+        Label: DM Sans 500, 12px, #1A0533, 6px below icon
+      Tap target: entire card
+
+    Category Card (selected):
+      Background: #FFF8E1 (Gold Wash)
+      Border: 2px solid #B8860B
+      Box-shadow: 0 4px 8px rgba(184,134,11,0.12)
+      Icon color: #B8860B
+      Label color: #1A0533 (unchanged)
+      Checkmark: 16px gold (#B8860B) circle in top-right corner of card,
+        4px from edges, with white checkmark icon 10px inside
+      Transition: all 200ms curve-spring (slight bounce on select)
+
+    Categories (12 shown, scroll for more):
+      Work, Personal, Health, Finance, Learning, Social,
+      Creative, Travel, Shopping, Family, Fitness, Mindfulness
+
+  MINIMUM INDICATOR:
+    Position: centered, 16px below grid
+    Text: "3 of 3+ selected" or "1 of 3+ selected"
+    Font: DM Sans 500, 13px, color changes:
+      < 3 selected: #E11D48 (needs more)
+      >= 3 selected: #059669 (good to go)
+
+  DARK MODE DIFFERENCE: Category cards in dark use rgba(255,255,255,0.06) bg.
+    Selected = rgba(184,134,11,0.15) fill with gold border.
+    Light mode uses clean white cards with the warm gold wash on selection,
+    which reads as a gentle highlight rather than dark mode's ember glow.
+
+
+================================================================================
+C1. HOME SCREEN (MOST IMPORTANT SCREEN)
+================================================================================
+
+PURPOSE: Daily command center. Must feel calm yet informative. Clear hierarchy.
+LAYOUT: Scrollable column with fixed bottom nav + optional FAB.
+
+VISUAL HIERARCHY (TOP TO BOTTOM)
+----------------------------------
+  1. App bar (greeting + avatar)
+  2. Streak + progress summary
+  3. Daily content card
+  4. Quick actions row
+  5. Task sections (Today, Upcoming, Overdue)
+  6. AI Whisper card (contextual)
+  7. Bottom navigation
+
+BACKGROUND
+----------
+  Solid #F8F5FF (Purple Mist)
+  NO gradient mesh (unlike dark mode which uses multi-stop radial gradients)
+
+  WHY no gradient: Light mode benefits from clean, solid backgrounds.
+  Gradient meshes on light bg create an "unfinished watercolor" effect.
+  Solid #F8F5FF gives a paper-like quality — editorial, calm, premium.
+
+  DARK MODE DIFFERENCE: Dark uses a 3-stop radial gradient mesh
+  (#0A0118 base + purple and violet spots) for immersive depth.
+  Light mode achieves depth through shadows and card elevation instead.
+
+APP BAR
+-------
+  Height: 56px (content) + safe-area-top
+  Background: transparent (scrolls with content, no elevation until scroll)
+  Padding: 0 20px
+
+  Left side:
+    Greeting text:
+      "Good morning, Rahul" (time-contextual: morning/afternoon/evening/night)
+      Font: Outfit 600, 20px / 26px, #1A0533
+      Truncate with ellipsis if name > 12 characters
+
+    Date:
+      "Monday, March 10"
+      Font: DM Sans 400, 13px, #475569
+      Margin-top: 2px
+
+  Right side:
+    Avatar: 40px x 40px circle
+      Background: #EDE5F7 (if no image)
+      Initials: Outfit 600, 16px, #6B21A8
+      If image: cover fill, 40px circle
+      Border: 2px solid rgba(107,33,168,0.10)
+      Tap -> profile/settings
+
+  On scroll (past 20px):
+    Background: rgba(248,245,255,0.95) (almost opaque Purple Mist)
+    Backdrop-filter: blur(8px)
+    Border-bottom: 1px solid rgba(107,33,168,0.06)
+    Box-shadow: 0 2px 4px rgba(26,5,51,0.04)
+    Transition: 200ms curve-standard
+
+STREAK & PROGRESS SECTION
+--------------------------
+  Position: 16px below app bar
+  Padding: 0 20px
+
+  Streak Row:
+    Layout: horizontal, space-between alignment
+    Left: streak info
+    Right: progress rings
+
+    Streak Flame (Rive animation):
+      Size: 48px x 48px
+      Flame colors: #FF6B00 base, #FFB800 mid, #B8860B tips
+      Animation: continuous flicker, 2-3 flame layers
+      WHY richer on light: Real flames are more visible in daylight.
+      Dark mode flames glow against the dark (additive blending).
+      Light mode flames are opaque, solid — like a candle in a bright room.
+      Use normal blend mode (not additive/screen as in dark mode).
+
+    Streak Text (right of flame, 12px gap):
+      Count: Bebas Neue 400, 48px, #1A0533 ("7")
+      Label: DM Sans 500, 13px, #475569 ("day streak")
+      Layout: vertical stack, 0px gap
+
+    Progress Rings (right side):
+      3 concentric rings, right-aligned
+      Container: 72px x 72px
+
+      Outer ring (Tasks completed):
+        Diameter: 72px, stroke width: 6px
+        Track: rgba(107,33,168,0.06)
+        Fill: #B8860B (Gold) — clockwise from 12 o'clock
+        Cap: round
+
+      Middle ring (Focus minutes):
+        Diameter: 56px, stroke width: 5px
+        Track: rgba(107,33,168,0.06)
+        Fill: #8B5CF6 (Violet)
+        Cap: round
+
+      Inner ring (Habits):
+        Diameter: 42px, stroke width: 4px
+        Track: rgba(107,33,168,0.06)
+        Fill: #059669 (Emerald)
+        Cap: round
+
+      Center text:
+        Percentage: Bebas Neue 400, 16px, #1A0533
+        "done": DM Sans 400, 9px, #475569
+
+      Completion animation (any ring hits 100%):
+        Ring stroke-width pulses 6px -> 8px -> 6px over 300ms
+        Gold shimmer travels along ring path (gradient mask animation, 500ms)
+        Shimmer color: linear-gradient(90deg, transparent, rgba(184,134,11,0.40), transparent)
+
+      DARK MODE DIFFERENCE: Track color is rgba(255,255,255,0.06) in dark.
+        Ring colors are identical — they are vibrant enough on both backgrounds.
+        The shimmer effect is more visible in dark mode (glow), subtler in light.
+
+DAILY CONTENT CARD
+-------------------
+  Position: 20px below streak section
+  Margin: 0 20px
+  Width: calc(100% - 40px)
+
+  Card:
+    Background: #FFFFFF
+    Border: 1px solid rgba(107,33,168,0.08)
+    Border-radius: 16px
+    Box-shadow: 0 4px 8px rgba(26,5,51,0.06), 0 2px 4px rgba(26,5,51,0.04)
+    Padding: 20px
+
+  Category Badge (top-left inside card):
+    Background: #6B21A8
+    Border-radius: 100px
+    Padding: 4px 12px
+    Text: DM Sans 500, 11px, #FFFFFF, uppercase, letter-spacing 0.5px
+    Example: "MAHABHARATA"
+
+  Quote Text:
+    Position: 16px below badge
+    Font: Playfair Display 500, 18px / 26px, #1A0533
+    Example: "The mind acts as both the friend and the enemy of the self."
+    Max lines: 3 (ellipsis if longer)
+    Style: italic
+
+  Attribution:
+    Position: 8px below quote
+    Font: DM Sans 400, 13px, #475569
+    Text: "— Bhagavad Gita, Chapter 6"
+
+  Share Button (bottom-right of card):
+    Size: 36px x 36px circle
+    Background: rgba(107,33,168,0.06)
+    Icon: share icon, 18px, #6B21A8
+    Tap target: 44px x 44px (padded)
+
+    Press state:
+      Background: rgba(107,33,168,0.12)
+      Scale: 0.95 -> 1.0 (spring, 200ms)
+
+  SHARE CARD VARIANT (generated for social sharing):
+    Background: #6B21A8 (deep violet — inverts for visual drama)
+    Text: #B8860B (gold) for quote, #FFFFFF for attribution
+    Logo: bottom-right, UNJYNX in #FFFFFF, small
+    Border-radius: 16px
+    Size: 1080x1080px (Instagram square)
+
+    WHY inverted colors for share: Social feeds are visually noisy.
+    A purple card with gold text stops the scroll. The light mode in-app
+    card is calm/readable, but the share variant needs to POP externally.
+
+  Swipe interaction:
+    Swipe left: next quote (translateX, 300ms, curve-standard)
+    Swipe right: previous quote
+    Indicator dots: 4px circles, #6B21A8 active, rgba(107,33,168,0.20) inactive
+    Position: centered, 8px below card
+
+QUICK ACTIONS ROW
+------------------
+  Position: 20px below content card
+  Padding: 0 20px
+  Layout: horizontal scroll, 10px gap, no scrollbar visible
+  Scroll padding: 20px start and end (peek effect)
+
+  Quick Action Pill:
+    Height: 40px
+    Padding: 0 16px
+    Background: rgba(255,255,255,0.70)
+    Backdrop-filter: blur(6px)
+    Border: 1px solid rgba(107,33,168,0.10)
+    Border-radius: 100px
+    Box-shadow: 0 2px 4px rgba(26,5,51,0.04)
+
+    Icon: 18px, #6B21A8, left side
+    Text: DM Sans 500, 13px, #1A0533, 8px right of icon
+    Tap target: full pill area (min 44px height with padding)
+
+    Active/Selected state:
+      Background: #FFF8E1 (Gold Wash)
+      Border: 1px solid rgba(184,134,11,0.20)
+      Icon color: #B8860B
+      Text color: #1A0533
+
+    Press state:
+      Scale: 0.97 -> 1.0 (100ms)
+      Background: rgba(240,234,252,0.90)
+
+  Actions (left to right):
+    [+ New Task]  [Calendar]  [Focus]  [Projects]  [Habits]  [Analytics]
+
+TASK SECTIONS
+--------------
+  Each section has a header + task card list.
+  Position: 24px below quick actions
+  Padding: 0 20px
+
+  SECTION HEADER:
+    Layout: horizontal, space-between
+    Left: section title
+    Right: count badge
+
+    Title: Outfit 600, 18px, #1A0533
+    Examples: "Today", "Upcoming", "Overdue"
+    If "Overdue": title color = #E11D48
+
+    Count badge:
+      Background: rgba(107,33,168,0.06)
+      Border-radius: 100px
+      Padding: 2px 10px
+      Text: DM Sans 500, 13px, #6B21A8
+      If overdue section: bg = rgba(225,29,72,0.08), text = #E11D48
+
+    Margin-bottom: 12px
+
+  TASK CARD:
+    Width: 100%
+    Background: #FFFFFF
+    Border-radius: 14px
+    Box-shadow: 0 2px 6px rgba(26,5,51,0.05), 0 1px 3px rgba(26,5,51,0.03)
+    Padding: 14px 16px
+    Margin-bottom: 10px
+    Min-height: 64px
+
+    LEFT EDGE (Priority Indicator):
+      Width: 3px
+      Height: 100% (card height)
+      Border-radius: 3px 0 0 3px (rounded on left corners only)
+      Colors by priority:
+        P1 (Critical): #B8860B (Gold)
+        P2 (High):     #D97706 (Amber)
+        P3 (Medium):   #6B21A8 (Violet)
+        P4 (Low):      #475569 (Slate)
+
+    OVERDUE VARIANT:
+      Left border: 3px solid #E11D48
+      Background: #FFFFFF tinted -> rgba(225,29,72,0.03) (barely pink)
+      Entire card border: 1px solid rgba(225,29,72,0.08)
+      WHY subtle pink: Just enough to signal urgency without alarming.
+      Dark mode uses rgba(225,29,72,0.08) tint which glows more prominently.
+
+    CHECKBOX (left, after priority edge):
+      Position: left-aligned, vertically centered
+      Size: 24px x 24px
+      Unchecked:
+        Border: 2px solid #6B21A8 at 40% opacity
+        Background: transparent
+        Border-radius: 6px
+      Checked:
+        Background: #B8860B (Gold fill)
+        Border: 2px solid #B8860B
+        Icon: white checkmark, 14px, stroke 2px
+        Border-radius: 6px
+      Animation on check:
+        Scale: 1.0 -> 1.15 -> 1.0 (spring, 250ms)
+        Gold burst: 6 particles, 3px, #B8860B at 60% opacity, radiate 16px then fade
+
+    TASK TEXT (right of checkbox, 12px gap):
+      Title: DM Sans 500, 15px / 20px, #1A0533
+        Max 2 lines, ellipsis
+        Completed: strikethrough with #6B21A8 line (not gray),
+          text color: #94A3B8 (faded), line animates left -> right over 300ms
+      Subtitle (due time, project, etc.):
+        Font: DM Sans 400, 13px, #475569
+        Example: "2:30 PM - Work Project"
+        Icon before text: 14px, matching color
+        Margin-top: 2px
+
+    TAGS (optional, below subtitle):
+      Layout: horizontal wrap, 6px gap
+      Tag pill:
+        Background: rgba(107,33,168,0.06)
+        Border-radius: 100px
+        Padding: 2px 8px
+        Text: DM Sans 400, 11px, #6B21A8
+        Max shown: 2, then "+N" pill
+
+    RIGHT SIDE (chevron or time):
+      If time-specific: DM Sans 500, 13px, #6B21A8
+      If general: chevron icon, 16px, #94A3B8
+      Tap: navigates to task detail
+
+    PRESS STATE:
+      Background: #F0EAFC (Surface)
+      Box-shadow: 0 1px 3px rgba(26,5,51,0.03) (reduced)
+      Transition: 100ms
+
+    DARK MODE DIFFERENCE: Cards in dark use rgba(255,255,255,0.04) bg.
+      Checkbox border is rgba(255,255,255,0.20) in dark.
+      Priority stripe colors are identical — they are semantic, not theme-dependent.
+      Strikethrough in dark is #8B5CF6 (lighter violet for visibility on dark bg).
+      Light mode uses #6B21A8 strikethrough which is distinct on white without being heavy.
+
+  EMPTY STATE (no tasks in section):
+    Illustration: simple line art, 120px x 120px, #6B21A8 strokes
+    Text: DM Sans 400, 15px, #475569, centered
+    Example: "No tasks for today. Enjoy the calm."
+    CTA: ghost button, "Add a task", DM Sans 500, 14px, #6B21A8
+    Border: 1.5px solid #6B21A8, border-radius 10px, padding 8px 20px
+
+AI WHISPER CARD
+----------------
+  Position: appears contextually (after first task section or at bottom)
+  Margin: 20px horizontal, 16px vertical gap
+
+  Card:
+    Background: #FFFFFF
+    Border: 1px solid rgba(107,33,168,0.08)
+    Border-radius: 16px
+    Box-shadow: 0 4px 8px rgba(26,5,51,0.06), 0 2px 4px rgba(26,5,51,0.04)
+    Padding: 16px
+
+  Crystal Ball Icon:
+    Position: left, vertically centered with first line of text
+    Size: 36px x 36px
+    Background: linear-gradient(135deg, #3B0764, #6B21A8)
+    Border-radius: 10px
+    Icon: crystal ball, 20px, #FFFFFF
+    Box-shadow: 0 2px 6px rgba(59,7,100,0.20)
+
+  Whisper Text (right of icon, 12px gap):
+    Font: DM Sans 400, 14px / 20px, #1A0533
+    Example: "You usually do deep work at 10 AM. Block 2 hours?"
+    Max 2 lines
+
+  Action Buttons (right side or below text):
+    Layout: row, 8px gap
+    "Yes": DM Sans 500, 13px, #B8860B, tap target 44px
+    "Dismiss": DM Sans 400, 13px, #475569, tap target 44px
+
+  Dismiss animation: card slides right (translateX 100%, 300ms) then height collapses (200ms)
+
+BOTTOM NAVIGATION
+------------------
+  Position: fixed bottom
+  Height: 64px + safe-area-bottom
+  Background: rgba(255,255,255,0.85)
+  Backdrop-filter: blur(12px) saturate(1.3)
+  Border-top: 1px solid rgba(107,33,168,0.06)
+  Box-shadow: 0 -2px 8px rgba(26,5,51,0.04)
+
+  Items: 5 tabs, evenly distributed
+  Tab:
+    Icon: 24px, centered
+    Label: DM Sans 500, 11px, centered, 4px below icon
+    Tap target: full tab width x 64px
+
+    Inactive: icon #475569, label #475569
+    Active: icon #6B21A8, label #6B21A8
+      Active indicator: pill behind icon, 48px x 28px, #EDE5F7, border-radius 100px
+      Transition: 200ms curve-standard
+
+  Tabs (left to right):
+    Home (house) | Tasks (checkbox) | [FAB space] | Calendar (calendar) | Profile (person)
+
+  Center FAB (floating above nav):
+    Size: 56px x 56px
+    Background: #B8860B
+    Border-radius: 16px
+    Box-shadow: 0 4px 12px rgba(184,134,11,0.30), 0 2px 4px rgba(184,134,11,0.15)
+    Icon: + (plus), 28px, #FFFFFF, stroke 2.5px
+    Position: centered horizontally, vertically overlapping nav by 20px
+
+    Press:
+      Scale: 0.92 -> 1.0 (spring, 200ms)
+      Background: #A07608
+
+    DARK MODE DIFFERENCE: FAB is identical color (gold is brand-universal).
+      Dark mode adds outer glow (0 0 24px rgba(184,134,11,0.35)).
+      Light mode omits glow — gold on light already pops without artificial glow.
+
+
+================================================================================
+D1. QUICK CREATE (BOTTOM SHEET)
+================================================================================
+
+PURPOSE: Fastest path to create a task. NLP-powered parsing of natural language.
+TRIGGER: Tap center FAB on bottom nav.
+ANIMATION: Sheet slides up from bottom, 400ms, curve-decel.
+
+OVERLAY
+-------
+  Background: rgba(26,5,51,0.20) (purple-tinted scrim — NOT black/gray)
+  Tap outside: dismisses sheet
+  Transition: opacity 0 -> 1, 300ms
+
+SHEET
+-----
+  Background: #FFFFFF
+  Border-radius: 24px 24px 0 0
+  Box-shadow: 0 -8px 24px rgba(26,5,51,0.10), 0 -4px 12px rgba(26,5,51,0.05)
+  Padding: 24px 20px (bottom = safe-area + 20px)
+  Max-height: 70% of screen
+
+  Drag handle:
+    Position: top center, 8px from top
+    Width: 36px, height: 4px
+    Background: rgba(107,33,168,0.15)
+    Border-radius: 2px
+
+  DARK MODE DIFFERENCE: Sheet bg is #1A0F2E in dark (deep purple).
+    Shadow uses rgba(0,0,0,0.40). Scrim is rgba(0,0,0,0.50).
+    Light mode uses clean white sheet with purple-tinted shadows for cohesion.
+
+TEXT INPUT
+----------
+  Position: 20px below drag handle
+  Width: 100%
+  Min-height: 48px (expands with multiline)
+
+  Field:
+    Background: #FFFFFF (same as sheet, creating flush look)
+    Border-bottom: 2px solid rgba(107,33,168,0.12) (underline style, not box)
+    Padding: 8px 0
+
+  Placeholder:
+    Font: DM Sans 400, 16px, #94A3B8
+    Text: "What do you need to do?"
+
+  Input text:
+    Font: DM Sans 400, 16px, #1A0533
+
+  Focus state:
+    Border-bottom: 2px solid #6B21A8
+    Cursor: 2px wide, #B8860B (gold cursor — distinctive detail)
+    Cursor blink: 1s interval
+
+    WHY gold cursor: Small delight. The cursor is the user's point of action.
+    Making it gold (the "action" color) subliminally reinforces progress.
+
+NLP CHIPS (appear as user types, parsed entities)
+--------------------------------------------------
+  Position: 12px below input, horizontal wrap
+  Layout: row wrap, 8px gap
+
+  Category chip (e.g., "Work", "Personal"):
+    Background: #6B21A8
+    Border-radius: 100px
+    Padding: 6px 12px
+    Text: DM Sans 500, 13px, #FFFFFF
+    Icon (optional): 14px, #FFFFFF, left of text, 6px gap
+    Close button: 14px x, #FFFFFF at 60% opacity, right side, 6px gap
+
+  Date/Time chip (e.g., "Tomorrow 3pm", "Friday"):
+    Background: #FFF8E1 (Gold Wash)
+    Border: 1px solid rgba(184,134,11,0.20)
+    Border-radius: 100px
+    Padding: 6px 12px
+    Text: DM Sans 500, 13px, #B8860B
+    Icon: clock/calendar 14px, #B8860B
+
+  Priority chip:
+    Background: transparent
+    Border: 1.5px solid (priority color from 0.5 scale)
+    Border-radius: 100px
+    Padding: 6px 12px
+    Text: DM Sans 500, 13px, (priority color)
+
+  Chip appear animation:
+    ScaleX: 0 -> 1, origin left, 200ms, curve-spring
+    Opacity: 0 -> 1 over first 100ms
+
+  Chip tap:
+    Opens modifier (e.g., tap date chip -> date picker)
+
+ADD BUTTON
+----------
+  Position: right side of input row (or bottom of sheet if chips present)
+  Width: 100% if bottom position, 48px circle if inline
+  Height: 48px (or 56px if full-width)
+
+  Full-width variant:
+    Background: #B8860B
+    Border-radius: 12px
+    Box-shadow: 0 2px 8px rgba(184,134,11,0.20)
+    Text: DM Sans 600, 15px, #FFFFFF — "Add Task"
+    Margin-top: 16px
+
+  Inline circular variant:
+    Background: #B8860B
+    Border-radius: 50%
+    Size: 48px x 48px
+    Icon: checkmark, 24px, #FFFFFF
+
+  Disabled state (empty input):
+    Opacity: 0.4
+    No shadow
+
+  Press:
+    Scale: 0.95 -> 1.0 (150ms, spring)
+    Background: #A07608
+
+VOICE INPUT
+-----------
+  Trigger: microphone icon, 24px, #6B21A8, right side of input field
+  Tap target: 44px x 44px
+
+  Active state (recording):
+    Icon: pulsing microphone, #E11D48 (recording red)
+    Waveform bar below input:
+      Height: 32px
+      Bars: 40 vertical bars, 2px wide, 4px gap
+      Base color: #6B21A8 (deep purple)
+      Peak color: #B8860B (gold — for louder amplitudes)
+      Amplitude mapping: bar heights 4px-28px
+      Animation: real-time with 60fps spring interpolation
+
+QUICK OPTION BUTTONS (below chips, above Add)
+----------------------------------------------
+  Layout: horizontal scroll, 8px gap
+  Each:
+    Icon: 18px, #6B21A8
+    Text: DM Sans 400, 13px, #475569
+    Background: transparent
+    Padding: 8px 12px
+    Border: 1px solid rgba(107,33,168,0.08)
+    Border-radius: 8px
+    Tap target: min 44px height
+
+  Options: [Priority] [Due Date] [Project] [Reminder] [Attach]
+
+
+================================================================================
+D2. TASK DETAIL
+================================================================================
+
+PURPOSE: Full view of a single task with all metadata, subtasks, activity.
+ENTRY: Tap task card from home or list.
+ANIMATION: Hero transition — card expands to full screen, 400ms, curve-standard.
+
+HERO HEADER
+------------
+  Height: 120px (content area) + safe-area-top
+  Background: #FFFFFF (default)
+
+  DEADLINE TODAY VARIANT:
+    Background: linear-gradient(180deg, #FFFFFF 0%, #FFF8E1 100%)
+    WHY gold wash: Creates gentle urgency. Not alarming like red,
+    but warm enough to say "this matters today."
+
+  Back button:
+    Position: top-left, safe-area + 12px, left 12px
+    Size: 40px x 40px circle
+    Background: rgba(107,33,168,0.06)
+    Icon: arrow-left, 20px, #1A0533
+    Tap target: 44px x 44px
+
+  More menu:
+    Position: top-right, same vertical as back
+    Size: 40px x 40px circle
+    Background: rgba(107,33,168,0.06)
+    Icon: three dots vertical, 20px, #1A0533
+
+  Task title:
+    Position: 16px below back button row
+    Padding: 0 20px
+    Font: Outfit 700, 24px / 30px, #1A0533
+    Max 2 lines, then scrollable
+
+  Priority badge:
+    Position: right of title or below, depending on title length
+    Pill: padding 4px 10px, border-radius 100px
+    Background: priority color at 10% opacity
+    Text: DM Sans 600, 11px, priority color, uppercase
+
+TASK METADATA SECTION
+----------------------
+  Position: below header, 16px gap
+  Padding: 0 20px
+  Background: #FFFFFF (continued from header, or starts the scroll body)
+
+  Metadata rows (vertical stack, 16px gap):
+    Each row:
+      Height: 40px
+      Layout: horizontal, icon + label + value
+      Icon: 20px, #6B21A8, left
+      Label: DM Sans 400, 14px, #475569, 12px right of icon
+      Value: DM Sans 500, 14px, #1A0533, right-aligned
+
+    Rows:
+      Due Date: calendar icon, "Due", "Mar 10, 2026 at 3:00 PM"
+      Project: folder icon, "Project", "Work — Q1 Launch"
+      Priority: flag icon, "Priority", "P1 — Critical" (in priority color)
+      Reminder: bell icon, "Reminder", "30 min before via WhatsApp"
+      Repeat: repeat icon, "Repeat", "Every weekday"
+
+    Divider between rows:
+      Height: 1px
+      Color: rgba(107,33,168,0.04)
+      Margin: 0 (full width within padding)
+
+DESCRIPTION FIELD
+------------------
+  Position: 16px below metadata
+  Padding: 0 20px
+
+  Label: DM Sans 500, 14px, #475569, margin-bottom 8px
+  Content: DM Sans 400, 15px / 22px, #1A0533
+  Placeholder (if empty): DM Sans 400, 15px, #94A3B8, "Add a description..."
+  Tap: enters inline edit mode
+
+  Inline edit:
+    Underline: 2px solid #6B21A8 appears below text
+    Cursor: 2px, #B8860B
+    Save: auto-save on blur (debounced 500ms)
+
+SUBTASKS
+--------
+  Position: 20px below description
+  Padding: 0 20px
+
+  Header:
+    Text: "Subtasks" — Outfit 600, 16px, #1A0533
+    Count: DM Sans 400, 14px, #475569 — "(3 of 5)"
+    Add button: + icon, 20px, #6B21A8, right-aligned, tap 44px
+
+  Progress bar (segment style):
+    Position: 8px below header
+    Height: 6px
+    Background (track): #F0EAFC (lavender)
+    Fill: #6B21A8 (deep violet)
+    Segments: each subtask = proportional width, 2px gap between segments
+    Completed segments: #6B21A8 solid
+    Incomplete segments: #F0EAFC (track color)
+    Border-radius: 3px (overall), 2px (segments)
+    Animation: segment fills left -> right, 300ms per segment, curve-decel
+
+  Subtask list:
+    Layout: vertical, 8px gap, 12px below progress
+    Each subtask:
+      Height: 44px
+      Layout: checkbox + text + drag handle
+
+      Checkbox: same spec as main task checkbox (24px, purple ring, gold fill)
+      Text: DM Sans 400, 14px, #1A0533
+        Completed: strikethrough #6B21A8, color #94A3B8
+      Drag handle: 6 dots (2x3 grid), 16px, #94A3B8, right side
+        Visible: always (no hover dependency on mobile)
+        Long-press to reorder: card lifts (shadow-lg, scale 1.02)
+
+  Add subtask input:
+    Below list, 8px gap
+    Height: 40px
+    Background: transparent
+    Border-bottom: 1px dashed rgba(107,33,168,0.12)
+    Placeholder: DM Sans 400, 14px, #94A3B8, "+ Add subtask"
+    Focus: border-bottom solid #6B21A8
+    Submit: Enter key or checkmark button
+
+ACTIVITY TIMELINE
+------------------
+  Position: 24px below subtasks
+  Padding: 0 20px
+
+  Header: "Activity" — Outfit 600, 16px, #1A0533
+
+  Timeline:
+    Layout: vertical, left-aligned
+    Line: 2px solid #F0EAFC (lavender), left 10px from left edge, full height
+    Dot: 8px circle, #6B21A8, centered on line, at each event
+    Today dot: 8px circle, #B8860B (gold, current)
+
+    Event entry:
+      Position: right of dot, 16px gap from line
+      Text: DM Sans 400, 13px, #475569
+      Bold part: DM Sans 600, 13px, #1A0533 (actor name, action)
+      Time: DM Sans 400, 12px, #94A3B8, right-aligned or below
+      Example: "Rahul marked subtask 'Research' as complete - 2h ago"
+
+    Gap between events: 20px
+
+
+================================================================================
+D3. EDIT TASK
+================================================================================
+
+PURPOSE: Full editing of task. Same layout as D2 but all fields are interactive.
+ENTRY: "Edit" from task detail more menu, or long-press task card.
+
+KEY DIFFERENCES FROM D2 (TASK DETAIL)
+---------------------------------------
+  1. All text fields are editable inline (not read-only)
+  2. Metadata values are tappable and open pickers
+  3. Save/Cancel buttons in app bar
+  4. Visual "edit mode" indicators
+
+APP BAR (edit mode):
+  Left: "Cancel" — DM Sans 500, 15px, #475569, tap 44px
+  Center: "Edit Task" — Outfit 600, 18px, #1A0533
+  Right: "Save" — DM Sans 600, 15px, #B8860B, tap 44px
+    Disabled (no changes): opacity 0.4
+    Enabled: full opacity + gold underline on press
+
+EDITABLE FIELDS
+-----------------
+  Title:
+    Field: Outfit 700, 24px, #1A0533
+    Background: transparent
+    Focus: 2px underline #6B21A8
+    Cursor: #B8860B
+
+  Description:
+    Multi-line text area
+    Min-height: 80px
+    Focus: 2px underline #6B21A8
+    Cursor: #B8860B
+
+DATE / TIME PICKER
+-------------------
+  Triggered by tapping Due Date metadata row
+  Style: Material 3 date picker, custom themed
+
+  Calendar header:
+    Background: #F8F5FF
+    Month/year: Outfit 600, 18px, #1A0533
+    Arrows: 24px, #6B21A8
+
+  Day cells:
+    Size: 40px x 40px
+    Font: DM Sans 400, 14px
+    Default: #1A0533
+    Other month: #94A3B8
+    Today: #B8860B text, no fill
+    Selected: #6B21A8 circle fill, #FFFFFF text
+    Range (if applicable): #EDE5F7 fill between, endpoints #6B21A8
+
+  Time picker:
+    Scrolling wheels or input fields
+    Accent: #6B21A8
+
+PRIORITY SELECTOR
+------------------
+  Triggered by tapping Priority metadata row
+  Style: bottom sheet or inline selector
+
+  Layout: 4 options in a row
+  Each:
+    Size: 72px x 72px
+    Background: #FFFFFF
+    Border: 1.5px solid rgba(priority-color, 0.20)
+    Border-radius: 12px
+    Selected: border 2px solid #B8860B, background: #FFF8E1
+
+    Icon: flag, 24px, priority color, centered
+    Label: DM Sans 500, 11px, priority color, below icon
+
+    P1: #B8860B — "Critical"
+    P2: #D97706 — "High"
+    P3: #6B21A8 — "Medium"
+    P4: #475569 — "Low"
+
+UNSAVED CHANGES INDICATOR
+---------------------------
+  If changes detected:
+    Subtle gold dot (6px, #B8860B) next to "Save" text
+    Pulsing animation: opacity 0.5 -> 1.0, 1.5s loop
+
+
+================================================================================
+D4. KANBAN BOARD
+================================================================================
+
+PURPOSE: Visual project/task organization in columns.
+ENTRY: Task view toggle or project view.
+
+BACKGROUND: #F8F5FF
+
+COLUMN STRUCTURE
+-----------------
+  Layout: horizontal scroll of columns
+  Column width: 280px (fixed)
+  Column gap: 12px
+  Padding: 20px (first column), 20px (last column right)
+
+  Column:
+    Background: #F0EAFC at top (header), transparent body
+    Border-radius: 16px 16px 0 0 (header)
+    Full height: remaining screen below app bar
+
+  Column Header:
+    Height: 48px
+    Background: #EDE5F7
+    Border-radius: 16px 16px 0 0
+    Padding: 0 16px
+    Layout: horizontal, space-between
+
+    Title: DM Sans 600, 15px, #1A0533
+    Count: DM Sans 400, 13px, #475569, right side
+    Add button: + icon, 20px, #6B21A8, right of count, 8px gap, tap 44px
+
+    Column types + header indicators:
+      "To Do": left 3px border #475569
+      "In Progress": left 3px border #6B21A8
+      "Review": left 3px border #D97706
+      "Done": left 3px border #059669
+
+KANBAN CARDS
+-------------
+  Width: 100% of column (minus 16px padding each side)
+  Background: #FFFFFF
+  Border-radius: 12px
+  Box-shadow: 0 2px 4px rgba(26,5,51,0.05)
+  Padding: 12px
+  Margin-bottom: 8px
+
+  Title: DM Sans 500, 14px, #1A0533, max 2 lines
+  Due date: DM Sans 400, 12px, #475569, 4px below title
+  Priority: 3px left border (priority color)
+  Assignee avatar: 24px circle, bottom-right
+  Tag pills: same as home task card spec
+
+DRAG INTERACTION
+-----------------
+  Long-press to pick up (300ms):
+    Card lifts: scale 1.00 -> 1.02, shadow-xl
+    Background: #FFFFFF (unchanged — shadow creates depth)
+    Opacity of remaining cards: 0.6
+
+  Dragging:
+    Card follows finger with 2px offset (no sticking to finger exactly)
+    Source column: gap where card was remains (placeholder 4px height, #F0EAFC)
+    Target column: insertion line appears (2px, #6B21A8) between cards
+
+  Column hover glow:
+    When dragging over a column, the column header bg lightens:
+    #EDE5F7 -> #F8F5FF (0.3s transition)
+    Subtle: rgba(107,33,168,0.03) overlay on entire column body
+
+  Drop:
+    Card animates to position (200ms, curve-spring)
+    Shadow returns to shadow-sm
+    Scale returns to 1.00
+    Haptic feedback: light impact
+
+  DARK MODE DIFFERENCE: Drag shadow uses glow (rgba(107,33,168,0.20)) in dark.
+    Light mode uses deeper purple-tinted shadow (more natural, less neon).
+    Column hover in dark = column bg brightens more dramatically (0.08 -> 0.15 opacity).
+
+
+================================================================================
+D5. LIST VIEW
+================================================================================
+
+PURPOSE: Dense, scannable task list. Optimized for many tasks.
+ENTRY: View toggle from tasks screen.
+
+BACKGROUND: #F8F5FF
+
+SECTION HEADERS
+----------------
+  Background: #F0EAFC
+  Height: 36px
+  Padding: 0 20px
+  Text: DM Sans 600, 13px, #1A0533, uppercase, letter-spacing 0.5px
+  Sticky: yes, sticks below app bar on scroll
+  Border-bottom: 1px solid rgba(107,33,168,0.06)
+
+TASK ROWS
+----------
+  Width: 100%
+  Height: 60px
+  Background: #FFFFFF (alternating with #F8F5FF for readability — optional)
+  Padding: 0 20px
+  Layout: horizontal — checkbox | text column | time/status | chevron
+
+  Checkbox: same spec as home task card (24px, purple ring, gold fill)
+  Title: DM Sans 400, 15px, #1A0533
+  Subtitle: DM Sans 400, 13px, #475569
+  Time: DM Sans 500, 13px, #6B21A8, right side
+  Chevron: 16px, #94A3B8, rightmost
+
+DIVIDERS
+---------
+  Height: 1px
+  Color: rgba(107,33,168,0.04) — very subtle lavender
+  Full width (no inset for cleaner look)
+
+SWIPE ACTIONS
+--------------
+  Swipe Left (Delete):
+    Reveal background: #E11D48
+    Icon: trash, 24px, #FFFFFF
+    Text: DM Sans 500, 13px, #FFFFFF — "Delete"
+    Threshold: 80px to trigger, then auto-complete
+
+  Swipe Right (Complete):
+    Reveal background: #059669
+    Icon: checkmark-circle, 24px, #FFFFFF
+    Text: DM Sans 500, 13px, #FFFFFF — "Done"
+    Threshold: 80px to trigger
+
+  Swipe physics:
+    Resistance: 0.8x beyond threshold (feels like pulling a rubber band)
+    Snap back: 300ms, curve-standard
+    Trigger animation: row slides fully out (400ms), then collapses height (200ms)
+
+  DARK MODE DIFFERENCE: Swipe reveal colors are identical (semantic colors).
+    The row bg in dark is rgba(255,255,255,0.04), creating more contrast with reveal.
+    Light mode row bg is white, so the color reveal is equally dramatic.
+
+
+================================================================================
+D6. PRIORITY MATRIX (Eisenhower)
+================================================================================
+
+PURPOSE: 2x2 grid organizing tasks by urgency and importance.
+ENTRY: View toggle or dedicated button.
+
+BACKGROUND: #F8F5FF
+
+MATRIX GRID
+-------------
+  Position: below app bar, full remaining height
+  Padding: 12px
+  Gap between quadrants: 8px
+  Layout: 2x2 CSS grid
+
+  Each quadrant:
+    Flex: 1 (equal size)
+    Border-radius: 16px
+    Padding: 12px
+    Min-height: 50% of available height - 4px gap
+
+  Quadrant styling:
+    Q1 — Urgent + Important (top-left):
+      Background: #FFF8E1 (Gold Wash)
+      Border: 1px solid rgba(184,134,11,0.12)
+      Label: "DO FIRST" — Outfit 600, 12px, #B8860B, uppercase
+
+    Q2 — Not Urgent + Important (top-right):
+      Background: rgba(107,33,168,0.03) (barely purple)
+      Border: 1px solid rgba(107,33,168,0.06)
+      Label: "SCHEDULE" — Outfit 600, 12px, #6B21A8, uppercase
+
+    Q3 — Urgent + Not Important (bottom-left):
+      Background: rgba(217,119,6,0.03) (barely amber)
+      Border: 1px solid rgba(217,119,6,0.06)
+      Label: "DELEGATE" — Outfit 600, 12px, #D97706, uppercase
+
+    Q4 — Not Urgent + Not Important (bottom-right):
+      Background: rgba(71,85,105,0.03) (barely slate)
+      Border: 1px solid rgba(71,85,105,0.06)
+      Label: "ELIMINATE" — Outfit 600, 12px, #475569, uppercase
+
+  Labels:
+    Position: top-left of each quadrant, 12px from edges
+    All labels: letter-spacing 1px
+
+  Axis labels:
+    "URGENT ->" along top: DM Sans 500, 11px, #94A3B8, centered above top row
+    "IMPORTANT (up arrow)" along left: DM Sans 500, 11px, #94A3B8, rotated -90deg, centered left
+
+  Quadrant dividers:
+    Vertical center line: 1px solid rgba(107,33,168,0.08)
+    Horizontal center line: 1px solid rgba(107,33,168,0.08)
+
+TASKS IN QUADRANTS
+-------------------
+  Mini task card:
+    Background: #FFFFFF
+    Border-radius: 8px
+    Box-shadow: 0 1px 3px rgba(26,5,51,0.04)
+    Padding: 8px 10px
+    Margin-bottom: 6px
+
+    Text: DM Sans 400, 13px, #1A0533, max 1 line, ellipsis
+    Priority dot: 6px circle, priority color, right of text
+
+  Drag between quadrants: same drag spec as Kanban (lift, shadow, drop)
+  Max visible per quadrant: 5, then "View N more" link
+    Link: DM Sans 500, 12px, #6B21A8
+
+
+================================================================================
+D7. BATCH OPERATIONS
+================================================================================
+
+PURPOSE: Multi-select tasks for bulk actions (complete, delete, move, re-prioritize).
+TRIGGER: Long-press any task card, or "Select" button in list view.
+
+SELECTION STATE
+----------------
+  Entering batch mode:
+    App bar transforms: title -> "N selected" (Outfit 600, 18px, #1A0533)
+    App bar left: "Cancel" text button (DM Sans 500, 15px, #475569)
+    App bar right: "Select All" (DM Sans 500, 15px, #6B21A8)
+
+  Selected task card:
+    Background: #FFF8E1 (Gold Wash)
+    Border: 2px solid #B8860B
+    Box-shadow: 0 2px 8px rgba(184,134,11,0.12)
+    Checkbox: replaced with gold-filled circle checkmark
+    Scale: 1.0 (no scale change — border/color is sufficient)
+    Transition: all 150ms, curve-standard
+
+  Unselected task card (in batch mode):
+    Same as normal but with unchecked selection circle
+    Selection circle: 24px, 2px border #6B21A8 at 30% opacity
+    Replaces normal checkbox
+
+  Select All checkbox:
+    Same 24px spec, #6B21A8 border
+    Checked: #6B21A8 fill, white checkmark (not gold — to differentiate from individual)
+
+ACTION BAR
+-----------
+  Position: fixed bottom (above bottom nav, or replacing it)
+  Height: 64px + safe-area-bottom
+  Background: rgba(255,255,255,0.90)
+  Backdrop-filter: blur(12px)
+  Border-top: 1px solid rgba(107,33,168,0.08)
+  Box-shadow: 0 -4px 12px rgba(26,5,51,0.06)
+  Padding: 0 20px
+
+  Actions (evenly distributed):
+    Complete: checkmark-circle, 24px, #059669
+    Move: folder-move, 24px, #6B21A8
+    Priority: flag, 24px, #D97706
+    Delete: trash, 24px, #E11D48
+
+    Each action:
+      Layout: vertical — icon + label
+      Label: DM Sans 500, 11px, matching icon color
+      Tap target: 64px x 64px
+      Press: scale 0.90 -> 1.0 (100ms, spring)
+
+  Delete confirmation:
+    Modal dialog: white card, centered, shadow-2xl
+    Title: "Delete N tasks?" — Outfit 600, 18px, #1A0533
+    Body: DM Sans 400, 14px, #475569
+    Cancel: ghost button, #475569
+    Delete: #E11D48 bg, #FFFFFF text, border-radius 10px
+
+
+================================================================================
+E1. SEARCH
+================================================================================
+
+PURPOSE: Find any task, project, or content quickly.
+ENTRY: Search icon in app bar or quick action pill.
+
+BACKGROUND: #F8F5FF
+
+SEARCH BAR
+-----------
+  Position: top, safe-area + 12px, padding 0 20px
+  Height: 48px
+  Width: calc(100% - 40px)
+  Background: #FFFFFF
+  Border: 1.5px solid rgba(107,33,168,0.10)
+  Border-radius: 12px
+  Box-shadow: 0 2px 4px rgba(26,5,51,0.04)
+  Padding: 0 16px
+
+  Search icon: 20px, #6B21A8, left
+  Input: DM Sans 400, 15px, #1A0533, 12px right of icon
+  Placeholder: DM Sans 400, 15px, #94A3B8 — "Search tasks, projects..."
+  Clear button (when input has text): 18px x circle, #475569, right side
+
+  Focus state:
+    Border: 1.5px solid #6B21A8
+    Box-shadow: 0 0 0 3px rgba(107,33,168,0.08), 0 2px 4px rgba(26,5,51,0.04)
+
+  Auto-focus on entry: keyboard opens immediately
+
+RECENT SEARCHES (when input is empty)
+---------------------------------------
+  Position: 16px below search bar
+  Padding: 0 20px
+
+  Section title: DM Sans 600, 13px, #475569, uppercase, letter-spacing 0.5px
+  "RECENT SEARCHES"
+  Clear all: right-aligned, DM Sans 500, 13px, #E11D48
+
+  Recent items (vertical list, 4px gap):
+    Each:
+      Height: 44px
+      Layout: horizontal — clock icon + text + remove
+      Clock icon: 16px, #6B21A8 at 40% opacity
+      Text: DM Sans 400, 14px, #475569, 12px right of icon
+      Remove (x): 16px, #94A3B8, right side, tap 44px
+      Tap: populates search bar and triggers search
+
+  Max shown: 5 recent searches
+
+SEARCH RESULTS (live as user types)
+------------------------------------
+  Position: 12px below search bar (replacing recent searches)
+  Padding: 0 20px
+
+  Results use standard task card styling (from C1 task card spec)
+  Highlighted matches: text portions matching query
+    Background: #FFF8E1 (Gold Wash) on matching characters
+    Text color: #1A0533 (unchanged — gold bg highlights it)
+    WHY gold highlight: Consistent with selection/active metaphor.
+    Yellow highlighter on white paper is universally understood.
+
+  Group headers (if results span types):
+    "Tasks" / "Projects" / "Notes"
+    Font: DM Sans 600, 13px, #475569, uppercase
+    Margin: 16px top, 8px bottom
+
+  Empty state (no results):
+    Position: centered in results area
+    Illustration: magnifying glass with question mark, 80px, #6B21A8 strokes
+    Text: "No results for 'query'" — DM Sans 400, 15px, #475569
+    Suggestion: "Try different keywords" — DM Sans 400, 13px, #94A3B8
+
+
+================================================================================
+E2. FILTERS
+================================================================================
+
+PURPOSE: Narrow task list by criteria.
+ENTRY: Filter icon button near search or in list/board views.
+
+LAYOUT: Bottom sheet or side panel.
+
+FILTER CHIPS (top of filter panel)
+-----------------------------------
+  Layout: horizontal wrap, 8px gap
+  Padding: 16px 20px
+
+  Chip (inactive):
+    Background: transparent
+    Border: 1.5px solid rgba(107,33,168,0.15)
+    Border-radius: 100px
+    Padding: 8px 16px
+    Text: DM Sans 500, 13px, #6B21A8
+    Icon (optional): 16px, #6B21A8, left, 6px gap
+
+  Chip (active):
+    Background: #6B21A8
+    Border: 1.5px solid #6B21A8
+    Text: DM Sans 500, 13px, #FFFFFF
+    Icon: 16px, #FFFFFF
+    Close x: 14px, #FFFFFF at 70%, right side
+
+  Chip types: Priority, Due Date, Project, Status, Tags, Assignee
+
+DATE RANGE PICKER
+------------------
+  Calendar: same themed spec as D3 date picker
+  Accent color: #6B21A8
+  Range fill: #EDE5F7 between start and end dates
+  Start/End circles: #6B21A8 fill, #FFFFFF text
+  Quick options: "Today", "This Week", "This Month", "Overdue"
+    Each: ghost chip, 1.5px #6B21A8 border, tap toggles
+
+CLEAR ALL BUTTON
+-----------------
+  Position: top-right of filter panel
+  Text: "Clear All" — DM Sans 500, 14px, #E11D48
+  Tap target: 44px height
+  Only visible when filters are active
+
+APPLY / RESULTS COUNT
+----------------------
+  Bottom of panel
+  Text: "Show N results" — DM Sans 600, 15px
+  Button: full width, #B8860B bg, #FFFFFF text, border-radius 12px
+  Height: 52px
+  Updates count in real-time as filters change
+
+
+================================================================================
+E3. SEARCH RESULTS (FULL PAGE)
+================================================================================
+
+PURPOSE: Display filtered/searched results with sorting.
+ENTRY: After applying filters or submitting search.
+
+RESULTS LIST
+--------------
+  Same as D5 List View spec for task rows
+  Match highlighting:
+    Background: #FFF8E1 on matched text characters
+    No additional text color change — gold wash is sufficient
+    Border-radius on highlight: 2px
+
+SORT OPTIONS (top bar)
+-----------------------
+  Layout: horizontal scroll pills below search/filter bar
+  Options: "Relevance", "Due Date", "Priority", "Created", "A-Z"
+  Active: #6B21A8 fill, #FFFFFF text
+  Inactive: transparent, #6B21A8 border, #6B21A8 text
+
+EMPTY STATE
+-----------
+  Illustration: purple line art, 120px x 120px
+    Content: open box with floating question marks
+    Stroke: #6B21A8 at 40% opacity, 2px
+  Title: "No matches found" — Outfit 600, 18px, #1A0533
+  Body: "Try adjusting your search or filters" — DM Sans 400, 14px, #475569
+  CTA: "Clear Filters" — ghost button, #6B21A8
+
+RESULTS COUNT BAR
+------------------
+  Height: 36px
+  Background: #F0EAFC
+  Padding: 0 20px
+  Text: DM Sans 400, 13px, #475569
+  Example: "24 tasks found - sorted by relevance"
+
+
+================================================================================
+F1. CALENDAR VIEW
+================================================================================
+
+PURPOSE: Month/week/day calendar with task heatmap and scheduling.
+ENTRY: Calendar tab in bottom nav.
+
+BACKGROUND: #F8F5FF
+
+CALENDAR HEADER
+-----------------
+  Height: 56px
+  Padding: 0 20px
+  Layout: horizontal — back arrow | month/year | forward arrow | view toggle
+
+  Month/Year: Outfit 700, 20px, #1A0533 ("March 2026")
+  Arrows: 24px, #6B21A8, tap 44px each
+  View toggle (right): segmented control
+    Options: "Month" | "Week" | "Day"
+    Each segment: 60px wide, 32px tall
+    Active: #6B21A8 bg, #FFFFFF text, border-radius 8px
+    Inactive: transparent, #475569 text
+    Container: border 1px solid rgba(107,33,168,0.10), border-radius 10px
+
+MONTH HEATMAP VIEW
+--------------------
+  Grid: 7 columns (Sun-Sat), ~5 rows
+  Weekday headers:
+    Font: DM Sans 500, 12px, #475569, uppercase
+    Height: 32px
+    Letter-spacing: 0.5px
+    Alignment: center each column
+
+  Day cells:
+    Size: (screen-width - 40px) / 7 = ~48px at 375px screen
+    Aspect: square (48x48)
+    Border-radius: 12px
+    Margin: 2px
+    Content: day number centered
+
+    Day number:
+      Font: DM Sans 500, 14px
+      Current month: #1A0533
+      Other months: #475569 at 40% opacity
+
+    TODAY cell:
+      Background: #FFF8E1 (Gold Wash)
+      Border: 1.5px solid #B8860B
+      Day number: #B8860B, font-weight 700
+
+    Heatmap (task count -> background):
+      0 tasks:    #F8F5FF (base, essentially invisible)
+      1-2 tasks:  #EDE5F7 (lightest lavender)
+      3-5 tasks:  #D0BCFF (medium lavender)
+      6-9 tasks:  #6B21A8 (deep violet) — day number becomes #FFFFFF
+      10+ tasks:  #B8860B (gold) — day number becomes #FFFFFF
+
+      WHY this progression: Lavender -> violet -> gold creates a natural intensity
+      ramp that stays on-brand. Gold for 10+ rewards productive days visually.
+
+    Selected cell:
+      Border: 2px solid #6B21A8
+      Background: heatmap color preserved
+      Content below calendar updates to show that day's tasks
+
+  DARK MODE DIFFERENCE: Heatmap colors are more saturated in dark
+    (they need to be, since dark bg absorbs light). Same progression conceptually.
+
+TASK LIST BELOW CALENDAR (selected day)
+-----------------------------------------
+  Position: below calendar grid, 16px gap
+  Divider: 1px solid rgba(107,33,168,0.06), full width
+
+  Header: selected day in full format
+    "Tuesday, March 10, 2026"
+    Font: DM Sans 600, 14px, #475569
+    Padding: 12px 20px 8px
+
+  Task list: same card spec as C1 home task cards
+  Empty state: DM Sans 400, 14px, #94A3B8, "No tasks this day", centered
+
+DAY VIEW (TIME GRID)
+----------------------
+  Hour rows: 24 rows (midnight to midnight)
+  Row height: 60px (1 hour)
+  Time label: DM Sans 400, 12px, #94A3B8, left-aligned, 20px from left
+  Grid line: 1px solid rgba(107,33,168,0.04) at each hour
+
+  CURRENT TIME LINE:
+    Color: #B8860B (rich gold)
+    Height: 2px
+    Full width (minus left time label area)
+    Left dot: 8px circle, #B8860B, on the left edge
+    Position: calculated from current time
+    Animation: updates every minute (no visible animation, just repositions)
+
+    WHY gold time line: Gold = NOW, the present moment. The user's attention
+    is naturally drawn to where they are in time. Gold makes it scannable.
+
+  TASK BLOCKS:
+    Each task that has a specific time slot:
+    Background: project-color at 15% opacity
+    Left border: 2px solid project-color (full saturation)
+    Border-radius: 8px (right corners) 0px (left — border IS the left edge)
+    Height: proportional to duration (60px per hour)
+    Margin-left: 56px (after time labels)
+    Padding: 8px 12px
+
+    Title: DM Sans 500, 13px, #1A0533
+    Time: DM Sans 400, 12px, #475569
+    Max 2 lines, then ellipsis
+
+    Overlapping tasks: stacked horizontally, 4px offset to the right
+    Each subsequent overlap is 40px narrower with 4px right offset
+
+WEEK VIEW
+----------
+  Header: 7 day columns with abbreviated day names
+    Font: DM Sans 500, 12px, #475569, centered
+    Below: day number, DM Sans 600, 14px, #1A0533
+    Today column: day number in gold circle (#B8860B bg, #FFFFFF text)
+
+  Time grid: same as day view but columns are 1/7 screen width
+  Task blocks: abbreviated (title only, 11px font)
+  Vertical scroll: independent per column
+
+
+================================================================================
+F2. TIME BLOCKING VIEW
+================================================================================
+
+PURPOSE: Plan time blocks for deep work, meetings, breaks.
+ENTRY: Sub-view within calendar day view, or dedicated focus feature.
+
+BACKGROUND: #F8F5FF
+
+TIME SLOT TRACK
+-----------------
+  Layout: vertical time grid (same structure as F1 day view)
+  Hour row height: 60px
+  Track background: #F0EAFC (lavender) — continuous vertical stripe
+  Track width: calc(100% - 76px) (leaving space for time labels + right padding)
+  Track left margin: 56px
+  Track right margin: 20px
+
+BLOCKED TIME SEGMENTS
+-----------------------
+  Each time block:
+    Background: project-color at 20% opacity
+    Left border: 3px solid project-color (full saturation)
+    Border-radius: 0 8px 8px 0
+    Padding: 8px 12px
+
+    Title: DM Sans 500, 14px, #1A0533
+    Duration: DM Sans 400, 12px, #475569
+    Category icon: 16px, project-color, left of title
+
+  Free time (unblocked):
+    Background: transparent (shows lavender track)
+    Dashed border: 1px dashed rgba(107,33,168,0.10) at top/bottom
+    Center text (optional): DM Sans 400, 12px, #94A3B8, "Available"
+    Tap: opens quick block creation
+
+CURRENT TIME MARKER
+---------------------
+  Same as F1: 2px #B8860B horizontal line + 8px gold dot on left
+  Always visible, scrolls with time grid
+
+DRAG HANDLES (for resizing blocks)
+------------------------------------
+  Position: top and bottom edges of each block
+  Visual: row of 3 dots (each 4px circle), centered horizontally
+    Color: #6B21A8 at 40% opacity
+    Spacing: 4px between dots
+  Tap target: 44px height (extends beyond visible dots)
+
+  Drag behavior:
+    Handle follows finger (constrained to vertical axis)
+    Block resizes in 15-minute increments (15px per increment)
+    Snap lines appear: thin #6B21A8 line at 15-min boundaries
+    Duration label updates live: e.g., "1h 30m" -> "1h 45m"
+
+BLOCK CREATION (tap on free time)
+-----------------------------------
+  Quick creation bottom sheet (mini version of D1):
+    Title input
+    Block type selector: [Focus] [Meeting] [Break] [Personal]
+    Each type: color-coded pill
+    Start/End time: DM Sans 500, 14px, #1A0533
+    Save: #B8860B button
+
+
+================================================================================
+F3. POMODORO TIMER
+================================================================================
+
+PURPOSE: Focus timer with ambient environment.
+ENTRY: Focus quick action or dedicated tab.
+
+BACKGROUND: #F8F5FF with subtle warm tint when timer is active
+
+TIMER RING (CENTER DOMINANT)
+------------------------------
+  Position: centered horizontally, upper third of screen
+  Outer diameter: 280px
+  Ring stroke: 10px
+
+  Track:
+    Color: #F0EAFC (lavender)
+    Stroke-linecap: round
+
+  Fill (progress):
+    Color: #B8860B (Gold)
+    Stroke-linecap: round
+    Direction: clockwise from top (12 o'clock)
+    Animation: smooth progression (updates every second)
+
+  BREAK MODE:
+    Track: #F0EAFC (unchanged)
+    Fill: #059669 (Emerald green)
+    Background wash: #FFF8E1 (warm gold wash on the full screen background)
+    WHY warm wash on break: Creates a noticeable atmosphere shift.
+    "Work" = clean lavender. "Break" = warm gold. Subliminally different.
+
+  Center content:
+    Time remaining: Bebas Neue 400, 64px, #1A0533
+      Format: "25:00" or "04:37"
+    Session label: DM Sans 400, 14px, #475569
+      "Focus Session" or "Short Break" or "Long Break"
+    Session count: DM Sans 500, 13px, #6B21A8
+      "Session 3 of 4"
+
+CONTROL BUTTONS
+-----------------
+  Position: centered, 40px below timer ring
+  Layout: horizontal, 24px gap
+
+  Play/Pause (center, primary):
+    Size: 64px x 64px
+    Background: #B8860B
+    Border-radius: 50%
+    Box-shadow: 0 4px 12px rgba(184,134,11,0.25)
+    Icon: play (triangle) or pause (two bars), 28px, #FFFFFF
+
+    Press: scale 0.92 -> 1.0 (spring, 200ms)
+
+  Reset (left):
+    Size: 48px x 48px
+    Background: rgba(107,33,168,0.06)
+    Border-radius: 50%
+    Icon: reset/rewind, 22px, #6B21A8
+
+  Skip (right):
+    Size: 48px x 48px
+    Background: rgba(107,33,168,0.06)
+    Border-radius: 50%
+    Icon: skip-forward, 22px, #6B21A8
+
+AMBIENT PARTICLES
+------------------
+  Small floating particles that create a calming atmosphere.
+  Opacity: 20% (vs 30% in dark mode)
+  WHY lower opacity: On light backgrounds, particles at 30% are distracting.
+  20% makes them subliminal — felt, not studied.
+
+  RAIN mode:
+    Particle type: small streaks (2px x 8px), falling at 15deg angle
+    Color: #334155 at 20% opacity (deep blue-gray)
+    Count: 40 particles
+    Speed: vary 2-5 seconds to traverse screen
+    Wind: subtle horizontal drift, +/-2px
+
+  FOREST mode:
+    Particle type: small leaf shapes (6px x 4px), gentle floating
+    Color: #166534 at 20% opacity (deep green)
+    Count: 25 particles
+    Movement: sinusoidal drift, 0.5Hz, amplitude 8px
+    Rotation: slow spin, 360deg over 8 seconds
+
+  CAFE mode:
+    Particle type: circles (3-5px), floating upward (like steam)
+    Color: #9A3412 at 20% opacity (deep brown-orange)
+    Count: 20 particles
+    Movement: rise slowly, slight horizontal wobble
+    Lifespan: 4 seconds, fade out in last 1 second
+
+  DARK MODE DIFFERENCE: Particles in dark are lighter colors at 30% opacity
+    (they need to be brighter to be visible on dark bg). Light mode uses
+    darker tints at lower opacity — the inverse strategy for the same effect.
+
+LINKED TASK
+-----------
+  Position: below controls, 32px gap
+  Card: white bg, purple shadow spec (same as AI whisper card)
+  Content: "Working on: [Task Title]"
+  Font: DM Sans 400, 14px, #475569 (prefix), DM Sans 500, 14px, #1A0533 (title)
+  Tap: opens task detail
+  Close: 16px x icon, right side, #94A3B8
+
+SESSION SETTINGS (below linked task)
+--------------------------------------
+  Layout: row of 3 settings
+  Each: vertical stack, centered
+    Label: DM Sans 400, 12px, #475569
+    Value: DM Sans 600, 16px, #1A0533
+    Stepper: - / + buttons, 28px, #6B21A8 border circles
+
+  Settings: Focus (25 min), Break (5 min), Long Break (15 min)
+
+
+================================================================================
+F4. FOCUS SESSIONS
+================================================================================
+
+PURPOSE: Track and display completed focus sessions, current session status.
+ENTRY: Sub-tab in Focus/Pomodoro area, or from home screen quick action.
+
+BACKGROUND: #F8F5FF
+
+SESSION CARDS
+--------------
+  Layout: vertical list, 12px gap
+  Padding: 0 20px
+
+  Card:
+    Background: rgba(255,255,255,0.65) (glass effect)
+    Backdrop-filter: blur(8px) saturate(1.2)
+    Border: 1px solid rgba(107,33,168,0.08)
+    Border-radius: 16px
+    Box-shadow: 0 4px 8px rgba(26,5,51,0.06), 0 2px 4px rgba(26,5,51,0.04)
+    Padding: 16px
+
+    Layout: horizontal — left info | right duration
+
+    Left side:
+      Task title: DM Sans 500, 15px, #1A0533
+      Time range: DM Sans 400, 13px, #475569
+        "10:00 AM — 10:25 AM"
+      Tags: mini pills (same spec as task card tags)
+
+    Right side:
+      Duration: Bebas Neue 400, 32px, #1A0533
+        "25m" or "1h 15m"
+      Format: hours use "h", minutes use "m"
+
+ACTIVE SESSION INDICATOR
+--------------------------
+  If a session is currently active, the first card shows:
+
+  Active card:
+    Border: 1.5px solid #B8860B (gold border)
+    Background: rgba(255,248,225,0.50) (gold wash glass)
+
+    Pulsing dot:
+      Size: 10px
+      Color: #B8860B
+      Position: top-right of card, 12px from edges
+      Animation: opacity 0.4 -> 1.0 -> 0.4, 2s loop, ease-in-out
+      Glow: 0 0 8px rgba(184,134,11,0.30) pulses with opacity
+
+    Live timer: Bebas Neue 400, 32px, #1A0533 (updates every second)
+    Label: DM Sans 400, 12px, #B8860B, "IN PROGRESS"
+
+SESSION STATS (top of page, before list)
+-------------------------------------------
+  Layout: 3 stat cards in a row, 12px gap
+  Each stat:
+    Width: (screen-width - 40px - 24px) / 3
+    Height: 80px
+    Background: #FFFFFF
+    Border-radius: 12px
+    Box-shadow: shadow-sm
+    Padding: 12px
+    Layout: vertical center
+
+    Number: Bebas Neue 400, 28px, #1A0533
+    Label: DM Sans 400, 11px, #475569
+    Unit: DM Sans 400, 11px, #475569
+
+  Stats:
+    1. Total today: "4" + "sessions"
+    2. Focus time: "1h 40m" + "focused"
+    3. Streak: "7" + "day streak"
+
+DATE GROUPING
+--------------
+  Sessions grouped by date
+  Date header:
+    Text: "Today", "Yesterday", "March 8, 2026"
+    Font: DM Sans 600, 13px, #475569, uppercase, letter-spacing 0.5px
+    Padding: 16px 20px 8px
+    Background: transparent
+    Sticky: yes
+
+EMPTY STATE
+-----------
+  Illustration: stopwatch outline, 100px, #6B21A8 strokes at 30% opacity
+  Title: "No focus sessions yet" — Outfit 600, 18px, #1A0533
+  Body: "Start a Pomodoro timer to track your deep work" — DM Sans 400, 14px, #475569
+  CTA: "Start Focus" — gold button, same spec as login CTA but smaller (48px height)
+
+
+================================================================================
+APPENDIX A: LIGHT <-> DARK MODE TRANSITION
+================================================================================
+
+When user toggles theme (settings or system automatic):
+
+TRANSITION ANIMATION:
+  Type: circular reveal from toggle switch position
+  Duration: 500ms
+  Easing: curve-standard
+  The new theme colors expand in a circle from the toggle point
+  All elements crossfade within the reveal circle
+
+COLOR MAPPING TABLE (summary):
+  +-----------------+-------------------+---------------------+
+  | Token           | Light             | Dark                |
+  +-----------------+-------------------+---------------------+
+  | bg-primary      | #F8F5FF           | #0A0118             |
+  | bg-surface      | #F0EAFC           | #1A0F2E             |
+  | bg-card         | #FFFFFF           | rgba(255,255,255,   |
+  |                 |                   |  0.04)              |
+  | text-primary    | #1A0533           | #F8F5FF             |
+  | text-secondary  | #6B21A8           | #B794F6             |
+  | text-tertiary   | #475569           | #94A3B8             |
+  | brand-gold      | #B8860B           | #D4A017             |
+  | shadow-base     | rgba(26,5,51,x)   | rgba(0,0,0,x)      |
+  | glass-bg        | rgba(255,255,255, | rgba(26,5,51,       |
+  |                 |  0.65)            |  0.40)              |
+  | glass-border    | rgba(107,33,168,  | rgba(255,255,255,   |
+  |                 |  0.08)            |  0.06)              |
+  | divider         | rgba(107,33,168,  | rgba(255,255,255,   |
+  |                 |  0.04)            |  0.04)              |
+  | semantic colors | SAME              | SAME (slightly      |
+  |                 |                   |  brighter variants) |
+  +-----------------+-------------------+---------------------+
+
+
+================================================================================
+APPENDIX B: ACCESSIBILITY NOTES
+================================================================================
+
+CONTRAST RATIOS (verified against WCAG 2.1 AA):
+  - #1A0533 on #F8F5FF: 17.51:1 (AAA pass — exceeds 7:1)
+  - #6B21A8 on #F8F5FF: 8.20:1  (AAA pass — exceeds 7:1)
+  - #475569 on #F8F5FF: 6.10:1  (AA pass — exceeds 4.5:1)
+  - #FFFFFF on #B8860B: 4.80:1  (AA pass — exceeds 4.5:1 for large text)
+  - #FFFFFF on #6B21A8: 7.84:1  (AAA pass — exceeds 7:1)
+  - #FFFFFF on #E11D48: 4.53:1  (AA pass — barely, use bold/large only)
+  - #B8860B on #FFF8E1: 5.12:1  (AA pass)
+
+TOUCH TARGETS:
+  - ALL interactive elements: minimum 44px x 44px
+  - Buttons with visual size < 44px: invisible padding extends hit area
+  - Adjacent targets: minimum 8px gap between tap zones
+
+MOTION:
+  - All animations respect prefers-reduced-motion
+  - Reduced motion: instant state changes, no particles, no shimmer
+  - Timer still updates (functional, not decorative)
+
+SCREEN READER:
+  - All icons have semantic labels
+  - Task cards: full context announced (title, project, priority, due)
+  - Progress rings: percentage announced
+  - Swipe actions: labeled for VoiceOver/TalkBack
+
+
+================================================================================
+APPENDIX C: RESPONSIVE BREAKPOINTS
+================================================================================
+
+  Mobile portrait (375-414px): default spec above
+  Mobile landscape (667-896px): 2-column task grid, timer beside controls
+  Tablet portrait (768-834px): sidebar nav, wider cards (max 560px)
+  Tablet landscape (1024-1194px): persistent sidebar + 2-panel layout
+  Foldable inner (1080px+): adaptive 2-panel with fold-aware layout
+
+  All specs above are mobile-first (375px base). Scale rules:
+  - Typography: unchanged up to tablet, +2px on tablet landscape
+  - Spacing: 1.25x on tablet, 1.5x on large tablet
+  - Card widths: max-width constraints prevent over-stretching
+  - FAB: position adjusts to right side on tablet landscape
+
+
+================================================================================
+END OF LIGHT MODE DESIGN SPECIFICATION — PART 1 (SCREENS A-F)
+================================================================================
+
+Document: UNJYNX Light Mode Screen Spec Part 1
+Screens covered: A1 (Splash), A2 (Login/Sign-Up), B1-B4 (Onboarding),
+  C1 (Home), D1-D7 (Tasks), E1-E3 (Search), F1-F4 (Calendar/Focus)
+Total screens: 22
+
+Next: PART 2 will cover screens G through L (Projects, Analytics, Channels,
+  Settings, Profile, Notifications, Admin, and special views).

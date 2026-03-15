@@ -1,0 +1,253 @@
+################################################################################
+  UNJYNX - APPLE APP STORE LISTING
+  Version: 1.0.0
+  Last Updated: 2026-03-11
+################################################################################
+
+================================================================================
+  APP NAME
+================================================================================
+
+  UNJYNX - Smart Task Reminders
+
+================================================================================
+  SUBTITLE (30 characters max)
+================================================================================
+
+  Reminders where you look.
+
+  Character count: 25/30
+
+================================================================================
+  KEYWORDS (100 characters, comma-separated)
+================================================================================
+
+  todo,reminders,whatsapp,telegram,tasks,focus,pomodoro,productivity,planner,
+  ghost,streaks,team,habits
+
+  Character count: 97/100
+
+================================================================================
+  CATEGORY
+================================================================================
+
+  Primary:   Productivity
+  Secondary: Lifestyle
+
+================================================================================
+  DESCRIPTION (4000 characters max)
+================================================================================
+
+  UNJYNX is the task manager that refuses to let you forget. While every other
+  app relies on push notifications you have trained yourself to ignore, UNJYNX
+  sends reminders directly to WhatsApp, Telegram, Instagram, SMS, Discord,
+  Slack, and Email. Your tasks follow you to the platforms you actually check.
+
+  REMINDERS THAT ACTUALLY WORK
+
+  Set a task. Choose your channels. UNJYNX handles the rest. If you miss a
+  WhatsApp reminder, it escalates to SMS. Still no response? It can follow up
+  on Telegram. You configure the escalation chain. UNJYNX makes sure nothing
+  slips through.
+
+  Seven channels. One mission: never let you miss what matters.
+
+  GHOST MODE -- DEEP FOCUS, UNLOCKED
+
+  When you need to lock in, Ghost Mode blocks distractions and tells your team
+  you are unavailable. A built-in Pomodoro timer with ambient soundscapes --
+  rain on a window, a bustling cafe, a quiet forest -- keeps you in flow state.
+  Your notifications wait. Your focus does not.
+
+  PROGRESS THAT MOTIVATES
+
+  UNJYNX tracks your productivity like a fitness app tracks your runs. Daily
+  streak rings, contribution heatmaps, personal bests, and weekly AI insights
+  turn task completion into something you actually want to maintain. Watch your
+  consistency build day after day.
+
+  DAILY WISDOM
+
+  Begin each day with curated content from 60+ categories. Ancient wisdom from
+  the Mahabharata. Stoic philosophy from Marcus Aurelius. Creative fire from
+  Stan Lee. Entrepreneurial grit from modern founders. Build a morning ritual
+  that sharpens your mind before the first task.
+
+  SMART SCHEDULING
+
+  AI learns when you do your best work. It suggests optimal times for creative
+  tasks, admin work, and deep thinking based on your energy patterns. Stop
+  fighting your natural rhythm -- work with it.
+
+  TEAMS THAT SHIP
+
+  Shared workspaces, delegated tasks, team analytics, custom notification
+  policies, SSO integration, and admin controls. UNJYNX Team is built for
+  groups that need to execute, not just communicate.
+
+  OFFLINE-FIRST ARCHITECTURE
+
+  Everything works without an internet connection. Create tasks, complete them,
+  take notes -- it all syncs seamlessly when you reconnect. Field-level
+  conflict resolution means no data loss, ever.
+
+  PRIVACY BY DESIGN
+
+  Your data is encrypted in transit with TLS 1.3 and at rest on our servers.
+  We comply with India's Digital Personal Data Protection Act, 2023. Request
+  full data deletion at any time -- we honor it within 30 days.
+
+  PRICING
+
+  Free: 25 tasks, push notifications, 1 project, daily wisdom.
+  Pro: USD 6.99/mo (USD 4.99/mo annual) -- unlimited tasks, all 7 channels,
+  Ghost Mode, AI scheduling, full analytics.
+  Team: USD 8.99/user/mo (USD 6.99/user/mo annual) -- everything in Pro plus
+  workspaces, team analytics, SSO, API access.
+
+  No hidden fees. No surprise charges. Cancel anytime from your Apple ID
+  subscription settings.
+
+  FROM THE MAKERS
+
+  UNJYNX is crafted by METAminds with obsessive attention to detail. Beautiful
+  Material 3 design. Smooth 60fps animations. Dark mode with midnight purple
+  and electric gold. Light mode with a soft purple-mist palette.
+
+  Break the satisfactory. Unjynx your productivity.
+
+  Character count: ~3500/4000
+
+================================================================================
+  WHAT'S NEW (v1.0.0)
+================================================================================
+
+  Welcome to UNJYNX -- your tasks, your channels, your way.
+
+  This is the very first release. Here is everything you get on day one:
+
+  - Multi-channel reminders: WhatsApp, Telegram, Instagram, SMS, Discord,
+    Slack, and Email
+  - Escalation chains: missed a reminder? The next channel kicks in
+  - Ghost Mode: deep focus with Pomodoro timer and ambient sounds
+  - Progress Dashboard: streaks, heatmaps, personal bests, weekly insights
+  - Daily Wisdom: curated content from 60+ categories
+  - Morning Rituals: start your day with intention
+  - Offline-first: works without internet, syncs when reconnected
+  - Beautiful design: Material 3, dark and light themes, smooth animations
+
+  We would love your feedback. Reach us at support@unjynx.app.
+
+================================================================================
+  REVIEW NOTES FOR APPLE REVIEWER
+================================================================================
+
+  Dear App Review Team,
+
+  Thank you for reviewing UNJYNX. Here are notes to help with the review:
+
+  PURPOSE:
+  UNJYNX is a task management and reminder application. Its primary
+  differentiator is sending reminders through external messaging platforms
+  (WhatsApp, Telegram, Instagram, SMS, Discord, Slack, Email) in addition to
+  standard push notifications.
+
+  ACCOUNT CREATION:
+  Users sign up with email/password or social login (Google, Apple Sign-In).
+  Authentication is handled via Logto (self-hosted OIDC provider). No phone
+  number is required for basic account creation.
+
+  MULTI-CHANNEL REMINDERS:
+  The app connects to messaging platforms via their official APIs:
+  - WhatsApp: Gupshup Business Solution Provider (official Meta partner)
+  - Telegram: Official Bot API
+  - Instagram: Official Messenger API
+  - SMS: MSG91 (licensed telecom aggregator)
+  - Discord: Official Discord Bot API
+  - Slack: Official Slack Web API
+  - Email: SendGrid
+
+  Users must explicitly opt in and verify each channel before receiving
+  reminders. WhatsApp and SMS require OTP verification.
+
+  IN-APP PURCHASES:
+  - Pro plan: USD 6.99/month or USD 59.88/year (auto-renewable subscription)
+  - Team plan: USD 8.99/user/month or USD 83.88/user/year (auto-renewable)
+  - Family plan: USD 9.99/month (auto-renewable, up to 5 members)
+  Subscriptions are managed via RevenueCat and processed through StoreKit.
+  Users can cancel anytime from their Apple ID settings.
+
+  DEMO ACCOUNT:
+  Email:    reviewer@unjynx.app
+  Password: AppReview2026!
+
+  This account has Pro features enabled and pre-populated with sample tasks
+  to demonstrate all functionality.
+
+  GHOST MODE:
+  This is a focus timer feature. It does NOT block system notifications at
+  the OS level. It only mutes UNJYNX notifications and shows a focus timer
+  UI within the app. The app uses no private APIs.
+
+  BACKGROUND ACTIVITY:
+  The app uses background fetch to sync tasks when connectivity returns.
+  No background audio, location, or VoIP usage.
+
+  DATA HANDLING:
+  - Data collected: name, email, task content, device info (for push tokens)
+  - Data encrypted: TLS 1.3 in transit, AES-256 at rest
+  - Data shared with third parties: None (backend is self-hosted)
+  - DPDP Act 2023 compliant
+  - User can request data deletion from Settings > Privacy > Delete Account
+
+  CONTENT:
+  Daily wisdom quotes are curated and pre-moderated. No user-generated
+  content is displayed to other users. Task data is private to the user
+  (or shared within a team workspace with explicit invitation).
+
+  If you have any questions, please contact us at review@unjynx.app.
+
+  Best regards,
+  METAminds Development Team
+
+================================================================================
+  PROMOTIONAL TEXT (170 characters max)
+================================================================================
+
+  New: UNJYNX 1.0 is here. The only TODO app that reminds you on WhatsApp,
+  Telegram, Instagram, SMS, and more. Break the satisfactory.
+
+  Character count: 137/170
+
+================================================================================
+  SUPPORT URL
+================================================================================
+
+  https://unjynx.app/support
+
+================================================================================
+  MARKETING URL
+================================================================================
+
+  https://unjynx.app
+
+================================================================================
+  PRIVACY POLICY URL
+================================================================================
+
+  https://unjynx.app/privacy
+
+================================================================================
+  AGE RATING
+================================================================================
+
+  Rating: 4+ (No objectionable content)
+
+  Unrestricted Web Access:          No
+  Gambling / Contests:              No
+  Alcohol / Tobacco / Drug:         No
+  Mature / Suggestive Themes:       No
+  Simulated Gambling:               No
+  Horror / Fear Themes:             No
+  Profanity / Crude Humor:          No
+  Medical / Treatment Information:  No

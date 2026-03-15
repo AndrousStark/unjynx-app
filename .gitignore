@@ -1,0 +1,97 @@
+# ==============================================================================
+# UNJYNX - Comprehensive .gitignore
+# ==============================================================================
+
+# --- Environment & Secrets ---
+.env
+.env.local
+.env.*.local
+
+# --- MCP Servers (external repos, not part of this project) ---
+mcp-servers/
+
+# --- Docker ---
+docker-volumes/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# --- Node.js ---
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+.pnpm-store/
+
+# --- Flutter / Dart ---
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.iml
+.packages
+.pub-cache/
+.pub/
+pubspec.lock
+!apps/mobile/pubspec.lock
+
+# --- Code Generation ---
+*.g.dart
+*.freezed.dart
+*.gr.dart
+*.config.dart
+*.inject.dart
+*.mocks.dart
+
+# --- Testing ---
+coverage/
+.coverage
+lcov.info
+test-results/
+
+# --- Ollama models ---
+ollama_models/
+
+# --- Build artifacts ---
+*.js.map
+*.tgz
+
+# --- Temporary files ---
+*.tmp
+*.log
+~$*
+
+# --- Drizzle ---
+drizzle/meta/
+
+# --- Claude ---
+.claude/
+
+# --- Research docs (tracked separately) ---
+# Keep .doc research files tracked
+
+# --- Release Signing ---
+key.properties
+*.jks
+*.keystore
+.signing/
+*.p8
+*.p12
+*.mobileprovision
+**/android/app/ExportOptions.plist
+
+# --- Misc ---
+*.pid
+*.seed
+*.pid.lock

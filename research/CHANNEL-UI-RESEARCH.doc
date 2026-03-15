@@ -1,0 +1,1901 @@
+================================================================================
+UNJYNX - NOTIFICATION CHANNEL MANAGEMENT UI/UX RESEARCH
+================================================================================
+Company: METAminds | App: UNJYNX | Date: 2026-03-10
+Research Scope: Channel hub UI, QR flows, OTP verification, preferences,
+consent/opt-in, fallback chains, quiet hours, premium gating, status indicators,
+quota visualization
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1.  NOTIFICATION CHANNEL HUB UI PATTERNS
+2.  QR CODE CONNECTION FLOW DESIGNS
+3.  PHONE NUMBER INPUT & OTP VERIFICATION UX
+4.  NOTIFICATION PREFERENCE SCREENS
+5.  CONSENT & OPT-IN SCREENS (TRAI, DPDP, GDPR)
+6.  FALLBACK CHAIN UX (DRAG-REORDER PRIORITY)
+7.  QUIET HOURS & DO NOT DISTURB UI
+8.  PREMIUM BADGE & TIER GATING UI PATTERNS
+9.  CONNECTION STATUS INDICATORS
+10. CHANNEL USAGE & QUOTA VISUALIZATION
+11. FLUTTER-SPECIFIC IMPLEMENTATION GUIDE
+12. MATERIAL 3 COMPONENT RECOMMENDATIONS
+13. LIGHT & DARK THEME ADAPTATION GUIDE
+14. UNJYNX-SPECIFIC RECOMMENDATIONS & ARCHITECTURE
+
+================================================================================
+SECTION 1: NOTIFICATION CHANNEL HUB UI PATTERNS
+================================================================================
+
+1.1 REAL-WORLD EXAMPLES
+------------------------
+
+A) SLACK NOTIFICATION HUB
+- Three-tier hierarchy: Workspace > Channel > Thread level control
+- Default notifications: "All new messages" OR "Mentions & DMs only"
+- Exception system: Users can set per-channel overrides (e.g., #urgent always notifies)
+- Keyword triggers: Custom words that generate notifications when mentioned
+- Sound customization: Different sounds for different notification types
+- What works: Granular control without overwhelming; defaults are sane
+- What fails: Buried settings (too many clicks to find the right toggle)
+- Key takeaway for UNJYNX: Mirror the exception-based model -- set sane defaults
+  but let users promote specific categories to "always notify"
+
+B) DISCORD SERVER NOTIFICATION SETTINGS
+- Four notification levels: All Messages / Only @mentions / Nothing / Custom
+- Notification Overrides: Per-category and per-channel override dropdown
+- Mute durations: 15min / 1hr / 3hr / 8hr / 24hr / Until turned off
+- Suppress @everyone and @here mentions toggle
+- Mobile push: Mirrors desktop preferences OR can be set independently
+- What works: The mute duration picker is brilliant for temporary quiet
+- What fails: Notification Overrides dropdown can be overwhelming with many channels
+- Key takeaway for UNJYNX: Offer temporary mute durations per-channel, not just on/off
+
+C) WHATSAPP BUSINESS CHANNEL MANAGEMENT
+- Channel Activity Notifications: Follower activity + Admin activity alerts
+- Template system: Pre-approved message templates (utility, marketing, authentication)
+- Notification tone customization per contact/group
+- Media auto-download granular control (WiFi vs mobile data)
+- What works: Simple binary choices (on/off) for most users
+- What fails: No frequency control -- either all or nothing
+- Key takeaway for UNJYNX: Frequency controls (immediate / daily digest / weekly)
+  are a massive differentiator over WhatsApp
+
+D) TELEGRAM NOTIFICATION SETTINGS
+- Per-chat notification toggle (mute forever or for specific duration)
+- Custom notification sound per chat
+- Notification exceptions list (always notify even when muted)
+- Smart Notifications: Combine frequent messages into batches
+- Chat-specific LED colors on Android
+- What works: Granularity without complexity via exception model
+- What fails: Settings scattered across profile and settings screens
+- Key takeaway for UNJYNX: Centralize all channel management in one hub screen
+
+E) TODOIST NOTIFICATION PREFERENCES
+- Grid-style layout: Rows = event types, Columns = channels (email, push)
+- Per-project notification settings for shared projects
+- Urgent Reminders (iOS): Full-screen alarm that breaks through DND and Silent mode
+- Categories: Comments, task assignments, collaborator joins/leaves
+- What works: Grid layout makes cross-channel comparison easy at a glance
+- What fails: Limited channel types (only email + push)
+- Key takeaway for UNJYNX: Use a matrix/grid layout for notification preferences
+  but extend columns to 5+ channels (push, WhatsApp, Telegram, email, SMS)
+
+
+1.2 DESIGN PATTERNS ANALYSIS
+-----------------------------
+
+PATTERN 1: HUB-AND-SPOKE MODEL
+- Central "Channels" screen shows all connected channels with status
+- Each channel card expands or navigates to detailed settings
+- Pros: Excellent discoverability, single entry point
+- Cons: Can feel like a long list if user has many channels
+- Recommendation for UNJYNX: Primary pattern; use cards with status chips
+
+PATTERN 2: CATEGORY-FIRST MODEL (SUPRSEND)
+- Organize by notification category first (e.g., "Task Reminders", "Daily Content")
+- Within each category, show channel toggles
+- Three levels: Category on/off > Channel on/off > Frequency control
+- Pros: Users think in terms of "what" they want, not "how" to receive it
+- Cons: Users who want to disable all email must visit every category
+- Recommendation for UNJYNX: Support BOTH views -- category-first + channel-first
+
+PATTERN 3: MASTER TOGGLE + EXCEPTIONS
+- Top-level master switch per channel (e.g., "WhatsApp: ON")
+- Below: exception list of categories that deviate from master
+- Pros: Fastest for bulk on/off; exception list is short
+- Cons: Requires mental model of defaults vs exceptions
+- Recommendation for UNJYNX: Use for the channel detail page
+
+PATTERN 4: SMART DEFAULTS WITH PROGRESSIVE DISCLOSURE
+- Onboarding: Choose a "mode" (Calm / Regular / Power User)
+- Each mode pre-configures channels, frequency, and quiet hours
+- Users can drill down to customize individual settings later
+- Pros: Fast setup; reduces decision fatigue for new users
+- Cons: Users may forget to customize later
+- Recommendation for UNJYNX: MUST IMPLEMENT -- this is core to onboarding
+
+
+1.3 INFORMATION ARCHITECTURE FOR CHANNEL HUB
+----------------------------------------------
+
+Recommended screen hierarchy for UNJYNX:
+
+  Notification Hub (main)
+  +-- Active Channels (grid of connected channels)
+  |   +-- Push Notifications [always present]
+  |   +-- WhatsApp [if connected]
+  |   +-- Telegram [if connected]
+  |   +-- Email [if connected]
+  |   +-- SMS [if connected]
+  |   +-- Instagram [if connected]
+  |   +-- Discord [if connected]
+  |   +-- Slack [if connected]
+  +-- Add Channel (+ FAB or inline button)
+  |   +-- Available channels with setup flow
+  +-- Notification Preferences
+  |   +-- Category-first view (matrix grid)
+  |   +-- Channel-first view (toggle)
+  +-- Quiet Hours / Focus Modes
+  +-- Fallback Priority Chain
+  +-- Usage & Quota
+
+================================================================================
+SECTION 2: QR CODE CONNECTION FLOW DESIGNS
+================================================================================
+
+2.1 REAL-WORLD EXAMPLES
+------------------------
+
+A) WHATSAPP WEB QR FLOW
+- Step 1: Website generates Guest Token, displayed as QR code
+- Step 2: Mobile app scans QR, retrieves Guest Token
+- Step 3: Mobile Auth Token + Guest Token sent to Auth Service
+- Step 4: Auth Service generates Web Auth Token
+- Step 5: Web Auth Token sent to website via WebSocket
+- Step 6: Website reinitializes with Web Auth Token
+- UX flow: Open WhatsApp > Settings > Linked Devices > Link a Device > Scan QR
+- What works: No typing credentials; instant sync; feels magical
+- What fails: QR refreshes every 20 seconds (too fast for some users)
+- Key takeaway: Token exchange pattern is gold standard for secure pairing
+
+B) TELEGRAM QR CONNECTION
+- Used for desktop/web login from mobile phone
+- Also used for profile sharing with customizable QR code colors
+- Steps: Profile > QR code icon > Customize > Share/Scan
+- Uniquely allows QR code color customization to match brand
+- What works: Dual purpose (login + contact sharing)
+- What fails: Discovery -- many users don't know QR login exists
+- Key takeaway: Let users customize QR code appearance (brand colors)
+
+C) SIGNAL QR DEVICE LINKING
+- Primary phone scans QR displayed on secondary device
+- Process is deliberately simple -- single scan, automatic sync
+- Requires PIN verification after scan for extra security
+- User issue identified: "Open in browser" label confused users after scanning
+- What works: Simplest flow of all three -- one scan, done
+- What fails: Error messages when scan fails are not clear enough
+- Key takeaway: Clear error states and retry instructions are essential
+
+D) LINE QR LOGIN
+- QR code has 5-minute expiry with visible countdown timer
+- Auto-verification after scan with push notification confirmation
+- "Identity verification" dialog on phone with approve/deny buttons
+- What works: Timer gives user confidence about security
+- What fails: Timer can feel stressful for slow users
+- Key takeaway: Show expiry timer but make it generous (2+ minutes)
+
+
+2.2 UNJYNX QR CONNECTION FLOW DESIGN
+--------------------------------------
+
+For UNJYNX, QR codes serve a different purpose than login:
+They connect the user's UNJYNX account to their Telegram bot.
+
+RECOMMENDED FLOW:
+
+Screen 1: "Connect Telegram"
+- Large illustration showing phone with Telegram
+- Heading: "Get reminders on Telegram"
+- Subtext: "Scan this code with Telegram to connect your account"
+- QR Code: Large, centered, with UNJYNX logo in center
+  (Generated containing deep link: https://t.me/unjynx_bot?start=<user_token>)
+- Below QR: Timer showing "Expires in 4:32"
+- Below timer: Text link "Or tap to open Telegram directly"
+- Bottom: "Having trouble?" link to help
+
+Screen 2: "Confirming Connection..."
+- Lottie animation: Two phones connecting with particle effects
+- Text: "Waiting for confirmation from Telegram..."
+- Auto-proceeds when webhook confirms
+
+Screen 3: "Connected!"
+- Success animation (checkmark with confetti)
+- Channel card showing Telegram as connected
+- "Send a test message" CTA button
+- "Done" button to return to hub
+
+
+2.3 FLUTTER IMPLEMENTATION NOTES
+----------------------------------
+
+- QR Generation: Use `qr_flutter` package for generating QR codes
+- QR Scanning: Use `mobile_scanner` package (Google ML Kit backend)
+  - Supports Android (CameraX/ML Kit), iOS (AVFoundation/Apple Vision), Web (ZXing)
+  - Active development, comprehensive platform support
+  - Only required parameter is `onDetect` callback
+  - Manage lifecycle with MobileScannerController (autoStart: false for manual control)
+- Deep Link: Generate t.me deep link with unique user token
+- WebSocket: Listen for Telegram webhook confirmation to auto-advance
+- Token: Generate short-lived tokens (5 min expiry) for security
+- Fallback: Always offer "Open in Telegram" button as alternative to QR scan
+
+
+================================================================================
+SECTION 3: PHONE NUMBER INPUT & OTP VERIFICATION UX
+================================================================================
+
+3.1 REAL-WORLD EXAMPLES
+------------------------
+
+A) WHATSAPP PHONE VERIFICATION
+- Country auto-detected from SIM card
+- Country code and phone number in separate fields
+- Phone number formatted as-you-type based on country rules
+- OTP auto-read from SMS (no manual entry needed)
+- Fallback: "Call me" option after 60 seconds
+- What works: Zero-friction for most users; auto-detection is key
+- What fails: Users with dual SIM sometimes get wrong country
+- Key takeaway: SIM detection + manual country override
+
+B) UBER PHONE VERIFICATION
+- Minimal screen: Just phone number input + "Next" button
+- 4-digit OTP code
+- Auto-read with suggestion bar on iOS/Android
+- Fallback options: "Resend code via SMS" and "Call me with Code"
+- Timer showing when resend becomes available
+- What works: Extremely minimal -- no distractions
+- What fails: Short code SMS sometimes blocked by carriers
+- Key takeaway: Always offer voice call as fallback
+
+C) RAPPI PHONE VERIFICATION
+- Full-screen phone input with large number pad
+- Country selector with flag + dial code at the top
+- Real-time validation as you type (turns green when valid)
+- 6-digit OTP with auto-advance between fields
+- Progress bar showing SMS delivery status
+- What works: Visual feedback during the wait is reassuring
+- What fails: Number pad covers too much screen on small devices
+- Key takeaway: Show delivery status indicator while user waits for OTP
+
+D) GRAB PHONE VERIFICATION
+- Separate country picker screen (searchable)
+- Phone number input with example formatting shown as placeholder
+- "We'll send a verification code" confirmation before sending
+- OTP screen with auto-fill from notification
+- What works: Confirmation step prevents wasted OTP sends on typos
+- What fails: Extra step adds friction for experienced users
+- Key takeaway: Confirmation step is worth the trade-off for UNJYNX
+  (WhatsApp/SMS messages cost money per OTP)
+
+
+3.2 DESIGN RECOMMENDATIONS FOR UNJYNX
+---------------------------------------
+
+PHONE INPUT SCREEN:
+- Country code auto-detected from SIM (use device locale as fallback)
+- Separate country code field (tappable, opens searchable picker)
+- Phone number field: right-aligned text, formatted as-you-type
+- E.164 storage format (always store with country code)
+- Inline validation: Red border + "Invalid phone number" below field
+- Button: "Send Verification Code" (disabled until valid number)
+- Pre-send confirmation: "We'll send a code to +91 98765 43210. Is this correct?"
+- Privacy note: Small text below button: "We'll only use this to send reminders"
+
+OTP INPUT SCREEN:
+- 6 individual box fields (not a single text input)
+- Auto-focus first box on screen load
+- Auto-advance to next box on digit entry
+- Auto-submit when all 6 digits entered
+- Visual states: Empty (gray border) > Focused (brand purple border) > Filled (dark)
+- Error state: All boxes shake + turn red + "Incorrect code, try again"
+- Timer: "Resend code in 0:45" countdown
+- After timer: "Resend via SMS" and "Call me instead" buttons
+- SMS auto-read: Use SmartAuth/Pinput for automatic OTP detection
+- Keyboard: Number-only keyboard (no decimal, no negative)
+
+
+3.3 FLUTTER IMPLEMENTATION
+----------------------------
+
+Phone Input Packages:
+- `intl_phone_number_input`: Best overall -- Google's libphonenumber, all platforms
+- `intl_phone_field`: Simpler alternative with TextFormField integration
+- `country_code_picker`: For searchable country list with flags + i18n (70 languages)
+
+OTP Input Packages:
+- `pinput`: Gold standard -- 6 visual states, SMS autofill, clipboard paste, theming
+  - Create defaultPinTheme, then copy for focused/submitted/error states
+  - SmartAuth wrapper handles Android SMS Retriever API
+  - iOS SMS autofill works natively (no extra package needed)
+- `otp_pin_field`: Alternative with more animation options
+- `sms_otp_auto_verify`: Dedicated auto-verify package
+
+Auto-Fill Strategy:
+- Android: SMS Retriever API via SmartAuth (no permission needed)
+- iOS: Native autofill via content type `oneTimeCode` on TextField
+- Fallback: Manual entry always available
+
+
+================================================================================
+SECTION 4: NOTIFICATION PREFERENCE SCREENS
+================================================================================
+
+4.1 REAL-WORLD EXAMPLES
+------------------------
+
+A) iOS NOTIFICATION SETTINGS
+- App-level: Allow Notifications master toggle
+- Below toggle: Lock Screen / Notification Center / Banners checkboxes
+- Sound, badge, and banner style controls
+- Notification grouping: Automatic / By App / Off
+- Time Sensitive: Allow apps to send urgent notifications
+- Scheduled Summary: Batched delivery at chosen times
+- What works: Granular yet organized; progressive disclosure
+- What fails: Settings are per-app; no cross-app category view
+- Key takeaway: Progressive disclosure -- master toggle first, details later
+
+B) ANDROID NOTIFICATION CHANNELS
+- Per-app notification categories (e.g., "Messages", "Updates", "Promotions")
+- Each category: Importance level (Urgent/High/Default/Low/None)
+- Sound, vibration, and LED independently configurable per category
+- Bubble support for conversations
+- What works: Category system is developer-controlled (consistent UX)
+- What fails: Too many categories overwhelm users
+- Key takeaway: Keep categories under 8; merge similar ones
+
+C) SLACK NOTIFICATION PREFERENCES
+- Workspace-level defaults with channel exceptions
+- "Notify me about": All messages OR Mentions & DMs
+- Keywords: Comma-separated list of trigger words
+- "My notification schedule": Work hours only
+- Sound selection per notification type
+- Do Not Disturb: One-click or scheduled
+- What works: Keyword notifications are unique and useful
+- What fails: Per-workspace settings are hard to find
+- Key takeaway: Keyword-based notifications = unique feature to consider
+
+D) TODOIST NOTIFICATION PREFERENCES
+- Grid/matrix layout: Event types (rows) x Channels (columns)
+- Events: Comments, Assignments, Joins, Leaves, Removals
+- Channels: Email, Push
+- Per-project overrides for shared projects
+- Urgent Reminders: Full-screen alarm that bypasses DND (iOS)
+- What works: Grid makes it easy to see everything at once
+- What fails: Only 2 channel columns
+- Key takeaway: UNJYNX should use the grid pattern with 5-7 channel columns
+
+E) BASECAMP NOTIFICATION PREFERENCES
+- "Work Can Wait" mode: Set work hours, no notifications outside them
+- Per-user work schedule (start time, end time, working days)
+- Notification bundling: Groups messages within 5-minute windows
+- Focus mode: Completely disables notifications
+- Quick snooze: 3-hour snooze button
+- What works: "Work Can Wait" is the best-named feature in notifications
+- What fails: No per-project granularity
+- Key takeaway: "Work Can Wait" concept is perfect for UNJYNX task reminders
+
+
+4.2 NOTIFICATION PREFERENCE MATRIX DESIGN FOR UNJYNX
+------------------------------------------------------
+
+MATRIX LAYOUT:
+
+              | Push | WhatsApp | Telegram | Email | SMS  |
+--------------+------+----------+----------+-------+------+
+Task Due      |  [x] |   [x]    |   [x]    |  [ ]  | [ ]  |
+Task Overdue  |  [x] |   [x]    |   [x]    |  [x]  | [x]  |
+Daily Content |  [x] |   [ ]    |   [x]    |  [ ]  | [ ]  |
+Team Updates  |  [x] |   [ ]    |   [ ]    |  [x]  | [ ]  |
+Project Alert |  [x] |   [x]    |   [x]    |  [x]  | [ ]  |
+AI Insights   |  [x] |   [ ]    |   [ ]    |  [x]  | [ ]  |
+System Updates|  [x] |   [ ]    |   [ ]    |  [x]  | [ ]  |
+
+- Column headers show channel icon + name + connection status dot
+- Unconnected channels show as greyed out with "Connect" link
+- Premium channels (WhatsApp, SMS) show small Pro badge
+- Each cell is a checkbox (animated toggle)
+- Tap column header: bulk enable/disable entire channel
+- Tap row label: bulk enable/disable entire category
+- Long press cell: opens frequency sub-menu (Immediate/Daily/Weekly)
+
+
+4.3 SUPRSEND-INSPIRED MULTI-LEVEL PREFERENCES
+-----------------------------------------------
+
+Level 1: GLOBAL CHANNEL ON/OFF
+  - Push: ON | WhatsApp: ON | Telegram: ON | Email: ON | SMS: OFF
+
+Level 2: CATEGORY PREFERENCES
+  - Task Reminders: ON (channels: Push, WhatsApp, Telegram)
+  - Daily Content: ON (channels: Push, Telegram)
+  - Team Updates: ON (channels: Push, Email)
+
+Level 3: PER-CATEGORY CHANNEL OVERRIDE
+  - Task Reminders > WhatsApp: Only for "High Priority" tasks
+  - Daily Content > Telegram: Send at 8:00 AM daily
+
+CRITICAL NOTIFICATIONS (cannot be unsubscribed):
+  - Account security alerts
+  - Payment confirmations
+  - Legal/compliance notices
+  - Password reset codes
+
+
+================================================================================
+SECTION 5: CONSENT & OPT-IN SCREENS (TRAI, DPDP, GDPR)
+================================================================================
+
+5.1 REGULATORY REQUIREMENTS
+-----------------------------
+
+A) INDIA DPDP ACT 2023
+
+Key Requirements:
+- Consent must be: free, specific, informed, unconditional, unambiguous
+- Consent must be given through clear affirmative action
+- Purpose-specific consent (not bundled)
+- Always revocable (withdrawal must be as easy as giving consent)
+- Multilingual: Must support all 22 official Indian languages
+- WCAG-compliant accessibility
+- Consent dashboard: Users must be able to see and withdraw consent at any time
+- Layered notices: Must offer simplified + detailed consent notices
+- Audio/video notices: For semi-literate users (innovative UX requirement)
+
+UI Implementation Requirements per DPDP BRD (June 2025):
+- Granular consent using checkboxes or toggles (per purpose)
+- Each processing purpose must have its own consent toggle
+- Consent lifecycle management: capture > store > withdraw > re-consent
+- Grievance redress mechanism accessible from consent dashboard
+- Data retention policy visible to users
+- Admin roles for managing organization-level preferences
+
+B) TRAI TCCCPR (TELECOM COMMERCIAL COMMUNICATION)
+
+Key Requirements:
+- National Customer Preference Register (NCPR/DND registry) compliance
+- DLT (Distributed Ledger Technology) registration mandatory for bulk SMS
+- Digital Consent Acquisition (DCA) pilot launched June 2025
+- Message suffixes: "P" (Promotional), "S" (Service), "T" (Transactional)
+- 7-day consent validity for transactional messages (strict)
+- Opt-out in every promotional message
+- 90-day cooldown before re-requesting consent from opted-out users
+- AI-based monitoring by telecom providers to detect spam patterns
+- Penalties: blacklisting, service disconnection up to 1 year, device blocking
+
+C) GDPR (FOR INTERNATIONAL USERS)
+
+Key Requirements:
+- Active opt-in (no pre-ticked boxes)
+- Granular options per communication type
+- Name organization and third parties relying on consent
+- Tell users about right to withdraw and how
+- Plain language (no legal jargon)
+- No dark patterns: fake security badges, guilt-based messaging, visual nudging
+- Regulators check HOW consent is obtained, not just that it exists
+- Mobile-first consent design is a fundamental requirement
+
+D) CAN-SPAM (FOR US USERS)
+
+Key Requirements:
+- Accurate From/Subject header information
+- Identify message as advertisement
+- Physical postal address of sender
+- Opt-out mechanism that processes within 10 business days
+- No harvested email addresses
+- Responsibility even when using third-party senders
+
+
+5.2 ANTI-PATTERNS TO AVOID (DARK PATTERNS)
+--------------------------------------------
+
+ILLEGAL/UNETHICAL:
+- Pre-ticked consent checkboxes
+- "Accept all" button prominent, "Manage" button hidden
+- Guilt-tripping copy ("You'll miss important updates!")
+- Confusing double negatives ("Uncheck to not receive...")
+- Making opt-out harder than opt-in
+- Bundled consent (one checkbox for everything)
+- Fake urgency ("Enable now or lose access!")
+- Misleading toggle labels (ON position means OFF)
+
+LEGAL BUT POOR UX:
+- Wall-of-text consent notices
+- Legal jargon without plain language alternative
+- No withdrawal mechanism visible
+- Consent buried in Terms of Service
+- No confirmation of consent choices
+
+
+5.3 CONSENT SCREEN DESIGN FOR UNJYNX
+--------------------------------------
+
+SCREEN: CHANNEL CONSENT (shown before connecting any channel)
+
+Layout:
+- Header: UNJYNX logo + "Your Communication Preferences"
+- Subheader: "Choose how you'd like to receive reminders and updates"
+- Language selector: Top-right globe icon (22 Indian languages + English)
+
+Consent Section (Granular Toggles):
+  [Toggle] Task Reminders
+           "We'll notify you when tasks are due or overdue"
+  [Toggle] Daily Inspiration
+           "One motivational quote or growth tip per day"
+  [Toggle] Team Activity
+           "Updates when teammates modify shared tasks"
+  [Toggle] Product Updates
+           "New features, tips, and app improvements"
+  [Toggle] Promotional Offers
+           "Special deals and subscription offers"
+
+Each toggle shows: Purpose description + data used + retention period
+
+Channel Selection (only for enabled categories):
+  [Checkbox] Push Notifications (free)
+  [Checkbox] Telegram (free)
+  [Checkbox] Email (free)
+  [Checkbox] WhatsApp (Pro - 5 free/month)
+  [Checkbox] SMS (Pro - 3 free/month)
+
+Bottom Section:
+  - "View detailed privacy notice" link
+  - "You can change these anytime in Settings > Notifications"
+  - [Primary Button] "Save Preferences"
+  - [Text Link] "Skip for now" (minimal consent only: account security)
+
+After Saving:
+  - Confirmation screen showing saved preferences
+  - "View your consent dashboard" link
+
+
+5.4 CONSENT DASHBOARD
+-----------------------
+
+Accessible via Settings > Privacy > Consent Dashboard
+
+Shows:
+- List of all purposes with current consent status (granted/withdrawn)
+- Date each consent was given or withdrawn
+- "Withdraw" button next to each active consent
+- Withdrawal confirmation: "Are you sure? You'll stop receiving [category] notifications"
+- Audit trail: Complete history of consent changes
+- Export: "Download my consent history" (JSON/PDF)
+- Grievance: "Report an issue with your data" link
+
+
+================================================================================
+SECTION 6: FALLBACK CHAIN UX (DRAG-REORDER PRIORITY)
+================================================================================
+
+6.1 CONCEPT EXPLANATION
+-------------------------
+
+A fallback chain defines the priority order in which UNJYNX tries to deliver
+a notification. If the first channel fails or is unavailable, it tries the next.
+
+Example chain: Push > WhatsApp > Telegram > Email > SMS
+
+If push notification fails (app not installed), try WhatsApp.
+If WhatsApp fails (not connected), try Telegram.
+If Telegram fails (bot blocked), try Email.
+If Email fails (bounced), try SMS (last resort, costs money).
+
+
+6.2 REAL-WORLD EXAMPLES
+------------------------
+
+A) NOVU FALLBACK SYSTEM
+- Visual workflow builder with nodes for each channel
+- Drag-and-drop to reorder priority
+- Conditional logic: "If delivered via Push, skip WhatsApp"
+- Wait timers between attempts: "Wait 5 min, then try next channel"
+- What works: Visual flow makes the chain intuitive
+- What fails: Too complex for consumer apps
+- Key takeaway: Simplify for consumer UX -- numbered list with drag handles
+
+B) SUPRSEND MULTI-CHANNEL DELIVERY
+- Channel priorities per notification category
+- Automatic fallback based on delivery status
+- "Intelligent routing" that learns user's preferred channel
+- What works: ML-based routing adapts over time
+- What fails: Black box -- users don't know why they got SMS instead of push
+- Key takeaway: Show users the active chain AND which channel was used
+
+C) COURIER NOTIFICATION ROUTING
+- Routing rules: "Best of" (try all) or "Escalation" (sequential fallback)
+- Per-user channel preferences influence routing
+- Delivery receipts determine when to escalate
+- What works: Dual mode (parallel vs sequential) is powerful
+- Key takeaway: UNJYNX should offer "Simultaneous" and "Sequential" modes
+
+
+6.3 DRAG-REORDER UX PATTERNS
+------------------------------
+
+PATTERN 1: DRAG HANDLE LIST
+- Each channel shown as a card with drag handle (hamburger icon) on left
+- Number badge showing priority (1, 2, 3...)
+- Drag to reorder; numbers update automatically
+- Pros: Most intuitive for mobile users
+- Cons: Touch precision can be tricky on small screens
+- Recommendation: PRIMARY pattern for UNJYNX
+
+PATTERN 2: UP/DOWN ARROWS
+- Each card has up-arrow and down-arrow buttons on the right
+- Single tap moves item one position
+- Pros: Accessible; works with screen readers
+- Cons: Slower than drag for large reorders
+- Recommendation: SECONDARY pattern (accessibility fallback)
+
+PATTERN 3: NUMBER INPUT
+- Each card has a number input showing its priority
+- User can type a new number to reorder
+- Pros: Precise control
+- Cons: Unfamiliar to most mobile users
+- Recommendation: NOT for UNJYNX
+
+DESIGN DETAILS:
+- Drag handle: 3 horizontal lines (hamburger), left side of card
+- While dragging: Card elevates (shadow increases), slight scale up (1.02x)
+- Drop zone: Colored line between cards shows where it will land
+- Animation: Smooth 200ms spring animation when items shift
+- Haptic: Light haptic feedback on pickup and drop
+- Accessibility: Long-press to enter reorder mode, use volume buttons to move
+
+
+6.4 FALLBACK CHAIN SCREEN DESIGN FOR UNJYNX
+----------------------------------------------
+
+SCREEN: "Delivery Priority"
+
+Header: "How should we reach you?"
+Subheader: "Drag to reorder. We'll try each channel in order."
+
+[Drag Handle] 1. Push Notification    [Connected]   [Free]
+[Drag Handle] 2. Telegram             [Connected]   [Free]
+[Drag Handle] 3. WhatsApp             [Connected]   [Pro]
+[Drag Handle] 4. Email                [Connected]   [Free]
+[Drag Handle] 5. SMS                  [Not set up]  [Pro]
+
+Delivery Mode Toggle:
+  ( ) Sequential: Try one at a time, wait for delivery
+  (x) Smart: AI picks the best channel based on your activity
+
+Wait Time Between Attempts:
+  [Slider: 1 min ---- 5 min ---- 15 min ---- 30 min]
+  Current: 5 minutes
+
+Bottom Card:
+  "Based on your activity, Telegram works best for you at 8-10 AM
+   and Push works best after 6 PM"
+  [Small text] "Powered by UNJYNX AI"
+
+
+6.5 FLUTTER IMPLEMENTATION
+----------------------------
+
+Built-in Solution:
+- `ReorderableListView` widget (Flutter built-in, Material library)
+  - `ReorderableListView.builder` for large lists
+  - `onReorder` callback receives oldIndex and newIndex
+  - Default: Long-press to pick up on mobile, drag handles on desktop
+  - `buildDefaultDragHandles: false` for custom drag handle widgets
+  - `proxyDecorator` callback for custom drag appearance
+
+Enhanced Libraries:
+- `animated_reorderable_list`: Adds smooth animations during reorder
+  - Derived from Flutter's native AnimatedList + ReorderableListView
+  - Supports both ListView and GridView with drag-and-drop
+  - Better visual transitions than built-in widget
+
+Implementation Pattern:
+  1. Store channel priorities as List<ChannelPriority> in state
+  2. Use ReorderableListView.builder with proxyDecorator for elevation effect
+  3. On reorder, create new immutable list with updated order
+  4. Save to local storage (Drift) and sync to server
+  5. Add haptic feedback via HapticFeedback.lightImpact() on drag start
+
+
+================================================================================
+SECTION 7: QUIET HOURS & DO NOT DISTURB UI
+================================================================================
+
+7.1 REAL-WORLD EXAMPLES
+------------------------
+
+A) iOS FOCUS MODES
+- Multiple named profiles: Do Not Disturb, Work, Personal, Sleep, Driving, Fitness
+- Custom Focus: User-created with name, color, emoji/icon
+- Per-Focus allowed contacts and apps
+- Time-Sensitive breakthrough: Apps can mark notifications as urgent
+- Intelligent Breakthrough (Apple Intelligence): AI decides what's important
+- Schedule triggers: Time, Location, App opened, Smart Activation
+- Focus Filters: Per-app behavior when Focus is active
+- Lock Screen customization per Focus
+- Focus sharing: Show Focus status to contacts
+- What works: Rich customization; automatic triggers are game-changing
+- What fails: Setup complexity; many users only use Do Not Disturb
+- Key takeaway: Offer 2-3 presets + custom option; auto-triggers are key
+
+B) ANDROID DO NOT DISTURB
+- Schedule-based: Day-of-week + time range
+- Exception categories: Alarms, Media, Calls from contacts, Repeat callers
+- Duration options: Until next alarm, For X hours/minutes, Ask every time
+- Notification behavior: No sound, No vibration, No visual disturbance
+- Priority mode: Only starred contacts break through
+- What works: Simple schedule setup; "Until next alarm" is genius
+- What fails: Limited to one DND schedule (no multiple profiles)
+- Key takeaway: "Until next alarm" pattern is excellent for UNJYNX
+
+C) SLACK DO NOT DISTURB
+- Default DND hours: Set per-workspace (e.g., 6 PM - 8 AM daily)
+- Recurring schedule: Choose specific days and time ranges
+- Quick pause: Snooze notifications for 20min/1hr/2hr/until tomorrow
+- "Set yourself as away" companion feature
+- Status integration: DND status visible to teammates
+- What works: Recurring schedule + quick pause covers both planned and ad-hoc
+- What fails: No location-based triggers
+- Key takeaway: Both scheduled AND ad-hoc quiet hours needed
+
+D) BASECAMP "WORK CAN WAIT"
+- Per-user work schedule: Start time, end time, working days
+- Default: 8 AM - 6 PM in user's timezone
+- Outside work hours: All notifications silenced
+- Focus Mode: Complete notification disable
+- Quick snooze: 3-hour snooze button
+- Notification bundling: Groups within 5-minute windows
+- What works: Best naming in the industry; default schedule is smart
+- What fails: No per-project scheduling
+- Key takeaway: Default work hours based on common patterns (editable)
+
+E) TODOIST URGENT REMINDERS (iOS)
+- Toggle "Urgent" flag on any reminder
+- Triggers persistent, full-screen alarm
+- Cuts through Silent mode AND Do Not Disturb
+- Rings on Apple Watch
+- What works: Solves the "I missed a critical deadline" problem
+- What fails: Could be abused (too many urgent reminders = noise)
+- Key takeaway: UNJYNX should support breakthrough for overdue HIGH priority tasks
+
+
+7.2 QUIET HOURS DESIGN FOR UNJYNX
+-----------------------------------
+
+SCREEN: "Focus & Quiet Hours"
+
+Section 1: Quick Actions
+  [Chip] Do Not Disturb (Now)  [Chip] For 1 Hour  [Chip] Until Tomorrow
+
+Section 2: Scheduled Quiet Hours
+  Work Schedule:
+  - Work days: [M] [T] [W] [T] [F] [ ] [ ]   (toggleable day chips)
+  - Active hours: [09:00] to [18:00]           (time pickers)
+  - [Toggle] Only send reminders during work hours
+
+  Sleep Schedule:
+  - Sleep time: [22:00] to [07:00]
+  - [Toggle] Silence all notifications during sleep
+  - [Toggle] Allow urgent task reminders to break through
+
+Section 3: Focus Modes (Presets)
+  [Card] "Deep Work"    - No notifications for 2 hours, then batch deliver
+  [Card] "Meeting"      - Silence all, auto-detected from calendar
+  [Card] "Weekend"      - Only urgent tasks + daily content
+  [Card] "+ Custom"     - Create your own Focus mode
+
+Section 4: Breakthrough Rules
+  [Toggle] Allow overdue task reminders (always)
+  [Toggle] Allow urgent priority tasks
+  [Toggle] Allow team @mentions
+  Time Sensitive Threshold: [Slider: 30min before due --- at due time]
+
+Section 5: Smart Schedule (AI)
+  [Toggle] Let UNJYNX learn your best notification times
+  "Based on 2 weeks of data, your optimal notification windows are:
+   Morning: 8:15 - 9:30 AM  |  Afternoon: 1:00 - 2:15 PM  |  Evening: 6:30 - 7:45 PM"
+
+
+7.3 IMPLEMENTATION NOTES
+--------------------------
+
+- Store schedules in RRULE format (RFC 5545) for recurring patterns
+- Use device timezone (with option to override for travelers)
+- Calendar integration: Read calendar events for auto-DND during meetings
+- Snooze implementation: Store snooze_until timestamp, compare on notification send
+- Breakthrough logic: Server-side evaluation of task priority vs user's DND rules
+- Notification bundling: BullMQ delayed jobs, batch deliver after quiet hours end
+- Widget: Show current Focus status on home screen widget
+
+
+================================================================================
+SECTION 8: PREMIUM BADGE & TIER GATING UI PATTERNS
+================================================================================
+
+8.1 REAL-WORLD EXAMPLES
+------------------------
+
+A) SPOTIFY FREE vs PREMIUM
+- Free users see features but with overlay: "Upgrade to Premium"
+- Tap locked feature: Bottom sheet with benefits + pricing
+- Premium badge: Green checkmark next to "Premium" in profile
+- Shuffle limitation: "Play any song" shown with lock icon
+- What works: Features are visible but gated -- shows value before asking
+- What fails: Too aggressive ads for premium in free tier
+- Key takeaway: Show features, gate actions -- not visibility
+
+B) CANVA PRO
+- Templates show small crown icon for Pro-only items
+- Pro badge: Gold crown overlaying content thumbnail
+- Clicking Pro content: Modal with comparison (Free vs Pro vs Teams)
+- In-context upgrade: "Unlock this [feature] with Canva Pro"
+- What works: Crown is universally understood as premium
+- What fails: Too many items have crowns, causing "crown blindness"
+- Key takeaway: Use badges sparingly on highest-value features only
+
+C) TODOIST PRO
+- Free tier: Shows reminder feature but locked
+- Subtle "PRO" label next to feature name
+- Tap: Slide-up sheet explaining the feature + upgrade CTA
+- Task limit: Shows "5/5 projects" with progress bar
+- What works: Transparent about limits; upgrade feels natural
+- What fails: Hard project limits feel punitive
+- Key takeaway: Soft limits (feature quality) > hard limits (feature count)
+
+D) NOTION
+- Free tier: Guest limit shown prominently
+- "Upgrade" button in sidebar with subtle highlight
+- Block limit: Progress bar showing usage
+- Tap locked feature: Side panel comparison of all plans
+- What works: The block/guest limits are clearly communicated
+- What fails: Complex plan comparison (too many tiers)
+- Key takeaway: Keep tier comparison simple (2-3 plans max in upgrade sheet)
+
+E) TELEGRAM PREMIUM
+- Premium features highlighted with gradient purple/blue star icon
+- Non-premium users see "2x" badges on features showing what premium unlocks
+- Premium reactions: Visible to all, usable by premium only
+- Animated emoji: Shows preview, locks interaction
+- What works: Star icon is distinctive and desirable (aspirational design)
+- What fails: Some premium features feel arbitrary
+- Key takeaway: Gradient icon/badge creates aspirational premium feel
+
+
+8.2 PREMIUM BADGE DESIGN FOR UNJYNX
+--------------------------------------
+
+BADGE VARIANTS:
+
+1. CHANNEL BADGE (on channel hub cards):
+   - Free channels: No badge
+   - Pro channels: Small "PRO" pill badge, gradient purple-to-gold
+   - Position: Top-right corner of channel card
+   - Size: 28x14dp, 10sp text, border-radius 7dp
+   - Light theme: Purple-900 bg, white text
+   - Dark theme: Gold-400 bg, black text
+
+2. FEATURE LOCK (on locked settings/toggles):
+   - Small lock icon (16dp) replacing the toggle for locked features
+   - Lock icon color: Muted gold
+   - Tap lock: Slide-up upgrade sheet (not full-screen navigation)
+   - Locked row opacity: 0.6 (dimmed but readable)
+
+3. QUOTA INDICATOR (on usage screens):
+   - "3/5 WhatsApp messages this month" with linear progress bar
+   - Bar color: Brand purple (normal) > Warning orange (80%) > Red (100%)
+   - "Upgrade for unlimited" text link below bar
+
+4. UPGRADE SHEET (bottom sheet, not page):
+   - Feature illustration at top (Lottie animation)
+   - "Unlock [Feature Name]" heading
+   - 3 bullet points showing what user gains
+   - Price: "Rs 149/mo" with "or Rs 99/mo billed annually" below
+   - [Primary Button] "Start 7-day free trial"
+   - [Text Link] "View all Pro features"
+   - [X] Close button (don't force interaction)
+
+
+8.3 DESIGN PRINCIPLES FOR TIER GATING
+---------------------------------------
+
+DO:
+- Show features exist before gating (demonstrate value)
+- Use slide-up bottom sheets for upgrade prompts (not full navigation)
+- Keep the upgrade CTA small and non-intrusive in regular usage
+- Let users dismiss upgrade prompts easily (close button, swipe down)
+- Show specific benefit of the locked feature (not generic "go premium")
+- Use soft limits: Allow N free messages per month, not zero
+- Celebrate when users hit milestones ("You've used 5 WhatsApp reminders!")
+
+DON'T:
+- Block core functionality behind paywall (task creation must always be free)
+- Show upgrade prompts more than once per session for same feature
+- Use aggressive colors (red) for premium badges (use aspirational gold/purple)
+- Lock basic notification channels (push must always be free)
+- Make premium features invisible to free users (they can't desire what they can't see)
+- Use countdown timers or fake urgency for upgrade prompts
+
+
+================================================================================
+SECTION 9: CONNECTION STATUS INDICATORS
+================================================================================
+
+9.1 STATUS STATES TAXONOMY
+----------------------------
+
+Each notification channel in UNJYNX can be in one of these states:
+
+STATE 1: NOT CONFIGURED
+- Appearance: Outlined card, muted colors, "Connect" button
+- Icon: Channel icon (greyed out) + plus badge
+- Description: User has never set up this channel
+- Action: Tap to start connection flow
+
+STATE 2: CONNECTING / PENDING
+- Appearance: Card with pulsing border animation
+- Icon: Channel icon + spinning indicator
+- Description: Connection in progress (waiting for OTP, QR scan, etc.)
+- Action: Tap to view connection progress / cancel
+
+STATE 3: CONNECTED (ACTIVE)
+- Appearance: Filled card, brand colors
+- Icon: Channel icon (full color) + green dot indicator
+- Description: Channel is connected and working
+- Action: Tap to view settings / send test message
+
+STATE 4: CONNECTED (PAUSED)
+- Appearance: Filled card but dimmed opacity (0.7)
+- Icon: Channel icon + pause badge
+- Description: User has temporarily paused this channel
+- Action: Tap to resume / view settings
+
+STATE 5: ERROR / NEEDS ATTENTION
+- Appearance: Card with warning orange border
+- Icon: Channel icon + warning triangle badge
+- Description: Connection issue (token expired, bot blocked, etc.)
+- Action: Tap to see error details + fix/reconnect
+
+STATE 6: DISCONNECTED
+- Appearance: Card with subtle red accent
+- Icon: Channel icon (greyed) + red X badge
+- Description: Channel was connected but has been disconnected
+- Action: Tap to reconnect
+
+
+9.2 REAL-WORLD REFERENCE PATTERNS
+-----------------------------------
+
+A) GOOGLE ACCOUNT CONNECTED APPS
+- Green checkmark for connected services
+- Yellow warning for services needing attention
+- "Last synced 2 hours ago" timestamp
+- What works: Clear visual hierarchy with color coding
+- Key takeaway: Show last-sync timestamp for confidence
+
+B) IFTTT SERVICE CONNECTIONS
+- Connected: Colored service icon with "Connected" badge
+- Error: Red alert banner at top of service card
+- Reconnect: Blue "Reconnect" button inline
+- What works: Error states are prominent without being alarming
+- Key takeaway: Use inline reconnect buttons, not separate screens
+
+C) ZAPIER INTEGRATION STATUS
+- Green dot: Active and running
+- Yellow dot: Needs attention (e.g., re-authenticate)
+- Red dot: Broken/disconnected
+- Gray dot: Paused by user
+- What works: Simple dot system is universally understood
+- Key takeaway: Colored dots are the most compact status indicator
+
+D) SLACK WORKSPACE STATUS
+- Green dot: Active
+- Yellow dot: Away
+- Red dot: Do Not Disturb
+- Gray ring: Offline
+- What works: Consistent across all of Slack's UI
+- Key takeaway: Status dot system should be consistent app-wide
+
+E) CARBON DESIGN SYSTEM STATUS INDICATORS
+- Different shapes AND colors for accessibility (not color-only)
+- Icon indicators: checkmark (success), warning triangle, error circle, info
+- Semantic grouping: informational, positive, warning, negative
+- Key takeaway: Always pair color with icon shape for color-blind users
+
+
+9.3 IMPLEMENTATION FOR UNJYNX
+-------------------------------
+
+Status Dot Component:
+- Size: 10dp diameter, positioned bottom-right of channel icon
+- Green (#4CAF50): Connected & active
+- Amber (#FF9800): Needs attention / connecting
+- Red (#F44336): Error / disconnected
+- Gray (#9E9E9E): Not configured / paused
+- Pulsing animation for "connecting" state (scale 1.0 to 1.3, 1.5s loop)
+- Border: 2dp white border (creates contrast on any background)
+
+Channel Card Component:
+  +-----------------------------------------------+
+  | [Icon]  Channel Name           [Status Dot]   |
+  |         Connection status text                 |
+  |         Last used: 2 hours ago                 |
+  |                                  [Pro Badge]   |
+  +-----------------------------------------------+
+
+- Icon: 40dp channel logo (full color when connected, grayscale otherwise)
+- Title: Channel name (16sp, medium weight)
+- Subtitle: Status text (14sp, secondary color)
+- Trailing: Status dot + optional Pro badge
+- Background: Surface container (M3) with state-appropriate tint
+- Border: 1dp outline (color varies by state)
+- Tap: Navigate to channel detail / connection flow
+- Long press: Quick actions (test, pause, disconnect)
+
+Flutter Implementation:
+- Custom StatelessWidget wrapping Material 3 Card
+- AnimationController for pulsing dot (connecting state)
+- ColorTween for smooth state transitions
+- Use `connectivity_plus` to auto-detect network issues
+- Poll channel health endpoint every 5 minutes (background)
+- Show last-successful-delivery timestamp
+
+
+================================================================================
+SECTION 10: CHANNEL USAGE & QUOTA VISUALIZATION
+================================================================================
+
+10.1 REAL-WORLD EXAMPLES
+--------------------------
+
+A) MOBILE DATA USAGE (iOS / ANDROID)
+- Circular arc showing usage vs limit
+- Color transitions: Green > Yellow > Orange > Red as usage increases
+- Breakdown list below arc showing per-app usage
+- Widget version: Compact circle on home screen
+- What works: Arc immediately communicates ratio at a glance
+- Key takeaway: Arc/gauge for overall, list for breakdown
+
+B) GITHUB ACTIONS USAGE
+- Linear progress bar per category (minutes, storage, packages)
+- Percentage label on the right
+- Color: Green < 50%, Yellow 50-80%, Red > 80%
+- "Included" vs "Paid" usage clearly separated
+- What works: Linear bars with percentage are very scannable
+- Key takeaway: Show "included" vs "additional" cost clearly
+
+C) VERCEL BANDWIDTH/USAGE
+- Clean card with circular progress ring
+- Large number in center: "1.2 GB of 100 GB"
+- Small percentage below: "1.2%"
+- Daily/monthly toggle
+- What works: Large prominent number is immediately useful
+- Key takeaway: Show absolute numbers AND percentage
+
+D) TWILIO CONSOLE
+- Message count: "1,247 of 5,000 messages sent"
+- Per-channel breakdown: SMS (500), WhatsApp (300), Email (447)
+- Cost display: "$12.47 this month"
+- Rate card: Shows per-message cost for each channel
+- What works: Combining count with cost makes users aware of spending
+- Key takeaway: Show cost impact alongside usage for premium channels
+
+E) APPLE STORAGE MANAGEMENT
+- Stacked horizontal bar showing category breakdown by color
+- List below with category name, color swatch, and size
+- Recommendations section: "You could save X by..."
+- What works: Stacked bar instantly shows proportions
+- Key takeaway: Use stacked bar for channel proportion comparison
+
+
+10.2 QUOTA VISUALIZATION DESIGN FOR UNJYNX
+---------------------------------------------
+
+SCREEN: "Usage & Quotas"
+
+Section 1: Monthly Overview Card
+  +--------------------------------------------------+
+  |  [Circular Progress Ring - 65% filled]           |
+  |       327 / 500                                  |
+  |     messages sent                                |
+  |   Resets in 12 days                              |
+  |   [Upgrade for unlimited]                        |
+  +--------------------------------------------------+
+
+Section 2: Per-Channel Breakdown
+  Push Notifications     [==========----] 215   Unlimited
+  Telegram Messages      [======--------]  87   Unlimited
+  WhatsApp Messages      [=====---------]   3   3/5 free
+  Email Messages         [====---------]   18   Unlimited
+  SMS Messages           [=-----------]     4   4/5 free
+
+  Legend: Bar color matches channel brand color
+  WhatsApp/SMS bars show warning color when approaching limit
+
+Section 3: Daily Trend (Mini Chart)
+  Small sparkline chart showing messages per day for last 30 days
+  "Your busiest day: Monday (avg 18 messages)"
+  "Your quietest day: Sunday (avg 3 messages)"
+
+Section 4: Cost Tracker (Pro users)
+  This Month:   Rs 0 (within free tier)
+  Projected:    Rs 0
+  [Details] link to cost breakdown per message per channel
+
+Section 5: Channel Efficiency
+  "WhatsApp reminders are opened 3.2x faster than Email"
+  "Telegram has 94% delivery rate (best among your channels)"
+  Ranked list of channels by response time / open rate
+
+
+10.3 FLUTTER IMPLEMENTATION
+-----------------------------
+
+Circular Progress Ring:
+- `percent_indicator` package: Simple, lightweight circular/linear indicators
+  - CircularPercentIndicator with custom colors, size, and center text
+  - Built-in animation support
+- Custom implementation: `CustomPainter` with `Canvas.drawArc()`
+- Syncfusion `syncfusion_flutter_gauges` for advanced radial gauge
+
+Linear Progress Bars:
+- Material 3 `LinearProgressIndicator` for basic bars
+- `percent_indicator` for labeled linear bars with percentage text
+- Custom: Stack with two Container widgets for filled/unfilled portions
+
+Color Logic:
+  usage < 50%:  ColorScheme.primary (brand purple)
+  usage 50-80%: Color(0xFFFFA726)  (warning amber)
+  usage > 80%:  ColorScheme.error   (Material red)
+  usage = 100%: ColorScheme.error + "Limit reached" label
+
+Sparkline Chart:
+- `fl_chart` package for line charts (most popular Flutter chart library)
+- `sparkline` package for minimal sparkline widgets
+- Custom: `CustomPainter` drawing path from data points
+
+Data Refresh:
+- Pull-to-refresh on usage screen
+- Background sync every 15 minutes via WorkManager
+- Optimistic UI: Update count immediately on notification send
+
+
+================================================================================
+SECTION 11: FLUTTER-SPECIFIC IMPLEMENTATION GUIDE
+================================================================================
+
+11.1 RECOMMENDED PACKAGE STACK
+---------------------------------
+
+QR Code:
+- Generation: `qr_flutter` (render QR codes as widgets)
+- Scanning: `mobile_scanner` (ML Kit for Android, Apple Vision for iOS)
+
+Phone Input:
+- `intl_phone_number_input` (Google libphonenumber, all platforms)
+- `country_code_picker` (searchable flags, 70 languages)
+
+OTP Input:
+- `pinput` (6 states, autofill, clipboard, theming)
+- `sms_otp_auto_verify` (Android SMS Retriever API)
+
+Drag Reorder:
+- Flutter `ReorderableListView` (built-in, sufficient for most cases)
+- `animated_reorderable_list` (smoother animations)
+
+Progress/Gauges:
+- `percent_indicator` (circular + linear, lightweight)
+- `syncfusion_flutter_gauges` (advanced radial gauges)
+- `fl_chart` (line/bar/pie charts for usage trends)
+
+Connectivity:
+- `connectivity_plus` (network type detection)
+- `internet_connection_checker_plus` (actual internet verification)
+
+Status Indicators:
+- Custom widgets with AnimationController for pulsing effects
+- Material 3 Badge widget for status dots on icons
+
+Animations:
+- `lottie` (for connection success/failure animations)
+- Flutter's built-in AnimatedContainer, AnimatedOpacity, Hero
+- `flutter_animate` for declarative animation chains
+
+
+11.2 STATE MANAGEMENT ARCHITECTURE
+------------------------------------
+
+Using Riverpod 3.x (project standard):
+
+Providers:
+- channelListProvider: Watches all connected channels from Drift DB
+- channelStatusProvider(channelId): Real-time status for specific channel
+- notificationPreferencesProvider: Full preference matrix from DB
+- quietHoursProvider: Current quiet hours configuration
+- fallbackChainProvider: Ordered list of channel priorities
+- usageStatsProvider: Monthly usage counts per channel
+- consentStateProvider: Current consent status per purpose
+
+State Classes (Freezed):
+- ChannelConnection: {id, type, status, lastSync, config, errorMessage}
+- NotificationPreference: {categoryId, channelId, enabled, frequency}
+- QuietHoursConfig: {workDays, workStart, workEnd, sleepStart, sleepEnd, modes}
+- FallbackChain: {orderedChannels, mode, waitTimeBetweenAttempts}
+- UsageStats: {channelId, period, sent, limit, cost}
+- ConsentRecord: {purpose, granted, grantedAt, version}
+
+
+11.3 NAVIGATION STRUCTURE
+---------------------------
+
+Using go_router (project standard):
+
+/notifications                    -> NotificationHubScreen
+/notifications/channels           -> ChannelListScreen
+/notifications/channels/:id       -> ChannelDetailScreen
+/notifications/channels/add       -> AddChannelScreen
+/notifications/channels/add/:type -> ChannelSetupFlow (QR, OTP, etc.)
+/notifications/preferences        -> PreferenceMatrixScreen
+/notifications/quiet-hours        -> QuietHoursScreen
+/notifications/fallback           -> FallbackChainScreen
+/notifications/usage              -> UsageQuotaScreen
+/notifications/consent            -> ConsentDashboardScreen
+
+
+11.4 WIDGET TREE ARCHITECTURE
+-------------------------------
+
+NotificationHubScreen
++-- SliverAppBar (with search + filter chips)
++-- SliverList
+    +-- ActiveChannelsSection
+    |   +-- ChannelCard (per connected channel)
+    |       +-- ChannelIcon
+    |       +-- StatusDot
+    |       +-- ProBadge (conditional)
+    |       +-- LastSyncTimestamp
+    +-- AddChannelCard (+ button with available channels)
+    +-- QuickActionsSection
+    |   +-- DoNotDisturbChip
+    |   +-- QuietHoursChip
+    |   +-- TestAllChannelsButton
+    +-- UsageSummaryCard
+    |   +-- CircularPercentIndicator
+    |   +-- ChannelBreakdownBars
+    +-- FallbackPreviewCard
+        +-- OrderedChannelChips
+        +-- "Edit Priority" link
+
+
+11.5 PERMISSION HANDLING
+--------------------------
+
+Notification Permission (Push):
+- Request contextually (after user sets up first task, not on app launch)
+- Pre-permission screen: "UNJYNX needs notifications to remind you about tasks"
+- Show benefit: "Apps that defer permission prompts see 28% higher grant rates"
+- If denied: Show banner explaining how to enable in system settings
+- Use `permission_handler` package for runtime permission management
+
+Camera Permission (QR Scanning):
+- Only requested when user taps "Scan QR Code"
+- Pre-permission: "We need camera access to scan the Telegram QR code"
+- If denied: Offer "Open in Telegram" as alternative (no camera needed)
+
+SMS Permission (OTP Auto-Read, Android only):
+- SMS Retriever API does NOT require SMS permission
+- SmartAuth/Pinput handle this automatically
+- Never request READ_SMS permission (invasive, unnecessary)
+
+
+================================================================================
+SECTION 12: MATERIAL 3 COMPONENT RECOMMENDATIONS
+================================================================================
+
+12.1 SETTINGS PAGE COMPONENTS
+-------------------------------
+
+For building the notification settings screens, use these M3 components:
+
+LISTTILE:
+- Primary component for settings rows
+- Supports leading icon, title, subtitle, trailing widget
+- M3 specs: m3.material.io/components/lists/specs
+- Use for: Channel list items, preference rows, info displays
+- Theming: Inherits from ListTileThemeData
+
+SWITCHLISTTILE:
+- ListTile + Switch combination widget
+- Perfect for: Feature toggles, channel on/off, DND toggles
+- controlAffinity: Switch position (leading or trailing)
+- Dense mode: For compact settings lists
+- States: Active (primary color) / Inactive (outline color)
+- M3 Switch with thumb icon: Checkmark when ON, X when OFF
+
+EXPANSIONTILE:
+- Collapsible section with arrow indicator
+- Use for: Category-level preferences that expand to show channel toggles
+- Animated icon and text color transitions between states
+- Good for: Grouping related settings without navigation
+
+CHIP:
+- FilterChip: For day-of-week selectors in quiet hours
+- ChoiceChip: For frequency selection (Immediate/Daily/Weekly)
+- InputChip: For keyword notification triggers
+- AssistChip: For quick actions (Test, Pause, Disconnect)
+
+CARD:
+- FilledCard: For connected channel cards
+- OutlinedCard: For disconnected/available channel cards
+- ElevatedCard: For the main usage summary card
+- Use CardTheme for consistent elevation and shape
+
+SWITCH:
+- Material 3 Switch with optional icon (thumb icon)
+- Track: colorScheme.primary when ON, outline when OFF
+- Thumb: Can show checkmark when ON, X when OFF
+- Size: 52x32dp default, expandable for accessibility
+
+SLIDER:
+- ContinuousSlider: For wait time between fallback attempts
+- DiscreteSlider: For notification frequency (with tick marks)
+- Use SliderThemeData for custom track/thumb colors
+
+BOTTOM SHEET:
+- ModalBottomSheet: For upgrade prompts and quick settings
+- DraggableScrollableSheet: For long content (plan comparison)
+- showModalBottomSheet with isScrollControlled: true for full expansion
+
+SEGMENTED BUTTON:
+- For binary/ternary choices: Sequential/Smart delivery mode
+- For category view switcher: Category-first / Channel-first
+- M3 replacement for ToggleButtons
+
+NAVIGATION:
+- NavigationBar (bottom): For main app navigation
+- NavigationRail: For tablet/desktop notification hub
+- Breadcrumbs: Custom widget for deep settings navigation
+
+TIME PICKER:
+- showTimePicker: For quiet hours start/end times
+- M3 time picker with dial and input modes
+- 12-hour or 24-hour format based on locale
+
+
+12.2 ICON RECOMMENDATIONS
+---------------------------
+
+Channel Icons (use brand logos where licensing allows):
+- Push: Icons.notifications_outlined / Icons.notifications_active
+- WhatsApp: Custom SVG (brand green #25D366)
+- Telegram: Custom SVG (brand blue #0088cc)
+- Email: Icons.email_outlined / Icons.mark_email_read
+- SMS: Icons.sms_outlined / Icons.textsms
+- Instagram: Custom SVG (brand gradient)
+- Discord: Custom SVG (brand purple #5865F2)
+- Slack: Custom SVG (brand colors)
+
+Status Icons:
+- Connected: Icons.check_circle (green)
+- Pending: Icons.pending (amber)
+- Error: Icons.error_outline (red)
+- Disconnected: Icons.link_off (gray)
+- Paused: Icons.pause_circle_outline (gray)
+
+Settings Icons:
+- Quiet Hours: Icons.bedtime / Icons.do_not_disturb
+- Fallback Chain: Icons.low_priority / Icons.sort
+- Preferences: Icons.tune / Icons.settings
+- Usage: Icons.data_usage / Icons.analytics
+- Consent: Icons.privacy_tip / Icons.policy
+- Premium: Icons.workspace_premium / Icons.star
+
+Navigation Icons:
+- Hub: Icons.hub / Icons.dashboard
+- Add Channel: Icons.add_circle_outline
+- Test: Icons.send / Icons.play_arrow
+- Back: Icons.arrow_back
+- More: Icons.more_vert
+
+
+================================================================================
+SECTION 13: LIGHT & DARK THEME ADAPTATION GUIDE
+================================================================================
+
+13.1 GENERAL PRINCIPLES
+-------------------------
+
+Material 3 Dynamic Color:
+- Use ColorScheme.fromSeed() with brand seed color (midnight purple)
+- Generates harmonious light AND dark schemes automatically
+- On Android 12+: DynamicColorBuilder pulls from wallpaper
+- Override key colors while keeping M3 harmony:
+  - primary: Midnight purple (#2E1A47)
+  - secondary: Gold accent (#FFD700)
+  - tertiary: Teal for success states (#26A69A)
+
+Theme Switching:
+- ThemeMode.system: Auto-adapt to device setting (default)
+- ThemeMode.light / ThemeMode.dark: User override
+- Persist preference via SharedPreferences
+- Respect HighContrast mode via MediaQuery.highContrastOf(context)
+
+
+13.2 LIGHT THEME SPECIFICS
+----------------------------
+
+Background & Surface:
+- Surface: Pure white (#FFFFFF) or near-white (#FAFAFA)
+- Surface Container: Light gray (#F5F5F5) for cards
+- Surface Container High: Slightly darker for elevated cards
+- On Surface: Dark gray (#1C1B1F) for primary text
+- On Surface Variant: Medium gray (#49454F) for secondary text
+
+Channel Cards:
+- Connected: Surface Container with left border in channel brand color
+- Disconnected: Outlined card, no fill, muted icon
+- Error: Surface Container with warning orange left border
+- Hover/Press: Surface Container High
+
+Status Dots (Light):
+- Green: #2E7D32 (darker green for contrast on light bg)
+- Amber: #E65100 (darker amber)
+- Red: #C62828 (darker red)
+- Gray: #757575 (medium gray)
+
+Pro Badge (Light):
+- Background: Purple-900 (#1A0033) or gradient purple-to-gold
+- Text: White (#FFFFFF)
+- Shadow: Subtle purple glow
+
+Progress Bars (Light):
+- Track: Surface Container Highest (#E6E1E5)
+- Fill: Primary color with appropriate state color
+- Text: On Surface
+
+Toggle/Switch (Light):
+- Track ON: Primary (#2E1A47)
+- Track OFF: Surface Container Highest with outline
+- Thumb ON: On Primary (white)
+- Thumb OFF: Outline color
+
+
+13.3 DARK THEME SPECIFICS
+---------------------------
+
+Background & Surface:
+- Surface: Dark gray (#1C1B1F) or near-black (#121212)
+- Surface Container: Slightly lighter (#211F26) for cards
+- Surface Container High: (#2B2930) for elevated cards
+- On Surface: Near-white (#E6E1E5) for primary text
+- On Surface Variant: Light gray (#CAC4D0) for secondary text
+
+Channel Cards:
+- Connected: Surface Container with left border in channel brand color (brighter)
+- Disconnected: Outlined card, muted outline, dim icon
+- Error: Surface Container with warning amber left border
+- Premium glow: Subtle gold border glow for Pro features
+
+Status Dots (Dark):
+- Green: #66BB6A (lighter green for visibility on dark bg)
+- Amber: #FFA726 (lighter amber)
+- Red: #EF5350 (lighter red)
+- Gray: #9E9E9E (lighter gray)
+
+Pro Badge (Dark):
+- Background: Gold-400 (#FFD54F) or gradient gold-to-purple
+- Text: Black (#000000)
+- Glow: Subtle gold ambient glow
+
+Progress Bars (Dark):
+- Track: Surface Container Highest (#36343B)
+- Fill: Primary color (lighter variant for dark theme)
+- Text: On Surface
+
+Toggle/Switch (Dark):
+- Track ON: Primary (lighter variant, e.g., #9C27B0)
+- Track OFF: Surface Container Highest with outline
+- Thumb ON: On Primary
+- Thumb OFF: Outline color
+
+QR Code (Dark):
+- QR modules: White on dark surface (inverted from light theme)
+- QR background: Dark surface color
+- Ensure sufficient contrast ratio (>4.5:1)
+
+
+13.4 CHANNEL-SPECIFIC BRAND COLORS
+-------------------------------------
+
+Each channel has a brand color that should be used consistently:
+
+WhatsApp:
+  Light theme: #128C7E (dark teal)
+  Dark theme:  #25D366 (bright green)
+
+Telegram:
+  Light theme: #0077B6 (dark blue)
+  Dark theme:  #34AADC (light blue)
+
+Email:
+  Light theme: #D93025 (Gmail red)
+  Dark theme:  #EA4335 (lighter Gmail red)
+
+SMS:
+  Light theme: #1565C0 (dark blue)
+  Dark theme:  #42A5F5 (light blue)
+
+Instagram:
+  Light theme: #E1306C (brand pink)
+  Dark theme:  #E4405F (lighter pink)
+
+Discord:
+  Light theme: #5865F2 (brand purple)
+  Dark theme:  #7289DA (lighter purple)
+
+Slack:
+  Light theme: #4A154B (brand aubergine)
+  Dark theme:  #6B2C6C (lighter aubergine)
+
+Push (UNJYNX brand):
+  Light theme: #2E1A47 (midnight purple)
+  Dark theme:  #9C27B0 (lighter purple)
+
+
+13.5 ACCESSIBILITY COLOR CONSIDERATIONS
+-----------------------------------------
+
+- Never rely on color alone to convey status (always pair with icon/shape/text)
+- Minimum contrast ratios per WCAG 2.1 AA:
+  - Normal text (< 18sp): 4.5:1 against background
+  - Large text (>= 18sp or >= 14sp bold): 3:1 against background
+  - UI components and graphical objects: 3:1 against adjacent colors
+- Test with color blindness simulators:
+  - Protanopia (red-blind): Green vs Red dots may look similar
+  - Solution: Use different shapes (circle vs triangle vs square)
+- High contrast mode: Increase all borders to 2dp, increase dot size to 12dp
+- Dynamic type: Support text scaling up to 200% without layout breaking
+
+
+================================================================================
+SECTION 14: UNJYNX-SPECIFIC RECOMMENDATIONS & ARCHITECTURE
+================================================================================
+
+14.1 COMPETITIVE ADVANTAGES TO BUILD
+--------------------------------------
+
+Based on this research, UNJYNX should implement these differentiating features:
+
+1. NOTIFICATION MODE PRESETS (inspired by iOS Focus + Basecamp)
+   - "Calm Mode": Push only, daily digest, quiet hours 10PM-8AM
+   - "Regular Mode": Push + Telegram, immediate for high priority, digest for rest
+   - "Power User Mode": All channels, immediate delivery, AI-optimized timing
+   - Custom mode: Full control over every setting
+   -- No competitor offers this in a task management app
+
+2. AI-OPTIMIZED DELIVERY TIMING (inspired by Apple Intelligence)
+   - Track when user actually reads/acts on notifications
+   - Build per-user optimal delivery time model
+   - "Smart Schedule" shows learned time windows
+   - Per-channel optimization (user may check Telegram at different times than email)
+   -- Only Apple does this natively; no third-party task app has it
+
+3. NOTIFICATION MATRIX VIEW (inspired by Todoist + SuprSend)
+   - Grid: Event categories x Channels
+   - Tap cell to toggle, long-press for frequency sub-menu
+   - Tap column header for bulk channel control
+   - Switch between category-first and channel-first views
+   -- Most apps offer one view; UNJYNX offers both
+
+4. VISUAL FALLBACK CHAIN (inspired by Novu + Courier)
+   - Drag-to-reorder with smooth animations
+   - Real-time "last used" indicators
+   - AI recommendation: "Based on your activity, Telegram works best at 8 AM"
+   - Wait time slider between attempts
+   -- No consumer task app exposes fallback logic to users
+
+5. CONTEXTUAL CONSENT (inspired by DPDP + GDPR best practices)
+   - Per-purpose granular toggles with plain language descriptions
+   - Multilingual (22 Indian languages from day one)
+   - Consent dashboard with withdrawal history
+   - TRAI DLT compliance built into SMS/WhatsApp flows
+   -- Compliance as a feature, not an afterthought
+
+6. USAGE QUOTA GAMIFICATION
+   - "You've sent 327 reminders this month -- that's 42% more than last month!"
+   - Channel efficiency score: "WhatsApp reminders are opened 3x faster"
+   - Cost transparency: "Your WhatsApp usage costs Rs 0 (3/5 free messages used)"
+   -- Turns quota limits into engagement metrics
+
+7. FRIEND FIRST INSTAGRAM CONNECTION
+   - Unique flow: UNJYNX official page sends follow request
+   - User accepts follow on Instagram
+   - Messenger API enables direct messaging
+   - Daily content keeps 24h messaging window alive
+   -- No competitor has this; completely novel approach
+
+8. KEYWORD NOTIFICATIONS (inspired by Slack)
+   - Users define trigger keywords for team notifications
+   - "Notify me when anyone mentions 'deploy', 'urgent', or my name"
+   - Works across all connected team projects
+   -- Unique in task management apps
+
+
+14.2 SCREEN FLOW ARCHITECTURE
+-------------------------------
+
+ONBOARDING FLOW (First-time setup):
+1. Welcome > 2. Choose Mode (Calm/Regular/Power) > 3. Connect First Channel
+4. Consent Screen > 5. Quiet Hours Quick Setup > 6. Done
+
+CHANNEL CONNECTION FLOWS:
+
+Push Notifications:
+  1. Permission request (contextual, not on first launch)
+  2. OS dialog
+  3. Success/failure handling
+  Timeline: 5 seconds
+
+Telegram (FREE - implement first):
+  1. "Connect Telegram" screen with QR code + "Open in Telegram" button
+  2. QR contains: t.me/unjynx_bot?start=<token>
+  3. User scans or taps > Opens Telegram > Sends /start to bot
+  4. Bot webhook confirms connection
+  5. Success screen with test message CTA
+  Timeline: 30 seconds
+
+Email:
+  1. Enter email address (pre-filled from account if available)
+  2. Verification email sent
+  3. User clicks link in email OR enters 6-digit code from email
+  4. Email confirmed
+  Timeline: 1-2 minutes
+
+WhatsApp (Pro feature, uses Gupshup BSP):
+  1. Upgrade prompt (if free tier) OR direct to setup (if Pro)
+  2. Enter phone number (reuse account phone if available)
+  3. Consent screen: TRAI compliance + purpose explanation
+  4. OTP verification via WhatsApp message
+  5. Template approval status shown
+  6. Test message sent
+  Timeline: 2-3 minutes (first time includes Gupshup approval wait)
+
+SMS (Pro feature, uses MSG91):
+  1. Upgrade prompt (if free tier) OR direct to setup
+  2. Enter phone number (reuse account phone)
+  3. Consent screen: TRAI DLT compliance explanation
+  4. OTP via SMS
+  5. DND registry check: "Your number may be registered for DND"
+  6. If DND: Explain limitations, suggest Telegram/WhatsApp instead
+  7. Test message sent
+  Timeline: 1-2 minutes
+
+Instagram (Friend First approach):
+  1. Explain "Friend First" approach with illustration
+  2. Show UNJYNX official Instagram QR code / link
+  3. User follows UNJYNX page on Instagram
+  4. Webhook detects new follower
+  5. UNJYNX sends welcome message via Messenger API
+  6. User confirms in-app
+  7. Daily content keeps 24h window alive
+  Timeline: 1-5 minutes (depends on Instagram follow speed)
+
+Discord:
+  1. OAuth2 flow: "Connect with Discord" button
+  2. Discord authorization screen (in-app browser)
+  3. Select server and channel for notifications
+  4. Bot joins server (if not already there)
+  5. Test message sent to selected channel
+  Timeline: 1-2 minutes
+
+Slack:
+  1. OAuth2 flow: "Connect with Slack" button
+  2. Slack authorization screen
+  3. Select workspace and channel
+  4. Bot posts introduction message
+  5. Test notification sent
+  Timeline: 1-2 minutes
+
+
+14.3 DATA MODELS (DRIFT / DRIZZLE)
+-------------------------------------
+
+Local (Drift - Flutter):
+- channels: id, type, status, config_json, last_sync, error_message, priority_order
+- notification_preferences: id, category_id, channel_id, enabled, frequency
+- quiet_hours_config: id, profile_name, work_days, work_start, work_end, etc.
+- consent_records: id, purpose, granted, granted_at, version, ip_address
+- usage_stats: id, channel_id, period_start, messages_sent, messages_limit
+
+Server (Drizzle - PostgreSQL):
+- notification_channels: Same as local + profile_id FK
+- notification_preferences: Same as local + profile_id FK
+- quiet_hours_profiles: Multiple profiles per user
+- consent_audit_log: Immutable log of all consent changes (DPDP requirement)
+- channel_usage: Aggregated per-channel per-month stats
+- delivery_log: Every notification attempt with status, channel, latency
+
+
+14.4 NOTIFICATION ORCHESTRATION FLOW
+--------------------------------------
+
+When UNJYNX needs to send a notification:
+
+1. EVENT TRIGGER: Task due, content ready, team update, etc.
+
+2. PREFERENCE CHECK:
+   - Is user in quiet hours? >> Queue for later
+   - Is this category enabled for user? >> Skip if disabled
+   - Does user have consent for this purpose? >> Skip if no consent
+
+3. CHANNEL SELECTION (Fallback Chain):
+   - Get user's ordered channel list
+   - Filter to channels that are: connected + category-enabled + within quota
+   - If "Smart" mode: AI selects optimal channel based on time + history
+   - If "Sequential" mode: Try first available channel
+
+4. DELIVERY ATTEMPT:
+   - Push: FCM/APNs via awesome_notifications
+   - Telegram: Bot API (free, unlimited)
+   - WhatsApp: Gupshup BSP template message
+   - Email: SendGrid API
+   - SMS: MSG91/Kaleyra API
+   - Instagram: Messenger API (within 24h window)
+   - Discord: Bot webhook
+   - Slack: Bot webhook
+
+5. DELIVERY TRACKING:
+   - Record attempt in delivery_log
+   - Wait for delivery receipt (channel-specific timeout)
+   - If failed: Try next channel in fallback chain
+   - If all channels failed: Queue for retry with backoff
+
+6. USAGE UPDATE:
+   - Increment usage counter for channel
+   - Check against quota limits
+   - If approaching limit: Show in-app warning
+   - If limit reached: Skip paid channels, use free alternatives
+
+
+14.5 ACCESSIBILITY REQUIREMENTS
+----------------------------------
+
+- All toggles: Labeled with semanticLabel for screen readers
+- Status dots: Accompanied by text description (not color-only)
+- Drag reorder: Support keyboard navigation (arrow keys) as alternative
+- QR code: Always provide text/link alternative ("Open in Telegram" button)
+- OTP: Support paste from clipboard for users who can't use auto-fill
+- Contrast: All text meets WCAG 2.1 AA (4.5:1 for normal, 3:1 for large)
+- Touch targets: Minimum 48x48dp for all interactive elements
+- Reduce motion: Respect device "reduce motion" setting for animations
+- Multilingual: Support right-to-left (RTL) layouts for applicable languages
+- Screen reader: All cards announce channel name + status + tier in one phrase
+- Focus order: Logical tab order through settings (top-to-bottom, left-to-right)
+
+
+14.6 PERFORMANCE CONSIDERATIONS
+----------------------------------
+
+- Channel status polling: Every 5 minutes (not real-time, to save battery)
+- Preference matrix: Load lazily (categories first, expand channels on demand)
+- Usage stats: Cache locally, sync every 15 minutes
+- QR code: Generate once, cache until expiry
+- Channel icons: Pre-loaded SVG assets (not network images)
+- Animations: Use RepaintBoundary to isolate animated widgets
+- List rendering: Use ListView.builder (never ListView with children list)
+- State: Use Riverpod select() to minimize rebuilds on preference changes
+- Images: Use cached_network_image for any channel logos loaded from network
+- Drift queries: Use watch() for reactive updates, not polling the database
+
+
+14.7 TESTING STRATEGY
+-----------------------
+
+Unit Tests:
+- Fallback chain ordering logic
+- Quiet hours calculation (timezone edge cases)
+- Usage quota enforcement
+- Consent validation rules
+- Preference matrix state management
+- Channel status state machine transitions
+
+Widget Tests:
+- Channel card renders correct status states
+- Drag reorder updates priority correctly
+- Preference toggle updates state
+- Pro badge visibility based on tier
+- OTP input auto-advance and error states
+- Quiet hours day chip selection
+- Upgrade sheet content and dismissal
+
+Integration Tests:
+- Full channel connection flow (mock external APIs)
+- Preference save and restore from Drift DB
+- Fallback chain execution with mock delivery failures
+- Consent capture and audit log creation
+- Usage quota enforcement with mock data
+
+E2E Tests:
+- Connect Telegram flow (mock bot webhook)
+- Set up quiet hours and verify notification suppression
+- Upgrade prompt flow from locked feature to payment
+- Complete onboarding with mode selection
+- Disconnect and reconnect a channel
+
+
+14.8 ONBOARDING NOTIFICATION PERMISSION STRATEGY
+--------------------------------------------------
+
+Based on research showing 28% higher grant rates for deferred permission prompts:
+
+TIMING:
+- Do NOT request notification permission on app launch
+- Do NOT request during onboarding walkthrough
+- DO request AFTER user creates their first task
+- Context: "Your task 'Buy groceries' is due tomorrow. Want reminders?"
+
+PRE-PERMISSION SCREEN:
+- Custom screen before OS dialog
+- Illustration: Phone with friendly notification bubble
+- Heading: "Never miss a task again"
+- Body: "We'll send you a gentle nudge when tasks are due"
+- Benefits: "81% of UNJYNX users who enable reminders complete more tasks"
+- [Primary Button]: "Enable Reminders" (triggers OS dialog)
+- [Text Link]: "Not now" (skip, ask again after 3rd task creation)
+
+POST-DENIAL RECOVERY:
+- If user denies: Show subtle banner on home screen
+- Banner: "Reminders are off. Your tasks won't notify you."
+- [Link]: "Turn on in Settings"
+- Show banner max 3 times, then respect the decision
+
+
+================================================================================
+END OF RESEARCH DOCUMENT
+================================================================================
+
+Research Sources:
+- Smashing Magazine: Notification UX Guidelines (2025)
+- SuprSend: Notification Preference Management Documentation
+- Apple: iOS Focus Mode Documentation
+- Google: Material Design 3 Components (m3.material.io)
+- Slack: Notification Settings Help Center
+- Discord: Notification Settings Documentation
+- Todoist: Notification Management Help Center
+- Basecamp: Work Can Wait Feature Documentation
+- TRAI: TCCCPR 2018 (as amended Feb 2025)
+- India DPDP Act 2023: Consent Management BRD (June 2025)
+- Flutter: Official API Documentation (docs.flutter.dev)
+- pub.dev: Package documentation (pinput, mobile_scanner, intl_phone_number_input,
+  percent_indicator, qr_flutter, animated_reorderable_list, connectivity_plus,
+  fl_chart, syncfusion_flutter_gauges)
+- Novu: Multi-channel Notification Infrastructure Documentation
+- Courier: Notification Routing Documentation
+- Gupshup: WhatsApp BSP API Documentation (India)
+- MSG91: India SMS Gateway Documentation
+- Mobbin: Mobile Design Patterns Library
+- Adapty: Paywall Design Library
+- Carbon Design System: Status Indicator Patterns
+- SAP Fiori: Status Indicator Design Guidelines
+- Twilio: OTP Input Best Practices (Android, iOS, HTML)
+- UXMatters: QR Code UX Design Considerations
+- Telesign: Phone Verification UI Best Practices
+- Authgear: Login/Signup UX Guide 2025
+- Appcues: Mobile Permission Priming Strategies
+- Econsultancy: GDPR Consent UX Best Practices
+- CookieScript: UX Patterns for High Consent Rates
+- FairPatterns: GDPR Dark Patterns Analysis
+
+================================================================================
+Generated: 2026-03-10 | UNJYNX by METAminds
+================================================================================

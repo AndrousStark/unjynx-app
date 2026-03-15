@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: apps/backend
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: apps/backend
+        run: pnpm run lint
+
+      - name: Type check
+        working-directory: apps/backend
+        run: pnpm tsc --noEmit
+
+      - name: Test
+        working-directory: apps/backend
+        run: pnpm run test
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+
+  flutter:
+    name: Flutter
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.4"
+          channel: stable
+          cache: true
+
+      - name: Install Melos
+        run: dart pub global activate melos
+
+      - name: Bootstrap
+        run: melos bootstrap
+
+      - name: Generate code
+        run: melos run build_runner
+
+      - name: Analyze
+        run: melos run analyze
+
+      - name: Format check
+        run: melos run format
+
+      - name: Test
+        run: melos run test

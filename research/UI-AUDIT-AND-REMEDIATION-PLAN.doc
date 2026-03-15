@@ -1,0 +1,452 @@
+UI/UX AUDIT FINDINGS & REMEDIATION PLAN
+========================================
+Generated: 2026-03-11
+Auditor: Claude Opus 4.6
+Status: IN PROGRESS
+
+TABLE OF CONTENTS
+1. Executive Summary
+2. Quality Scores by Phase
+3. Systemic Gaps Analysis
+4. Phase 1-2 Remediation (Priority 1)
+5. Cross-Phase Systemic Fixes (Priority 2)
+6. World-Class Polish (Priority 3)
+7. Implementation Order
+
+═══════════════════════════════════════════
+1. EXECUTIVE SUMMARY
+═══════════════════════════════════════════
+
+TOTAL FILES AUDITED: 65+ screen/page files, 78+ widget files, 212 total .dart files
+TOTAL SCREENS: 42 pages across 9 feature packages
+RESEARCH DOCS REVIEWED: 6 research .doc files + app-structure/README.md (2905 lines)
+
+KEY FINDING: Phase 3-5 screens (8.1/10 avg) now EXCEED Phase 1-2 screens (6.4/10 avg)
+after systematic upgrades applied to typography, shadows, haptics, animations, and touch targets.
+
+Phase 1-2 needs the SAME treatment to reach parity, plus cross-phase systemic features
+(shimmer loading, pull-to-refresh, stagger animations, responsive breakpoints) to reach
+world-class (9.5+/10) quality.
+
+═══════════════════════════════════════════
+2. QUALITY SCORES BY PHASE
+═══════════════════════════════════════════
+
+PHASE 1-2 SCORES (Current State):
+┌─────────────────────────────────────────┬───────┬─────────────────────────────────┐
+│ File                                    │ Score │ Critical Issues                 │
+├─────────────────────────────────────────┼───────┼─────────────────────────────────┤
+│ ghost_mode_page.dart (G1)              │ 9.5   │ Near-perfect                    │
+│ notification_permission_page.dart (B4) │ 8.0   │ No press scale on CTA           │
+│ pomodoro_page.dart (F3)                │ 8.0   │ No press scale on controls      │
+│ first_task_prompt_page.dart (B3)       │ 7.0   │ Example chips no haptic          │
+│ progress_rings.dart                    │ 7.5   │ Static shimmer                  │
+│ activity_heatmap.dart                  │ 7.5   │ No tooltip on cells             │
+│ daily_content_card.dart                │ 7.0   │ No press scale                  │
+│ morning_ritual_page.dart (H3)         │ 7.5   │ 1079 lines (over limit)         │
+│ evening_review_page.dart (H2)         │ 7.0   │ 1246 lines (over limit)         │
+│ streak_counter.dart                    │ 7.0   │ Dead conditional line 97        │
+│ timer_ring.dart                        │ 8.0   │ None                            │
+│ breathing_text.dart                    │ 8.0   │ None                            │
+│ enhanced_project_list_page.dart (E1)   │ 6.5   │ No stagger animation            │
+│ content_feed_page.dart (H1)           │ 6.5   │ No stagger, no pull-to-refresh  │
+│ home_page.dart (C1)                   │ 6.0   │ No stagger for 6 sections       │
+│ greeting_bar.dart                      │ 6.5   │ No haptic on bell               │
+│ todo_grid_card.dart                    │ 6.5   │ Checkbox 20px touch target      │
+│ quick_create_sheet.dart                │ 7.0   │ Action btn 40px touch target    │
+│ filter_chip_bar.dart                   │ 6.0   │ Clear icon 14px touch target    │
+│ bulk_action_bar.dart                   │ 7.5   │ Good haptics                    │
+│ today_tasks_section.dart               │ 6.0   │ No haptic, no stagger           │
+│ calendar_page.dart (F1)               │ 5.0   │ Nav button 36px, no haptic      │
+│ time_blocking_page.dart (F2)          │ 5.5   │ No haptic on drag               │
+│ project_detail_page.dart               │ 5.5   │ No haptic, no animation         │
+│ create_edit_project_page.dart (E3)    │ 6.0   │ No haptic on selections         │
+│ todo_card.dart                         │ 5.0   │ Plain Card, no haptic           │
+│ create_todo_sheet.dart                 │ 5.5   │ Clear date btn 24px             │
+│ subtask_list.dart                      │ 6.0   │ Multiple <44px targets          │
+│ task_info_section.dart                 │ 6.5   │ No haptic on rows               │
+│ activity_log.dart                      │ 6.5   │ No haptic expand/collapse       │
+│ project_card.dart                      │ 6.0   │ No haptic, no press scale       │
+│ enhanced_project_card.dart             │ 6.5   │ No haptic, no press scale       │
+│ identity_selector.dart                 │ 5.5   │ No haptic on selection          │
+│ goal_chip_selector.dart                │ 6.0   │ No haptic on chip select        │
+│ channel_toggle_list.dart               │ 5.5   │ No haptic on toggle             │
+│ onboarding_page.dart (B1)             │ 5.0   │ No haptic, no stagger           │
+│ personalization_page.dart (B2)        │ 5.0   │ No haptic, no press scale       │
+│ quick_actions_row.dart                 │ 4.5   │ No haptic/scale/stagger/anim    │
+│ calendar_grid.dart                     │ 6.5   │ No haptic on date tap           │
+│ day_task_list.dart                     │ 6.0   │ No haptic, no press scale       │
+└─────────────────────────────────────────┴───────┴─────────────────────────────────┘
+Average: 6.4/10
+
+PHASE 3-5 SCORES (After Upgrades):
+┌─────────────────────────────────────────┬───────┬─────────────────────────────────┐
+│ File                                    │ Score │ Status                          │
+├─────────────────────────────────────────┼───────┼─────────────────────────────────┤
+│ ghost_mode_page.dart (shared)          │ 9.5   │ Excellent                       │
+│ team_member_card.dart                  │ 9.5   │ Excellent                       │
+│ morning_ritual_page.dart               │ 9.0   │ Excellent (needs split)         │
+│ evening_review_page.dart               │ 9.0   │ Excellent (needs split)         │
+│ content_feed_page.dart                 │ 9.0   │ Excellent                       │
+│ xp_bar.dart                            │ 9.0   │ Excellent                       │
+│ achievement_card.dart                  │ 9.0   │ Excellent                       │
+│ challenge_card.dart                    │ 9.0   │ Excellent                       │
+│ role_badge.dart                        │ 9.0   │ Excellent                       │
+│ plan_card.dart                         │ 9.0   │ Excellent                       │
+│ team_completion_rings.dart             │ 9.0   │ Excellent                       │
+│ standup_card.dart                      │ 9.0   │ Excellent                       │
+│ notification_hub_page.dart (J1)       │ 9.0   │ Excellent                       │
+│ billing_page.dart                      │ 8.5   │ Very Good                       │
+│ current_plan_banner.dart               │ 8.5   │ Very Good                       │
+│ channel_setup_page.dart (J2)          │ 8.5   │ Very Good (needs split)         │
+│ escalation_chain_editor.dart           │ 8.5   │ Very Good                       │
+│ test_notification_page.dart (J3)      │ 8.5   │ Very Good                       │
+│ team_dashboard_page.dart               │ 8.5   │ Very Good                       │
+│ shared_project_page.dart               │ 8.5   │ Very Good                       │
+│ invite_dialog.dart                     │ 8.5   │ Very Good                       │
+│ report_charts.dart                     │ 8.5   │ Very Good                       │
+│ import_progress_bar.dart               │ 8.5   │ Very Good                       │
+│ partner_card.dart                      │ 8.5   │ Very Good                       │
+│ workload_heatmap.dart                  │ 8.0   │ Good                            │
+│ team_members_page.dart                 │ 8.0   │ Good                            │
+│ team_reports_page.dart                 │ 8.0   │ Good                            │
+│ async_standup_page.dart                │ 8.0   │ Good                            │
+│ notification_history_page.dart (J4)   │ 8.0   │ Good                            │
+│ escalation_chain_page.dart (J5)       │ 8.0   │ Good                            │
+│ quiet_hours_page.dart (J6)            │ 8.0   │ Good                            │
+│ export_page.dart                       │ 8.0   │ Good                            │
+│ profile_page.dart                      │ 8.0   │ Good                            │
+│ edit_profile_page.dart                 │ 8.0   │ Good                            │
+│ game_mode_page.dart                    │ 8.0   │ Good                            │
+│ progress_dashboard_page.dart           │ 7.5   │ Good                            │
+│ accountability_page.dart               │ 7.5   │ Good                            │
+│ import_page.dart                       │ 7.5   │ Good                            │
+│ settings_page.dart                     │ 7.5   │ Good                            │
+│ appearance_section.dart                │ 7.5   │ Good                            │
+│ widget_config_page.dart                │ 7.5   │ Good                            │
+│ plan_comparison_page.dart              │ 7.0   │ Needs Polish                    │
+│ settings_section.dart                  │ 7.0   │ Needs Polish                    │
+│ ai_section.dart                        │ 6.5   │ Placeholder Quality             │
+└─────────────────────────────────────────┴───────┴─────────────────────────────────┘
+Average: 8.1/10
+
+═══════════════════════════════════════════
+3. SYSTEMIC GAPS ANALYSIS
+═══════════════════════════════════════════
+
+GAP 1: SKELETON/SHIMMER LOADING (5% coverage)
+- Every async data load shows CircularProgressIndicator
+- Spec requires: animated shimmer with brand colors (base #F0EAF5, highlight #F8F5FF, peak #FFFFFF)
+- Duration: 1500ms left-to-right gradient sweep
+- Gradient stops: [0.0, 0.35, 0.5, 0.65, 1.0]
+- Infrastructure EXISTS: core/lib/widgets/unjynx_shimmer.dart was created
+- Needs: Replace all CircularProgressIndicator/static shimmer with UnjynxShimmer variants
+
+GAP 2: PULL-TO-REFRESH (15% coverage)
+- Only home_page, progress_hub_page, notification_history_page have RefreshIndicator
+- Every list-based page needs it
+- Must use gold color: ux.gold for the indicator
+- Pages needing it: todo_list, project_list, content_feed, calendar, team_dashboard,
+  team_members, billing, game_mode, progress_dashboard, accountability, notification_hub
+
+GAP 3: STAGGER ANIMATIONS (5% coverage)
+- Zero lists use staggered entry animations
+- Spec: 50ms delay per item, 300ms per item, slideX 20px + fade, max 10 animated
+- Infrastructure EXISTS: core/lib/widgets/staggered_list.dart was created
+- Needs: Wrap all list builders with StaggeredColumn or custom stagger logic
+- Priority lists: home sections, task lists, project lists, channel cards, team members
+
+GAP 4: PRESS SCALE (Phase 1-2: 0%, Phase 3-5: 40%)
+- Spec: scale(0.97) on tap-down, 1.0 on release, 150ms easeOutBack
+- Infrastructure EXISTS: core/lib/widgets/pressable_scale.dart was created
+- Phase 1-2 has ZERO press-scale implementations
+- Phase 3-5 has it on: achievement_card, challenge_card, partner_card, team_member_card, plan_card
+- Needs: Apply to ALL tappable cards, buttons, chips across entire codebase
+
+GAP 5: RESPONSIVE BREAKPOINTS (5% coverage)
+- Only shared_project_page.dart has a single 800px breakpoint
+- Spec breakpoints:
+  - Mobile portrait: 375-414px (default)
+  - Mobile landscape: 667-896px (2-column task grid)
+  - Tablet portrait: 768-834px (sidebar nav, wider cards max 560px)
+  - Tablet landscape: 1024-1194px (persistent sidebar + 2-panel)
+- Typography: unchanged up to tablet, +2px on tablet landscape
+- Spacing: 1.25x tablet, 1.5x large tablet
+
+GAP 6: SCREEN TRANSITIONS (10% coverage)
+- Almost no page-level entry/exit animations
+- Spec requires:
+  - Push: slideIn from right, 300ms, easeOutCubic; outgoing at 30% speed (parallax)
+  - Pop: reverse, 250ms (faster)
+  - Bottom sheet: spring mass 1.0, stiffness 500, damping 30
+  - Dialog: scale 0.95->1.0 + opacity, 200ms
+  - Hero: shadow increases 2->8px during flight
+- Can be configured globally in GoRouter/MaterialApp
+
+GAP 7: PHASE 1-2 HAPTIC COVERAGE (25%)
+- Only Ghost Mode, Pomodoro, Morning/Evening Ritual, Content Card, Bulk Actions have haptics
+- Missing from: all onboarding screens, home page, calendar, time blocking, todo cards,
+  project cards, filter chips, subtask list, search, settings toggles
+- Phase 3-5 is at 80% after upgrades
+
+GAP 8: CODE DUPLICATION
+- _priorityColor() duplicated in 6+ files
+- _hexToColor() duplicated in 3 files
+- Both should be extracted to core/lib/utils/
+
+GAP 9: TOUCH TARGET VIOLATIONS (9 elements under 44px)
+- calendar_page _NavButton: 36px
+- subtask_list delete icon: ~22px
+- subtask_list checkbox: 20px
+- subtask_list add button: 32px
+- quick_create_sheet _ActionButton: 40px
+- quick_create_sheet chip clear: 14px
+- filter_chip_bar priority clear: 14px
+- create_todo_sheet clear date: 24px
+- todo_grid_card checkbox: 20px
+
+GAP 10: FILE LENGTH VIOLATIONS
+- evening_review_page.dart: 1246 lines (limit: 800)
+- morning_ritual_page.dart: 1079 lines (limit: 800)
+- channel_setup_page.dart: 1030 lines (limit: 800)
+- todo_detail_page.dart: 906 lines (limit: 800)
+
+═══════════════════════════════════════════
+4. PHASE 1-2 REMEDIATION (Priority 1)
+═══════════════════════════════════════════
+
+BATCH A: Core Utilities (Extract duplicates)
+- [ ] Extract _priorityColor() to core/lib/utils/priority_utils.dart
+- [ ] Extract _hexToColor() to core/lib/utils/color_utils.dart
+- [ ] Update all 9 importing files
+
+BATCH B: Haptic Coverage (25% -> 100%)
+Files needing haptic additions:
+- [ ] onboarding_page.dart: page swipe, Get Started button
+- [ ] personalization_page.dart: Next/Back buttons, step transitions
+- [ ] identity_selector.dart: card selection (selectionClick)
+- [ ] goal_chip_selector.dart: chip selection (selectionClick)
+- [ ] channel_toggle_list.dart: toggle switch (selectionClick)
+- [ ] home_page.dart: section taps (lightImpact)
+- [ ] greeting_bar.dart: notification bell (lightImpact)
+- [ ] quick_actions_row.dart: all chip taps (lightImpact)
+- [ ] today_tasks_section.dart: task toggle (lightImpact), task tap (lightImpact)
+- [ ] calendar_page.dart: date selection (selectionClick), month nav (lightImpact)
+- [ ] calendar_grid.dart: date tap (selectionClick)
+- [ ] time_blocking_page.dart: drag start (mediumImpact), drop (lightImpact)
+- [ ] todo_card.dart: tap (lightImpact), completion (lightImpact)
+- [ ] todo_grid_card.dart: tap (lightImpact), completion (lightImpact)
+- [ ] create_todo_sheet.dart: submit (mediumImpact), picks (selectionClick)
+- [ ] quick_create_sheet.dart: submit (mediumImpact), chip clear (lightImpact)
+- [ ] filter_chip_bar.dart: chip selection (selectionClick)
+- [ ] task_info_section.dart: row taps (lightImpact)
+- [ ] activity_log.dart: expand/collapse (lightImpact)
+- [ ] subtask_list.dart: toggle (lightImpact), reorder (mediumImpact/lightImpact)
+- [ ] project_card.dart: tap (lightImpact)
+- [ ] enhanced_project_card.dart: tap (lightImpact), long press (mediumImpact)
+- [ ] project_detail_page.dart: edit (lightImpact), archive (mediumImpact)
+- [ ] create_edit_project_page.dart: color/icon picks (selectionClick), submit (mediumImpact)
+- [ ] day_task_list.dart: task tap (lightImpact)
+- [ ] content_category_card.dart: selection (selectionClick)
+- [ ] mood_slider.dart: selection (selectionClick) [widget-level, not just page-level]
+
+BATCH C: Touch Target Fixes (9 violations)
+- [ ] calendar_page.dart _NavButton: 36 -> 44px
+- [ ] subtask_list.dart delete icon: wrap in 44x44 SizedBox
+- [ ] subtask_list.dart checkbox: wrap in 44x44 SizedBox
+- [ ] subtask_list.dart add button: 32 -> 44px
+- [ ] quick_create_sheet.dart _ActionButton: 40 -> 44px
+- [ ] quick_create_sheet.dart chip clear: wrap in 44x44 GestureDetector
+- [ ] filter_chip_bar.dart priority clear: wrap in 44x44 GestureDetector
+- [ ] create_todo_sheet.dart clear date: 24 -> 44px
+- [ ] todo_grid_card.dart checkbox: wrap in 44x44 SizedBox
+
+BATCH D: Typography Alignment
+Phase 1-2 files still using inline TextStyle instead of textTheme:
+- [ ] onboarding_page.dart
+- [ ] personalization_page.dart
+- [ ] identity_selector.dart
+- [ ] goal_chip_selector.dart
+- [ ] channel_toggle_list.dart
+- [ ] quick_actions_row.dart
+- [ ] today_tasks_section.dart
+- [ ] calendar_page.dart
+- [ ] calendar_grid.dart
+- [ ] time_blocking_page.dart
+- [ ] todo_card.dart
+- [ ] create_todo_sheet.dart
+- [ ] filter_chip_bar.dart
+- [ ] task_info_section.dart
+- [ ] activity_log.dart
+- [ ] subtask_list.dart
+- [ ] project_card.dart
+- [ ] enhanced_project_card.dart
+- [ ] project_detail_page.dart
+- [ ] create_edit_project_page.dart
+- [ ] day_task_list.dart
+- [ ] onboarding_slide.dart
+
+BATCH E: Purple-Tinted Shadows
+Add BoxShadow(color: Color(0xFF1A0533).withValues(alpha: 0.06)) to cards in:
+- [ ] todo_card.dart
+- [ ] todo_grid_card.dart
+- [ ] create_todo_sheet.dart (sheet shadow)
+- [ ] quick_create_sheet.dart (sheet shadow)
+- [ ] project_card.dart
+- [ ] enhanced_project_card.dart
+- [ ] project_detail_page.dart (info cards)
+- [ ] calendar_page.dart (event cards)
+- [ ] time_blocking_page.dart (block cards)
+- [ ] today_tasks_section.dart (task rows)
+- [ ] day_task_list.dart (task rows)
+- [ ] onboarding_slide.dart (illustration containers)
+- [ ] identity_selector.dart (selection cards)
+
+═══════════════════════════════════════════
+5. CROSS-PHASE SYSTEMIC FIXES (Priority 2)
+═══════════════════════════════════════════
+
+FIX 1: ANIMATED SHIMMER LOADING
+Replace all static shimmer/loading placeholders with UnjynxShimmer variants.
+Files needing shimmer:
+- [ ] home_page.dart (page-level skeleton)
+- [ ] today_tasks_section.dart (task list skeleton)
+- [ ] progress_rings.dart (replace static shimmer)
+- [ ] daily_content_card.dart (replace static shimmer)
+- [ ] streak_counter.dart (replace static shimmer)
+- [ ] todo_list_page.dart (task list skeleton)
+- [ ] project_list_page.dart (project list skeleton)
+- [ ] notification_hub_page.dart (channel grid skeleton)
+- [ ] notification_history_page.dart (log list skeleton)
+- [ ] team_dashboard_page.dart (dashboard skeleton)
+- [ ] team_members_page.dart (member list skeleton)
+- [ ] billing_page.dart (plan cards skeleton)
+- [ ] game_mode_page.dart (gamification skeleton)
+- [ ] progress_dashboard_page.dart (chart skeletons)
+- [ ] profile_page.dart (profile skeleton)
+- [ ] content_feed_page.dart (feed skeleton)
+
+FIX 2: PULL-TO-REFRESH
+Add RefreshIndicator with ux.gold color to:
+- [ ] todo_list_page.dart
+- [ ] project_list_page.dart / enhanced_project_list_page.dart
+- [ ] content_feed_page.dart
+- [ ] calendar_page.dart
+- [ ] team_dashboard_page.dart
+- [ ] team_members_page.dart
+- [ ] billing_page.dart
+- [ ] game_mode_page.dart
+- [ ] progress_dashboard_page.dart
+- [ ] accountability_page.dart
+- [ ] notification_hub_page.dart
+
+FIX 3: GLOBAL PAGE TRANSITIONS
+Configure in mobile app.dart or GoRouter:
+- [ ] Push: CustomTransitionPage with SlideTransition, 300ms
+- [ ] Pop: reverse, 250ms
+- [ ] Bottom sheets: spring physics (mass 1.0, stiffness 500, damping 30)
+- [ ] Dialogs: scale 0.95->1.0 + opacity, 200ms
+
+FIX 4: PRESS SCALE ON ALL TAPPABLE CARDS
+Wrap with PressableScale from core:
+Phase 1-2 files:
+- [ ] todo_card.dart
+- [ ] todo_grid_card.dart
+- [ ] project_card.dart
+- [ ] enhanced_project_card.dart
+- [ ] quick_actions_row.dart (each pill)
+- [ ] today_tasks_section.dart (each task row)
+- [ ] day_task_list.dart (each task row)
+- [ ] calendar_grid.dart (each day cell)
+- [ ] filter_chip_bar.dart (each chip)
+- [ ] identity_selector.dart (each card)
+- [ ] goal_chip_selector.dart (each chip)
+- [ ] channel_toggle_list.dart (each row)
+- [ ] onboarding_slide.dart (CTA buttons)
+Phase 3-5 files still missing:
+- [ ] channel_card.dart
+- [ ] delivery_log_tile.dart
+- [ ] leaderboard_tile.dart
+- [ ] source_card.dart
+- [ ] export_format_card.dart
+
+═══════════════════════════════════════════
+6. WORLD-CLASS POLISH (Priority 3)
+═══════════════════════════════════════════
+
+POLISH 1: STAGGER ANIMATIONS
+Apply StaggeredColumn to all vertical lists:
+- [ ] home_page.dart (6 sections: rings, streak, content, actions, tasks, insights)
+- [ ] today_tasks_section.dart (task items)
+- [ ] todo_list_page.dart (task list)
+- [ ] project_list_page.dart (project cards)
+- [ ] notification_hub_page.dart (channel cards)
+- [ ] team_members_page.dart (member cards)
+- [ ] game_mode_page.dart (achievements grid, challenges)
+- [ ] notification_history_page.dart (delivery logs)
+- [ ] content_feed_page.dart (recent items)
+- [ ] settings_page.dart (section groups)
+
+POLISH 2: RESPONSIVE BREAKPOINTS
+Create responsive layout utilities:
+- [ ] core/lib/utils/responsive.dart (breakpoint constants, LayoutBuilder helpers)
+- [ ] Apply 2-column layout on tablet for: home, tasks, projects, team
+- [ ] Apply sidebar nav on tablet landscape
+- [ ] Adjust spacing: 1.25x tablet, 1.5x large tablet
+
+POLISH 3: FILE SPLITTING
+Split oversized files:
+- [ ] evening_review_page.dart (1246 lines) -> 4 step files + orchestrator
+- [ ] morning_ritual_page.dart (1079 lines) -> 5 step files + orchestrator
+- [ ] channel_setup_page.dart (1030 lines) -> per-channel sheet files
+- [ ] todo_detail_page.dart (906 lines) -> section files
+
+POLISH 4: RIVE ANIMATIONS (Future)
+- [ ] Progress rings -> Rive state machine (replace CustomPainter)
+- [ ] Streak flame -> Rive with evolution stages
+- [ ] Checkbox completion -> Rive animation
+- [ ] Nav bar icons -> Rive morphing
+- [ ] Pull-to-refresh logo -> Rive
+
+POLISH 5: MISSING SCREEN FEATURES
+- [ ] OTP verification flow (6 box input, auto-advance, countdown)
+- [ ] QR code flow (Telegram bot linking)
+- [ ] Task completion choreography (particles, shimmer border)
+- [ ] Inbox Zero celebration (confetti, motivational text)
+- [ ] Theme toggle circular reveal
+- [ ] Cursed task aura (3+ deferrals)
+- [ ] Seasonal particle effects
+
+═══════════════════════════════════════════
+7. IMPLEMENTATION ORDER
+═══════════════════════════════════════════
+
+WAVE 1: Core Infrastructure (Est: 1 session)
+1. Extract _priorityColor and _hexToColor to core
+2. Configure global page transitions in app.dart
+
+WAVE 2: Phase 1-2 Parity (Est: 2-3 sessions)
+3. Add haptic feedback to all 27 Phase 1-2 files
+4. Fix all 9 touch target violations
+5. Replace inline TextStyle with textTheme in 22 files
+6. Add purple-tinted shadows to 13 files
+7. Add press scale to all tappable elements
+
+WAVE 3: Cross-Phase Systemic (Est: 1-2 sessions)
+8. Replace all shimmer/loading with UnjynxShimmer (16 files)
+9. Add pull-to-refresh to 11 pages
+10. Add stagger animations to 10 lists
+
+WAVE 4: Polish & Split (Est: 1 session)
+11. Split 4 oversized files
+12. Add responsive breakpoints
+13. Fix remaining Phase 3-5 gaps (shadows consistency, textTheme gaps)
+
+WAVE 5: World-Class (Future)
+14. Rive animations
+15. OTP/QR flows
+16. Task completion choreography
+17. Seasonal effects
+18. Constellation mode
+
+END OF DOCUMENT

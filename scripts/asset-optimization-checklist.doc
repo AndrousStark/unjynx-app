@@ -1,0 +1,223 @@
+================================================================================
+  UNJYNX Asset Optimization Checklist
+  Last Updated: 2026-03-11
+================================================================================
+
+TOTAL ASSET BUDGET: < 2 MB
+This checklist covers every asset category that ends up in the APK.
+Follow it before every release build.
+
+================================================================================
+  1. IMAGES
+================================================================================
+
+FORMAT RULES:
+  [x] Icons and illustrations  -> SVG (vector, scales to any DPI, tiny)
+  [x] Photographs / complex    -> WebP (lossy, quality 75-85)
+  [x] No PNG larger than 50 KB -> convert to WebP or SVG
+  [x] No JPEG in assets        -> always WebP (30-50% smaller)
+  [x] No BMP or TIFF ever
+
+SIZE LIMITS:
+  [x] Individual image < 100 KB
+  [x] Total images budget < 500 KB
+  [x] Use flutter_svg for SVG rendering (no rasterization at build time)
+
+RESOLUTION RULES:
+  [x] Provide only 1x assets; let Flutter scale up
+      (mdpi is enough -- Flutter handles density scaling)
+  [x] For raster images that must be crisp: provide 2x and 3x ONLY if
+      the visual quality difference is obvious at those densities
+  [x] Never include 4x assets (no devices need them)
+
+TOOLS:
+  - squoosh.app      -- WebP conversion with quality slider
+  - svgo             -- Optimize SVGs (remove editor metadata)
+  - tinypng.com      -- Lossless PNG compression
+
+================================================================================
+  2. FONTS
+================================================================================
+
+RULES:
+  [x] Use google_fonts package for runtime font downloading
+      -> Fonts are cached after first download
+      -> Zero bytes in APK for Google Fonts
+  [x] Do NOT bundle .ttf/.otf in assets/ for Google Fonts families
+  [x] If a custom (non-Google) font is required:
+      - Subset to only used characters (pyftsubset)
+      - Use .woff2 if possible, otherwise .otf
+      - Max 100 KB per font weight
+      - Max 2 weights per family (Regular + Bold)
+  [x] Current fonts (Outfit, DM Sans, Bebas Neue, Playfair Display):
+      All available via google_fonts -- do NOT bundle manually
+
+TOOL:
+  - pyftsubset (from fonttools):
+    pyftsubset Font.ttf --unicodes="U+0000-00FF,U+0131,U+0152-0153" \
+      --layout-features='*' --flavor=woff2 --output-file=Font.woff2
+
+================================================================================
+  3. LOTTIE ANIMATIONS
+================================================================================
+
+RULES:
+  [x] Each .json Lottie file < 100 KB
+  [x] Total Lottie budget < 300 KB
+  [x] Strip unused layers in After Effects before export
+  [x] Reduce keyframes (every 2nd frame is usually enough)
+  [x] Use shape layers, avoid rasterized images in Lottie
+  [x] If a Lottie > 100 KB, consider:
+      - Simplifying the animation
+      - Converting to Rive (.riv) which is more compact
+      - Using Flutter's built-in animation APIs instead
+  [x] Compress with lottie-minify or manually strip metadata
+
+TOOL:
+  - lottiefiles.com/tools/lottie-to-dotlottie (40-70% smaller)
+  - Manual: remove "nm" (name) fields from JSON
+
+================================================================================
+  4. SOUNDS / AUDIO
+================================================================================
+
+RULES:
+  [x] Format: OGG Vorbis (.ogg) -- best compression-to-quality ratio
+  [x] Channels: Mono (single channel) -- halves file size vs stereo
+  [x] Bitrate: 64 kbps (sufficient for UI sounds and notification tones)
+  [x] Each sound file < 15 KB
+  [x] Total audio budget < 200 KB
+  [x] For ambient sounds (Pomodoro): stream from network or local cache,
+      do NOT bundle in APK
+  [x] No .mp3 (larger), no .wav (uncompressed), no .m4a in assets
+
+TOOL:
+  - ffmpeg -i input.wav -ac 1 -b:a 64k -vn output.ogg
+  - Audacity: Export as OGG, Quality 3 (64 kbps), Mono
+
+================================================================================
+  5. MATERIAL ICONS & TREE SHAKING
+================================================================================
+
+RULES:
+  [x] Always build with --tree-shake-icons flag
+  [x] This removes unused Material and Cupertino icon glyphs
+  [x] MaterialIcons-Regular.otf drops from ~1.6 MB to typically < 50 KB
+  [x] Verify: pubspec.yaml has `uses-material-design: true`
+      (required for tree shaking to work)
+  [x] If using custom icon fonts (e.g., from icomoon), subset them to
+      only the glyphs you actually use
+
+HOW TO VERIFY:
+  flutter build apk --release --tree-shake-icons
+  # Check: build output should say "Font asset 'MaterialIcons-Regular.otf'
+  # was tree-shaken, reducing from XXXX to YYYY"
+
+================================================================================
+  6. DART AOT CODE SIZE
+================================================================================
+
+RULES:
+  [x] Use --obfuscate to minify Dart symbols (5-15% smaller AOT)
+  [x] Use deferred loading for feature packages not needed at startup:
+      - feature_gamification  (deferred)
+      - feature_billing       (deferred)
+      - feature_widgets       (deferred)
+      - feature_team          (deferred)
+      - feature_import_export (deferred)
+  [x] Avoid importing entire packages when only one class is needed
+  [x] Run: bash scripts/deferred-imports-check.sh
+  [x] Use --split-debug-info to separate debug symbols from release binary
+
+================================================================================
+  7. NATIVE LIBRARIES
+================================================================================
+
+RULES:
+  [x] Use --split-per-abi to avoid bundling all architectures in one APK
+  [x] For Play Store: use AAB (App Bundle) -- Google handles ABI splitting
+  [x] Review native dependencies:
+      - awesome_notifications: has native code (~1-2 MB per ABI)
+      - drift/sqlite3: has native sqlite (~500 KB per ABI)
+      - Each native plugin adds per-ABI overhead
+  [x] If APK exceeds 15 MB, audit: flutter build apk --analyze-size
+
+================================================================================
+  8. PROGUARD / R8 (Android)
+================================================================================
+
+RULES:
+  [x] R8 is enabled by default in release builds (via Gradle)
+  [x] If you add custom ProGuard rules, put them in:
+      apps/mobile/android/app/proguard-rules.pro
+  [x] Verify no "Missing class" warnings in release build
+  [x] Keep rules for reflection-heavy libraries (if any)
+
+================================================================================
+  9. VERIFICATION COMMANDS
+================================================================================
+
+# Full size analysis (builds + parses report)
+bash scripts/apk-size-analysis.sh
+
+# Skip build, just analyze existing report
+bash scripts/apk-size-analysis.sh --skip-build
+
+# Build release APKs (split per ABI)
+bash scripts/build-release.sh apk
+
+# Build release AAB (Play Store)
+bash scripts/build-release.sh aab
+
+# Check deferred imports
+bash scripts/deferred-imports-check.sh
+
+# Interactive size explorer (opens DevTools)
+flutter pub global run devtools --appSizeBase=<path-to-json>
+
+# Quick APK contents listing (requires Android SDK build-tools)
+# Shows what's inside the APK and how much space each entry takes
+unzip -l build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | sort -nrk1 | head -20
+
+================================================================================
+  10. SIZE TARGETS
+================================================================================
+
+  Platform      Format          Target     Hard Limit
+  ----------    -----------     -------    ----------
+  arm64         APK             < 15 MB    20 MB
+  armeabi-v7a   APK             < 12 MB    18 MB
+  universal     APK             < 20 MB    30 MB
+  Play Store    AAB             < 15 MB    150 MB (Play limit)
+
+  Category          Budget
+  --------          ------
+  Dart AOT          < 8 MB
+  Native libs       < 4 MB (per ABI)
+  Assets (total)    < 2 MB
+  - Images          < 500 KB
+  - Fonts           < 0 KB (use google_fonts)
+  - Lottie          < 300 KB
+  - Audio           < 200 KB
+  - Other           < 200 KB
+  Resources (res/)  < 500 KB
+  DEX               < 1 MB
+
+================================================================================
+  11. PRE-RELEASE CHECKLIST
+================================================================================
+
+  [ ] Run `bash scripts/deferred-imports-check.sh` -- 0 violations
+  [ ] Run `bash scripts/apk-size-analysis.sh` -- all under budget
+  [ ] No PNG > 50 KB in assets
+  [ ] No bundled Google Fonts (using google_fonts package)
+  [ ] No .mp3 or .wav in assets (OGG only)
+  [ ] No Lottie > 100 KB
+  [ ] --tree-shake-icons confirmed in build command
+  [ ] --obfuscate confirmed in build command
+  [ ] --split-debug-info confirmed in build command
+  [ ] Debug symbols uploaded to Sentry
+  [ ] AAB uploaded to Play Console (internal track first)
+  [ ] Test install on a real arm64 device
+
+================================================================================

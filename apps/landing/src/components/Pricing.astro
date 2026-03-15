@@ -1,0 +1,217 @@
+---
+const plans = [
+  {
+    name: 'Free',
+    price: { monthly: '0', annual: '0' },
+    description: 'Get started with the basics',
+    features: [
+      { text: 'Up to 25 tasks', included: true },
+      { text: 'Push notifications', included: true },
+      { text: '1 project', included: true },
+      { text: 'Basic progress stats', included: true },
+      { text: 'Daily wisdom quotes', included: true },
+      { text: 'Multi-channel reminders', included: false },
+      { text: 'Ghost Mode', included: false },
+      { text: 'AI smart scheduling', included: false },
+      { text: 'Team features', included: false },
+      { text: 'Priority support', included: false },
+    ],
+    cta: 'Start Free',
+    highlighted: false,
+  },
+  {
+    name: 'Pro',
+    price: { monthly: '6.99', annual: '4.99' },
+    description: 'For individuals who mean business',
+    features: [
+      { text: 'Unlimited tasks', included: true },
+      { text: 'All 7 channels', included: true },
+      { text: 'Unlimited projects', included: true },
+      { text: 'Full analytics dashboard', included: true },
+      { text: 'Daily wisdom (60+ categories)', included: true },
+      { text: 'Multi-channel reminders', included: true },
+      { text: 'Ghost Mode', included: true },
+      { text: 'AI smart scheduling', included: true },
+      { text: 'Team features', included: false },
+      { text: 'Priority support', included: true },
+    ],
+    cta: 'Go Pro',
+    highlighted: true,
+  },
+  {
+    name: 'Team',
+    price: { monthly: '8.99', annual: '6.99' },
+    description: 'Per user, for teams that ship',
+    features: [
+      { text: 'Everything in Pro', included: true },
+      { text: 'Team workspaces', included: true },
+      { text: 'Shared projects & tasks', included: true },
+      { text: 'Team analytics', included: true },
+      { text: 'Admin controls', included: true },
+      { text: 'SSO integration', included: true },
+      { text: 'Custom escalation chains', included: true },
+      { text: 'API access', included: true },
+      { text: 'Dedicated support', included: true },
+      { text: 'SLA guarantees', included: true },
+    ],
+    cta: 'Start Trial',
+    highlighted: false,
+  },
+];
+---
+
+<section id="pricing" class="relative py-24 sm:py-32">
+  <!-- Background -->
+  <div class="absolute inset-0 bg-gradient-to-b from-midnight via-midnight-light/30 to-midnight"></div>
+
+  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Section header -->
+    <div class="text-center mb-12 reveal">
+      <p class="font-body text-sm font-semibold text-gold uppercase tracking-widest mb-4">
+        Pricing
+      </p>
+      <h2 class="font-heading font-bold text-3xl sm:text-4xl md:text-5xl text-purple-mist mb-6">
+        Simple, transparent pricing
+      </h2>
+      <p class="font-body text-lg text-purple-mist/50 max-w-2xl mx-auto mb-8">
+        No hidden fees. No surprises. Cancel anytime.
+      </p>
+
+      <!-- Annual/Monthly toggle -->
+      <div class="inline-flex items-center gap-4 p-1.5 rounded-full bg-midnight-light border border-violet/10">
+        <button
+          id="toggle-monthly"
+          class="pricing-toggle px-5 py-2 rounded-full font-body text-sm font-medium transition-all duration-300 bg-violet text-white"
+          data-period="monthly"
+        >
+          Monthly
+        </button>
+        <button
+          id="toggle-annual"
+          class="pricing-toggle px-5 py-2 rounded-full font-body text-sm font-medium transition-all duration-300 text-purple-mist/50 hover:text-purple-mist"
+          data-period="annual"
+        >
+          Annual
+          <span class="ml-1 text-gold text-xs font-semibold">Save 40%</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pricing cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto reveal-children">
+      {plans.map((plan) => (
+        <div class={`relative rounded-2xl p-8 transition-all duration-500 ${
+          plan.highlighted
+            ? 'border-2 border-gold bg-gradient-to-b from-gold/[0.05] to-midnight-light/50 shadow-xl shadow-gold/5 scale-105 md:scale-110'
+            : 'border border-violet/10 bg-midnight-light/30'
+        }`}>
+          {plan.highlighted && (
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-gold text-midnight font-heading font-bold text-xs rounded-full uppercase tracking-wider">
+              Most Popular
+            </div>
+          )}
+
+          <!-- Plan name -->
+          <h3 class={`font-heading font-bold text-xl mb-2 ${plan.highlighted ? 'text-gold' : 'text-purple-mist'}`}>
+            {plan.name}
+          </h3>
+          <p class="font-body text-sm text-purple-mist/40 mb-6">{plan.description}</p>
+
+          <!-- Price -->
+          <div class="mb-8">
+            <div class="flex items-baseline gap-1">
+              <span class="font-heading font-extrabold text-4xl text-purple-mist">
+                $<span class="price-value" data-monthly={plan.price.monthly} data-annual={plan.price.annual}>
+                  {plan.price.monthly}
+                </span>
+              </span>
+              {plan.price.monthly !== '0' && (
+                <span class="font-body text-sm text-purple-mist/40">
+                  /<span class="period-text">mo</span>
+                </span>
+              )}
+            </div>
+            {plan.price.monthly !== '0' && (
+              <p class="font-body text-xs text-purple-mist/30 mt-1 annual-note hidden">
+                Billed annually at ${(parseFloat(plan.price.annual) * 12).toFixed(2)}/yr
+              </p>
+            )}
+          </div>
+
+          <!-- Features -->
+          <ul class="space-y-3 mb-8">
+            {plan.features.map((feature) => (
+              <li class="flex items-start gap-3">
+                {feature.included ? (
+                  <svg class="w-5 h-5 text-gold flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg class="w-5 h-5 text-purple-mist/20 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+                <span class={`font-body text-sm ${feature.included ? 'text-purple-mist/70' : 'text-purple-mist/30'}`}>
+                  {feature.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <!-- CTA -->
+          <a
+            href="#"
+            data-ph-capture="true"
+            data-ph-capture-attribute-button={`pricing-${plan.name.toLowerCase()}`}
+            class={`block w-full py-3 px-6 rounded-full text-center font-heading font-semibold text-sm transition-all duration-300 ${
+              plan.highlighted
+                ? 'bg-gold text-midnight hover:bg-rich-gold shadow-lg shadow-gold/20'
+                : 'border border-violet/30 text-purple-mist hover:border-gold hover:text-gold'
+            }`}
+          >
+            {plan.cta}
+          </a>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  const toggleMonthly = document.getElementById('toggle-monthly');
+  const toggleAnnual = document.getElementById('toggle-annual');
+  const priceValues = document.querySelectorAll('.price-value');
+  const annualNotes = document.querySelectorAll('.annual-note');
+
+  function setPeriod(period: string) {
+    const isAnnual = period === 'annual';
+
+    priceValues.forEach((el) => {
+      const htmlEl = el as HTMLElement;
+      htmlEl.textContent = isAnnual
+        ? htmlEl.dataset.annual ?? '0'
+        : htmlEl.dataset.monthly ?? '0';
+    });
+
+    annualNotes.forEach((el) => {
+      el.classList.toggle('hidden', !isAnnual);
+    });
+
+    if (toggleMonthly && toggleAnnual) {
+      if (isAnnual) {
+        toggleAnnual.classList.add('bg-violet', 'text-white');
+        toggleAnnual.classList.remove('text-purple-mist/50');
+        toggleMonthly.classList.remove('bg-violet', 'text-white');
+        toggleMonthly.classList.add('text-purple-mist/50');
+      } else {
+        toggleMonthly.classList.add('bg-violet', 'text-white');
+        toggleMonthly.classList.remove('text-purple-mist/50');
+        toggleAnnual.classList.remove('bg-violet', 'text-white');
+        toggleAnnual.classList.add('text-purple-mist/50');
+      }
+    }
+  }
+
+  toggleMonthly?.addEventListener('click', () => setPeriod('monthly'));
+  toggleAnnual?.addEventListener('click', () => setPeriod('annual'));
+</script>

@@ -1,0 +1,227 @@
+# UNJYNX Rate Limiting Configuration
+#
+# Applied via Hono middleware. Each category defines a sliding window
+# rate limit. Requests exceeding the limit receive HTTP 429 with
+# Retry-After header.
+#
+# Key strategy:
+#   - Authenticated routes: keyed by profileId
+#   - Unauthenticated routes: keyed by IP address
+#   - Webhook routes: keyed by provider + IP
+#
+# Last updated: 2026-03-11
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Global defaults (applied when no category-specific limit matches)
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  window_ms: 60000       # 1 minute sliding window
+  max_requests: 100      # 100 requests per minute per key
+  key_strategy: "ip"     # Default key: IP address
+  headers:
+    enabled: true        # Include X-RateLimit-* headers in response
+    prefix: "X-RateLimit"
+  retry_after: true      # Include Retry-After header on 429
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Per-category rate limits
+# ─────────────────────────────────────────────────────────────────────────────
+
+categories:
+  # Authentication endpoints - strict limits to prevent brute force
+  auth:
+    routes:
+      - "POST /api/v1/auth/callback"
+      - "POST /api/v1/auth/refresh"
+      - "POST /api/v1/auth/forgot-password"
+      - "POST /api/v1/auth/reset-password"
+    window_ms: 900000    # 15 minutes
+    max_requests: 10     # 10 attempts per 15 min
+    key_strategy: "ip"
+    block_duration_ms: 1800000  # Block for 30 min after exceeding
+    alert_threshold: 8   # Alert at 80% of limit
+
+  # Profile and session management - moderate limits
+  auth_session:
+    routes:
+      - "GET /api/v1/auth/me"
+      - "POST /api/v1/auth/logout"
+    window_ms: 60000
+    max_requests: 30
+    key_strategy: "profile_id"
+
+  # Task CRUD - primary user interaction, generous limits
+  task_crud:
+    routes:
+      - "GET /api/v1/tasks"
+      - "GET /api/v1/tasks/:id"
+      - "POST /api/v1/tasks"
+      - "PATCH /api/v1/tasks/:id"
+      - "DELETE /api/v1/tasks/:id"
+      - "POST /api/v1/tasks/:id/complete"
+      - "POST /api/v1/tasks/:id/uncomplete"
+      - "POST /api/v1/tasks/:id/duplicate"
+    window_ms: 60000
+    max_requests: 60     # 1 req/sec sustained
+    key_strategy: "profile_id"
+
+  # Task bulk operations - lower limits for expensive operations
+  task_bulk:
+    routes:
+      - "POST /api/v1/tasks/bulk-update"
+      - "POST /api/v1/tasks/bulk-complete"
+    window_ms: 60000
+    max_requests: 10
+    key_strategy: "profile_id"
+
+  # Project operations
+  project_crud:
+    routes:
+      - "GET /api/v1/projects"
+      - "GET /api/v1/projects/:id"
+      - "POST /api/v1/projects"
+      - "PATCH /api/v1/projects/:id"
+      - "DELETE /api/v1/projects/:id"
+    window_ms: 60000
+    max_requests: 40
+    key_strategy: "profile_id"
+
+  # Sync endpoints - batch operations, higher per-request cost
+  sync:
+    routes:
+      - "POST /api/v1/sync/push"
+      - "POST /api/v1/sync/pull"
+      - "GET /api/v1/sync/status"
+    window_ms: 60000
+    max_requests: 20     # Sync batches are large
+    key_strategy: "profile_id"
+
+  # Notification sending - protect against notification spam
+  notification_send:
+    routes:
+      - "POST /api/v1/notifications/test"
+      - "POST /api/v1/notifications/send"
+    window_ms: 60000
+    max_requests: 30
+    key_strategy: "profile_id"
+    alert_threshold: 25
+
+  # Notification reads
+  notification_read:
+    routes:
+      - "GET /api/v1/notifications"
+      - "GET /api/v1/notifications/preferences"
+      - "PUT /api/v1/notifications/preferences"
+    window_ms: 60000
+    max_requests: 60
+    key_strategy: "profile_id"
+
+  # Channel management - infrequent but sensitive
+  channel_management:
+    routes:
+      - "GET /api/v1/channels"
+      - "POST /api/v1/channels"
+      - "DELETE /api/v1/channels/:id"
+      - "POST /api/v1/channels/:id/test"
+    window_ms: 60000
+    max_requests: 20
+    key_strategy: "profile_id"
+
+  # OTP verification - very strict to prevent enumeration
+  otp:
+    routes:
+      - "POST /api/v1/channels/whatsapp/send-otp"
+      - "POST /api/v1/channels/whatsapp/verify"
+      - "POST /api/v1/channels/sms/send-otp"
+      - "POST /api/v1/channels/sms/verify"
+    window_ms: 3600000   # 1 hour
+    max_requests: 3      # 3 OTP attempts per hour
+    key_strategy: "profile_id"
+    block_duration_ms: 7200000  # Block for 2 hours after exceeding
+
+  # Content delivery - read-heavy, generous limits
+  content:
+    routes:
+      - "GET /api/v1/content"
+      - "GET /api/v1/content/categories"
+      - "GET /api/v1/content/preferences"
+      - "PUT /api/v1/content/preferences"
+    window_ms: 60000
+    max_requests: 120    # Content browsing is frequent
+    key_strategy: "profile_id"
+
+  # Progress and analytics
+  progress:
+    routes:
+      - "GET /api/v1/progress"
+      - "GET /api/v1/progress/streak"
+      - "GET /api/v1/progress/heatmap"
+      - "GET /api/v1/progress/insights"
+    window_ms: 60000
+    max_requests: 60
+    key_strategy: "profile_id"
+
+  # Data import - very strict, expensive operations
+  import:
+    routes:
+      - "POST /api/v1/import/todoist"
+      - "POST /api/v1/import/google-tasks"
+      - "POST /api/v1/import/csv"
+    window_ms: 3600000   # 1 hour
+    max_requests: 5      # 5 imports per hour max
+    key_strategy: "profile_id"
+
+  # Admin endpoints - higher limits for dashboard usage
+  admin:
+    routes:
+      - "GET /api/v1/admin/*"
+      - "POST /api/v1/admin/*"
+      - "PATCH /api/v1/admin/*"
+      - "DELETE /api/v1/admin/*"
+    window_ms: 60000
+    max_requests: 120
+    key_strategy: "profile_id"
+    require_role: "admin"
+
+  # Webhook endpoints - called by external providers, IP-based
+  webhook:
+    routes:
+      - "POST /api/v1/webhooks/telegram"
+      - "POST /api/v1/webhooks/whatsapp"
+      - "POST /api/v1/webhooks/sms"
+    window_ms: 60000
+    max_requests: 200    # Providers may burst
+    key_strategy: "ip"
+
+  # Health check - unrestricted for monitoring
+  health:
+    routes:
+      - "GET /health"
+      - "GET /health/ready"
+    window_ms: 60000
+    max_requests: 300
+    key_strategy: "ip"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rate limit tiers for subscription plans
+# Multiplied against the base category limits above
+# ─────────────────────────────────────────────────────────────────────────────
+
+plan_multipliers:
+  free: 1.0
+  pro: 2.0
+  team: 3.0
+  enterprise: 5.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DDoS mitigation (Cloudflare-level, documented here for reference)
+# ─────────────────────────────────────────────────────────────────────────────
+
+ddos_protection:
+  provider: "cloudflare"
+  challenge_threshold: 1000  # req/sec triggers challenge
+  block_threshold: 5000      # req/sec triggers block
+  geo_restrictions:
+    enabled: false
+    notes: "Enable if targeted attacks from specific regions"

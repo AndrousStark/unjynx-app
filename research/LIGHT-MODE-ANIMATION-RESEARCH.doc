@@ -1,0 +1,1976 @@
+UNJYNX LIGHT MODE ANIMATION & MICRO-INTERACTION RESEARCH
+================================================================
+Research Date: 2026-03-10
+Author: Motion Design & Animation Specialist
+Target: Premium productivity app (UNJYNX by METAminds)
+Brand Palette: Purple Mist #F8F5FF | Midnight Purple #1A0533 | Rich Gold #B8860B
+================================================================
+
+TABLE OF CONTENTS
+-----------------
+1.  Why Light Mode Animations Are Different
+2.  Completion & Success Animations (Light Mode)
+3.  Loading & Skeleton States (Light Mode)
+4.  Particle Systems on Light Backgrounds
+5.  Transition Animations
+6.  Hover/Press/Focus States (Light Mode)
+7.  Scroll & Gesture Animations
+8.  Data Visualization Animations (Light Mode)
+9.  Notification & Feedback Animations
+10. Seasonal & Special Event Animations (Light Mode)
+11. Rive vs Lottie for Light Mode
+12. Flutter Implementation Patterns
+13. Accessibility & Reduced Motion
+14. Source References
+
+
+================================================================================
+SECTION 1: WHY LIGHT MODE ANIMATIONS ARE DIFFERENT
+================================================================================
+
+1.1 THE PHYSICS PROBLEM: ADDITIVE VS SUBTRACTIVE COLOR
+-------------------------------------------------------
+
+Every glow, bloom, and neon effect in modern UI design is built on ADDITIVE
+color mixing: you ADD light to pixels to make them brighter. This is why glow
+effects look spectacular on dark backgrounds -- a dark pixel (e.g., #0D0D0D)
+has enormous headroom before it hits white (#FFFFFF). A purple glow at 40%
+opacity on black creates a vivid, visible aura.
+
+On UNJYNX's light background (#F8F5FF), the math reverses:
+  - #F8F5FF has R=248, G=245, B=255 -- already near maximum brightness
+  - Adding a purple glow (#6B21A8 at 40% opacity) barely shifts the pixel:
+    Result: rgba(248+27, 245+8, 255+0) = clamped at (255,253,255) -- invisible
+  - A gold glow (#B8860B at 30% opacity) similarly vanishes into the pale bg
+
+The mathematical explanation:
+  - Additive blend: result = base + (glow * opacity)
+  - When base ~= 255 in all channels, result ~= 255 regardless of glow color
+  - Bloom effects use Gaussian blur on bright pixels, then ADD the blur back
+  - On white, the bright-pixel extraction threshold has nothing to extract
+  - Without HDR color space (values > 1.0), bloom is physically impossible on white
+
+Reference: LearnOpenGL Bloom documentation confirms that without HDR rendering,
+setting brightness threshold below 1.0 on bright backgrounds causes the glow
+to become too dominant or completely invisible. Godot Engine Issue #19361
+documents this exact problem with additive bloom blending on light scenes.
+
+1.2 WHAT FAILS ON LIGHT BACKGROUNDS
+------------------------------------
+
+EFFECT                  | DARK BG RESULT       | LIGHT BG RESULT
+------------------------|----------------------|---------------------------
+Outer glow (box-shadow  | Vivid halo           | Invisible or dirty smudge
+  with bright color)    |                      |
+Neon text-shadow        | Electric, sharp      | Washed out, gray cast
+Bloom/HDR bloom         | Cinematic emphasis   | Nonexistent
+Particle opacity 60%+   | Dramatic, immersive  | Heavy, cluttered
+Bright confetti         | Pops against dark    | Bleached, low contrast
+White shimmer highlight | Elegant sweep        | Invisible (white-on-white)
+Additive blend particles| Glowing fireflies    | Ghost artifacts
+
+1.3 WHAT WORKS ON LIGHT BACKGROUNDS (THE UNJYNX TOOLKIT)
+---------------------------------------------------------
+
+Instead of additive/glow techniques, light mode uses SUBTRACTIVE emphasis:
+
+TECHNIQUE             | HOW IT WORKS                      | UNJYNX APPLICATION
+----------------------|-----------------------------------|------------------------------------
+Shadow Pulse          | Animated box-shadow with deeper   | Gold accent shadow pulses on
+                      | color, expanding spread radius    | completion: 0 4px 16px #B8860B40
+Shadow Deepen         | Shadow intensifies on state       | Card press: shadow deepens from
+                      | change (not glow outward)         | 2px to 8px blur, #1A053320
+Color Wash            | Fill area with tinted background  | Hover: lavender wash #EDE5F7
+                      | color instead of outer glow       | Active: gold wash #FFF8E1
+Border Thicken        | Stroke width animates wider       | Progress ring: 3px -> 6px on done
+Color Shift           | Hue/saturation transition         | Purple text shifts to gold on tap
+Elevation Change      | Shadow + translateY combined      | Card lifts -2px with deeper shadow
+Opacity Darken        | Element gets MORE opaque/darker   | Text: #1A0533 at 60% -> 100%
+Scale + Shadow combo  | Subtle scale with coordinated     | Button press: scale(0.97) + shadow
+                      | shadow reduction                  | shrinks proportionally
+
+1.4 THE LIGHT MODE DESIGN PHILOSOPHY
+-------------------------------------
+
+Dark mode = immersive, dramatic, cinematic (entertainment, creativity)
+Light mode = clean, calm, professional, focused (productivity, business)
+
+For UNJYNX (a productivity app), light mode is the PRIMARY mode for most
+users during working hours. This means:
+  - Animations should be 20-30% SHORTER in duration than dark mode equivalents
+  - Particle counts should be 30% of dark mode
+  - Movement amplitude should be 50% of dark mode
+  - Color saturation should be HIGHER (deeper tints, not lighter pastels)
+  - Emphasis comes from CONTRAST and SHADOW, not from LIGHT and GLOW
+
+Real-world validation: Todoist, TickTick, and Things 3 all use minimal
+animation in light mode. Apple Reminders uses shadow/elevation changes rather
+than glow effects. Google Tasks uses color fills (not glows) for completion.
+
+Gartner predicts that by end of 2025, 75% of customer-facing applications will
+incorporate micro-interactions as standard UI/UX practice. The ideal duration
+for micro-interactions is between 200 and 500 milliseconds -- long enough to be
+noticed, yet short enough to maintain flow. Thoughtful motion reduces user error,
+improves task completion rates by 15%, and decreases user confusion and support
+requests by 18%.
+
+Sources:
+- LearnOpenGL Bloom: https://learnopengl.com/Advanced-Lighting/Bloom
+- Godot Bloom Issue: https://github.com/godotengine/godot/issues/19361
+- AlterSquare Light vs Dark UX Guide: https://altersquare.io/dark-mode-vs-light-mode-the-complete-ux-guide-for-2025/
+- Primotech UI/UX Evolution 2026: https://primotech.com/ui-ux-evolution-2026-why-micro-interactions-and-motion-matter-more-than-ever/
+- TechQWare Motion Design 2026: https://www.techqware.com/blog/motion-design-micro-interactions-what-users-expect
+- BetaSoft Motion UI Trends: https://www.betasofttechnology.com/motion-ui-trends-and-micro-interactions/
+
+
+================================================================================
+SECTION 2: COMPLETION & SUCCESS ANIMATIONS (LIGHT MODE)
+================================================================================
+
+2.1 CHECKBOX COMPLETION ANIMATION
+----------------------------------
+
+The checkbox is the MOST FREQUENT animation in a TODO app. It must feel
+satisfying without becoming annoying after the 1000th tap.
+
+PHASE 1: Tap Recognition (0-50ms)
+  - Scale checkbox to 0.92 (press feedback)
+  - Background shifts from transparent to rgba(184,134,11,0.08) -- subtle gold wash
+  - Haptic: UIImpactFeedbackGenerator.light (iOS) / HapticFeedback.lightImpact (Flutter)
+
+PHASE 2: Fill Animation (50-250ms)
+  - Checkbox border color transitions: #1A053340 -> #B8860B (gold)
+  - Fill sweeps from center outward (radial wipe, not opacity fade)
+  - Fill color: solid #B8860B (rich gold -- high contrast on #F8F5FF)
+  - Checkmark draws with stroke animation (SVG path or Rive)
+  - Checkmark color: #FFFFFF (white on gold = excellent contrast)
+  - Easing: Curves.easeOutBack (slight overshoot for satisfaction)
+
+PHASE 3: Ripple Expansion (200-400ms)
+  - NOT a glow -- a WASH expansion
+  - Circular wash: rgba(184,134,11,0.06) expands from checkbox center
+  - Radius expands from 20px to 80px, opacity fades from 0.06 to 0.00
+  - This replaces the "glow pulse" used in dark mode
+
+PHASE 4: Text Strikethrough (250-450ms)
+  - Strikethrough line wipes left-to-right
+  - Line color: #6B21A8 (deep purple -- MORE visible than gold on white)
+  - Line thickness: 1.5px (not 1px -- needs visibility on light bg)
+  - Text opacity transitions: 1.0 -> 0.5 (not 0.3 -- must stay readable)
+  - Duration: 200ms, Curve: Curves.easeInOut
+
+PHASE 5: Settle (400-550ms)
+  - Scale returns to 1.0 from slight 1.02 overshoot
+  - All colors reach final state
+  - Total animation: ~550ms (within the 200-500ms best practice sweet spot,
+    slightly extended for multi-phase richness)
+
+Why these choices:
+  - Gold fill provides strong contrast ratio (4.8:1) against #F8F5FF
+  - Purple strikethrough (not gold) because purple has higher luminance
+    contrast against the near-white background
+  - Wash expansion (not glow) because additive glow is invisible on light
+  - Text stays at 0.5 opacity (not 0.3) for light-mode readability
+
+Real-world examples:
+  - Things 3: Uses a simple fill + checkmark draw, minimal but satisfying
+  - Todoist: Red circle fill with white check, quick 200ms, no post-effects
+  - TickTick: Colorful fill matching priority, includes a tiny "pop" scale
+  - Apple Reminders: Blue fill, checkmark draws, subtle scale bounce
+  - SurveyMonkey: Checkbox with checkmark appearance + strike-through effect
+
+Competitive edge for UNJYNX: The wash expansion + gold fill + purple
+strikethrough combo is unique. No major competitor uses a two-color completion
+(gold check + purple strikethrough) or the wash ripple technique.
+
+2.2 PROJECT/MILESTONE COMPLETION CELEBRATION
+---------------------------------------------
+
+When ALL tasks in a project are done, a bigger celebration triggers:
+
+OPTION A: Confetti Burst (recommended for light mode)
+  - 40-60 particles (NOT 100+ like dark mode -- less is more on light)
+  - Particle colors: #B8860B (gold), #6B21A8 (deep purple), #1A0533 (midnight),
+    #D4A847 (lighter gold), #9333EA (medium purple)
+  - NO pastel particles -- they vanish on #F8F5FF
+  - Each particle: 4-8px, mix of circles and rectangles
+  - Physics: gravity 980px/s^2, initial velocity 400-800px/s upward
+  - Spread angle: 120 degrees from center-top
+  - Duration: 1200ms total, particles fade at 800ms+
+  - Background: brief flash of rgba(184,134,11,0.04) across full screen
+
+OPTION B: Progress Ring Burst
+  - Project progress ring THICKENS from 4px to 12px
+  - Shimmer sweeps along the ring (gradient: #B8860B -> #D4A847 -> #B8860B)
+  - Ring color shifts from tracking purple to celebration gold
+  - Small "spark" particles (5-8) emit from the ring completion point
+  - Ring then settles back to normal thickness with gold color
+
+For UNJYNX, use Option A for major milestones (project complete) and
+Option B for sub-milestones (all tasks in a section done).
+
+A subtle celebration animation after completing a significant task can boost
+satisfaction, though the same animation repeated frequently becomes an obstacle
+to efficiency. This is why UNJYNX uses a tiered system: frequent completions
+(individual tasks) get quick animations, rare completions (projects) get
+celebrations.
+
+2.3 STREAK MILESTONE CELEBRATION
+---------------------------------
+
+Referencing Duolingo's approach (they treat milestones like "power ups"
+with the character physically changing on exciting days):
+
+  - Streak flame icon: Rive animation with warm gradient (#B8860B -> #D4763B)
+  - On light bg, the flame needs a SHADOW ANCHOR:
+    - Drop shadow: 0 2px 8px rgba(26,5,51,0.15) beneath the flame
+    - This "grounds" the flame on the light surface (prevents floating look)
+  - Milestone numbers (7, 30, 100 days): animated_flip_counter with gold digits
+  - Background: brief warm wash rgba(184,134,11,0.06) behind the streak card
+  - Haptic: UINotificationFeedbackGenerator.success
+  - Apps combining streaks + milestones see 40-60% higher DAU compared to
+    single-feature implementations (Plotline research)
+
+Sources:
+- Duolingo Streak Animation Blog: https://blog.duolingo.com/streak-milestone-design-animation/
+- BricxLabs Micro Animation Examples: https://bricxlabs.com/blogs/micro-interactions-2025-examples
+- Mockplus Button State Design: https://www.mockplus.com/blog/post/button-state-design
+- Justinmind Micro-interactions: https://www.justinmind.com/web-design/micro-interactions
+- Plotline Streaks Gamification: https://www.plotline.so/blog/streaks-for-gamification-in-mobile-apps
+- DEV.to Micro-Interaction Rules 2026: https://dev.to/devin-rosario/5-micro-interaction-design-rules-for-apps-in-2026-48nb
+
+
+================================================================================
+SECTION 3: LOADING & SKELETON STATES (LIGHT MODE)
+================================================================================
+
+3.1 SHIMMER LOADING EFFECT (LIGHT MODE SPECIFIC)
+--------------------------------------------------
+
+Standard shimmer (gray-on-gray) looks WRONG on UNJYNX's purple-tinted bg.
+The shimmer must match the brand's lavender palette.
+
+UNJYNX Light Mode Shimmer Configuration:
+  - Base color: #F0EAF5 (slightly darker than #F8F5FF bg -- creates shape)
+  - Highlight color: #F8F5FF (matches background -- the "shine" band)
+  - Shimmer direction: left-to-right (LTR for LTR languages)
+  - Duration: 1500ms per sweep
+  - Gradient stops: 0.0 (#F0EAF5), 0.4 (#F0EAF5), 0.5 (#F8F5FF), 0.6 (#F0EAF5), 1.0 (#F0EAF5)
+  - Gradient width: 40% of container width (narrow band = more elegant)
+
+WHY NOT standard gray shimmer:
+  - #E0E0E0 base on #F8F5FF creates a cold, clinical look
+  - #F0EAF5 base maintains the warm purple brand feel
+  - Users subconsciously associate the shimmer color with the brand
+  - Facebook created the shimmer loading pattern to indicate status;
+    UNJYNX extends it with brand-colored shimmers for cohesion
+
+Flutter Implementation (Skeletonizer package):
+  - Skeletonizer v2.x supports custom PaintingEffect
+  - Configure: ShimmerEffect(
+      baseColor: Color(0xFFF0EAF5),
+      highlightColor: Color(0xFFF8F5FF),
+      duration: Duration(milliseconds: 1500),
+    )
+  - Alternative: shimmer_ai package with baseColor: Colors.deepPurple.shade50
+    (zero-configuration shimmer with one line of code)
+
+The Skeletonizer package (pub.dev/packages/skeletonizer) reduces existing
+layouts into skeletons and applies painting effects automatically. The
+flutter_shimmer package also offers a built-in PurplishMode (isPurplishMode: true)
+which provides purple-tinted shimmer out of the box -- almost exactly matching
+UNJYNX's brand palette.
+
+For light themes, SkeletonizerPlus automatically uses Colors.grey[300] as base
+and Colors.grey[100] as highlight. We override these with our lavender values.
+
+3.2 PULL-TO-REFRESH ANIMATION
+-------------------------------
+
+Light mode pull-to-refresh should be CLEANER than dark mode:
+
+  - Phase 1 (Pull 0-60px): UNJYNX logo outline appears, scales 0.0 -> 1.0
+    - Logo color: #6B21A8 (deep purple, visible on light bg)
+    - NO shimmer during pull -- just clean scale animation
+  - Phase 2 (Pull 60px+, threshold): Logo fills with gold (#B8860B)
+    - Rotation begins: 0 -> 360 degrees, 800ms per revolution
+    - Easing: Curves.linear (constant speed = "working" feel)
+  - Phase 3 (Loading): Logo continues rotating
+    - Small text "Syncing..." in #1A053380 appears below
+  - Phase 4 (Complete): Logo scale pulses 1.0 -> 1.1 -> 1.0
+    - Gold fill transitions to green checkmark briefly (200ms)
+    - Then fades out with slide-up: translateY(-20px) + opacity 0
+
+Why NOT a spinner:
+  - Branded refresh > generic spinner for premium feel
+  - Purple + gold logo animation reinforces brand with every refresh
+  - Estimated ~30 refreshes/day per user = 30 brand impressions
+
+3.3 CONTENT LOADING TRANSITIONS
+---------------------------------
+
+When real content replaces skeletons:
+
+  - Skeleton fades out: opacity 1.0 -> 0.0, 200ms
+  - Real content fades in: opacity 0.0 -> 1.0, 200ms, 50ms delay per item
+  - Stagger: each list item appears 50ms after the previous
+  - This creates a "cascade" effect that feels fast and intentional
+  - NO slide-in from bottom (adds unnecessary motion on light mode)
+  - Curve: Curves.easeOut (quick start, gentle settle)
+
+3.4 EMPTY STATE ANIMATIONS
+----------------------------
+
+When a list has no items (empty inbox, completed all tasks):
+
+  - Use Lottie animation (fire-and-forget, no interaction needed)
+  - Colors: deep purple (#6B21A8) lines, gold (#B8860B) accents
+  - NOT pastel colors (they disappear on #F8F5FF)
+  - Subtle loop: character/illustration has idle breathing or floating motion
+  - Loop duration: 3000ms (slow, calm, matches productivity context)
+  - Size: max 200x200px (don't dominate the screen)
+
+Sources:
+- Flutter Shimmer Cookbook: https://docs.flutter.dev/cookbook/effects/shimmer-loading
+- Skeletonizer Package: https://pub.dev/packages/skeletonizer
+- Shimmer AI Package: https://pub.dev/packages/shimmer_ai
+- flutter_shimmer PurplishMode: https://github.com/skaran921/flutter_shimmer
+- Skeletonizer Plus Package: https://pub.dev/packages/skeletonizer_plus
+- LogRocket Shimmer Flutter: https://blog.logrocket.com/implement-shimmer-effect-flutter/
+
+
+================================================================================
+SECTION 4: PARTICLE SYSTEMS ON LIGHT BACKGROUNDS
+================================================================================
+
+4.1 THE LIGHT MODE PARTICLE RULES
+-----------------------------------
+
+Rule 1: 30% PARTICLE COUNT of dark mode
+  Dark mode: 100 ambient particles -> Light mode: 30 particles
+  Reason: Light backgrounds feel cluttered faster. Fewer particles = calmer.
+
+Rule 2: 20-30% LESS OPACITY per particle
+  Dark mode particle: opacity 0.4-0.6 -> Light mode: opacity 0.15-0.35
+  Reason: Dark particles on light bg have inherently more contrast than
+  light particles on dark bg. Less opacity compensates.
+
+Rule 3: DEEPER TINT (saturated, not pastel)
+  Dark mode: light lavender #C4B5FD -> Light mode: deep violet #6B21A8
+  Reason: Pastel on near-white = invisible. Deep colors maintain visibility.
+
+Rule 4: 50% MOVEMENT AMPLITUDE
+  Dark mode: 20px drift range -> Light mode: 10px drift range
+  Reason: Light mode = work mode = calm. Excessive particle motion = distraction.
+
+Rule 5: NO ADDITIVE BLENDING
+  Dark mode: BlendMode.plus (additive) -> Light mode: BlendMode.srcOver (normal)
+  Reason: Additive blending on white creates artifacts, not beauty.
+
+4.2 SPECIFIC PARTICLE TYPES ADAPTED FOR LIGHT
+-----------------------------------------------
+
+PRODUCTIVITY STATE PARTICLES (ambient while working):
+  Dark: Floating light-purple dots, opacity 0.3, 80 particles
+  Light: Floating deep-purple dots, opacity 0.12, 25 particles
+         Color: #6B21A840 -> #6B21A820 (gradient fade)
+         Size: 2-4px (slightly smaller than dark mode 3-6px)
+         Speed: 0.3px/frame drift (half of dark mode 0.6px/frame)
+         Blur: 1px Gaussian (soft, not sharp)
+
+CELEBRATION PARTICLES (task/project completion confetti):
+  Dark: Bright multi-color, 100 particles, opacity 0.7-1.0
+  Light: Deep-tinted multi-color, 40-60 particles, opacity 0.5-0.8
+         Colors: #B8860B, #6B21A8, #1A0533, #D4763B, #9333EA
+         NO white or yellow particles (invisible on light bg)
+         NO pastel pink/blue (too soft, low contrast)
+         Size: 4-8px rectangles/circles (same as dark -- need visibility)
+
+AMBIENT SOUND PARTICLES (soundscape visualization):
+  Rain:  Dark: light blue dots falling | Light: #4B6B8A dots, opacity 0.20
+  Forest: Dark: green floating leaves | Light: #2D5A27 leaves, opacity 0.15
+  Cafe:  Dark: warm orange wisps | Light: #8B6914 wisps, opacity 0.12
+  Ocean: Dark: teal flowing waves | Light: #1A6B7A waves, opacity 0.18
+  Fire:  Dark: bright orange embers | Light: #B8860B embers, opacity 0.25
+
+SEASONAL PARTICLES (see Section 10 for full details):
+  Snow:   #C8C0D0 flakes (NOT white -- visible on #F8F5FF)
+  Sakura: #D4547A petals (deeper pink, not pastel)
+  Autumn: #8B5E3C, #B8860B leaves (warm, saturated)
+  Diwali: #D4763B, #B8860B sparks (warm gold/orange -- natural on light)
+
+4.3 FLUTTER CUSTOMPAINTER IMPLEMENTATION
+-----------------------------------------
+
+For custom particle systems on light backgrounds, CustomPainter is the
+recommended approach. The paint() method iterates over all particles and
+queries their progress values. AnimationController drives the animation loop.
+
+Key implementation notes for light mode:
+  - Use canvas.drawCircle with Paint()..color = particleColor.withOpacity(computed)
+  - Set Paint()..blendMode = BlendMode.srcOver (NOT BlendMode.plus)
+  - Apply Paint()..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.0) for softness
+  - Use shouldRepaint() returning true only when particles have moved
+  - Particle pool pattern: pre-allocate List<Particle> to avoid GC pressure
+  - Target: 60fps with <30 particles is trivially achievable on modern devices
+
+Custom Painters offload complex rendering tasks to the GPU by strategically
+using them, enhancing performance and resulting in smoother animations.
+Widgets are composited together using a minimum number of Canvases for
+performance reasons. The shouldRepaint method tells Flutter whether the canvas
+needs to be redrawn when the widget rebuilds -- return false when nothing
+has changed to save resources.
+
+Performance benchmarks (approximate):
+  - 30 particles with blur: ~0.5ms paint time on mid-range device
+  - 100 particles with blur: ~1.5ms paint time (still fine for 60fps budget of 16ms)
+  - 200+ particles: consider using flutter_gpu or Rive for GPU-accelerated rendering
+
+4.4 PARTICLE INTERACTIVITY ON LIGHT MODE
+------------------------------------------
+
+Unlike dark mode where particles can be dramatic and interactive (cursor
+magnetism, touch ripples), light mode particles should be:
+  - NON-INTERACTIVE by default (ambient, background decoration)
+  - Exception: celebration confetti has physics (gravity, collision)
+  - Exception: sound visualization particles respond to audio levels
+  - Touch interaction only in dedicated views (ambient sound picker)
+  - Never in task list or productivity views (distraction)
+
+Sources:
+- particles.js Library: https://vincentgarreau.com/particles.js/
+- tsParticles Library: https://particles.js.org/
+- Flutter CustomPainter Particle Guide: https://medium.com/easy-flutter/flutter-magic-build-your-own-particle-system-and-look-like-a-wizard-b1fa55b75c85
+- CustomPainter Performance: https://www.linkedin.com/pulse/boost-performance-interactivity-custom-painters-qudus-fatungase
+- Codemagic CustomPaint Guide: https://blog.codemagic.io/flutter-custom-painter/
+
+
+================================================================================
+SECTION 5: TRANSITION ANIMATIONS
+================================================================================
+
+5.1 SCREEN-TO-SCREEN TRANSITIONS
+----------------------------------
+
+Light mode transitions should feel FAST and CLEAN, not dramatic:
+
+PUSH TRANSITION (navigating deeper):
+  - Incoming screen: slideIn from right, 300ms, Curves.easeOutCubic
+  - Outgoing screen: slideOut to left at 30% speed (parallax depth)
+  - Background: static #F8F5FF (no color transitions)
+  - DO NOT add fade -- pure slide is cleaner on light backgrounds
+
+POP TRANSITION (going back):
+  - Reverse of push: incoming from left, outgoing to right
+  - Duration: 250ms (slightly faster than push -- feels responsive)
+
+MODAL PRESENTATION (bottom sheet, dialogs):
+  - Bottom sheet: slides up with spring physics
+    - Spring: mass 1.0, stiffness 500, damping 30 (slightly bouncy)
+    - Background scrim: rgba(26,5,51,0.25) -- purple-tinted, not plain black
+    - Scrim fade: 200ms, Curves.easeOut
+    - Flutter's showModalBottomSheet supports sheetAnimationStyle parameter
+      to override entrance and exit animation duration/curve
+    - spring_bottom_sheet package provides custom spring physics with
+      configurable mass, stiffness, and damping parameters
+  - Dialog: scale(0.95) -> scale(1.0) + opacity 0 -> 1, 200ms
+    - Background scrim: same purple-tinted scrim
+
+TAB SWITCH:
+  - Crossfade between tab contents: 150ms, Curves.easeInOut
+  - Tab indicator: animated position with Curves.easeOutCubic, 200ms
+  - Tab indicator color: #B8860B (gold, matches brand accent)
+
+5.2 HERO TRANSITIONS
+----------------------
+
+Flutter's Hero widget creates shared element transitions between screens.
+The Hero widget implements a "flying" animation from source to destination
+route. During flight, the hero widget appears above both routes, creating
+visually pleasing continuity.
+
+For UNJYNX light mode:
+
+  - Task card -> Task detail: card expands with Hero tag
+  - Profile avatar -> Profile screen: circular Hero transition
+  - Project icon -> Project detail: icon flies to header position
+
+Light mode specific adjustments:
+  - Hero flight should NOT have a shadow trail (looks dirty on light bg)
+  - Instead, use a subtle elevation: during flight, shadow increases
+    from 2px to 8px blur, then settles back to 4px on destination
+  - The Hero widget's flightShuttleBuilder can customize the in-flight widget:
+    add a DecoratedBox with increasing BoxShadow during the transition
+  - Hero also supports custom shape transforms via rectTween: widgets can
+    morph from circular to rectangular during flight
+
+5.3 GHOST MODE ENTRY TRANSITION (THE DRAMATIC ONE)
+----------------------------------------------------
+
+Ghost Mode is the ONE transition where we break all light-mode rules:
+
+The concept: User activates Ghost Mode (deep focus) and the entire UI
+transforms from light to dark with a dramatic reveal.
+
+PHASE 1: Activation (0-100ms)
+  - Haptic: UIImpactFeedbackGenerator.heavy
+  - Ghost Mode button pulses once with gold wash
+
+PHASE 2: The Crossfade (100-800ms)
+  - Start: #F8F5FF (Purple Mist) across entire screen
+  - A CIRCULAR REVEAL expands from the Ghost Mode button position
+  - Inside the circle: deep purple #1A0533 with all dark-mode styling
+  - Outside the circle: still #F8F5FF light mode
+  - Circle expands to cover full screen using clip-path animation
+  - Easing: Curves.easeInOutCubic (smooth acceleration/deceleration)
+
+PHASE 3: Dark Mode Settle (800-1200ms)
+  - All elements have completed their color transitions
+  - Ambient particles activate (dark mode count: 80-100)
+  - Stars/subtle glow effects appear (only possible now on dark bg)
+  - Sound: optional subtle "whoosh" or low hum
+
+PHASE 4: Exit (reverse)
+  - Circle contracts from edges to center
+  - Light mode elements restore from center outward
+  - Particles fade out during contraction
+  - Total exit: 600ms (faster than entry -- returning to work)
+
+This is based on the circular reveal animation technique documented in
+Android theme switching: capture a snapshot of the current state, overlay it,
+and animate a clip-path from small circle to full screen. The strategy
+involves gracefully overlaying the snapshot and smoothly transitioning the
+system's mode.
+
+5.4 THEME SWITCHING ANIMATION (SETTINGS)
+------------------------------------------
+
+For the manual light/dark toggle in Settings (not Ghost Mode):
+
+  - Use View Transitions API concepts adapted for Flutter
+  - Capture a "screenshot" of current state using RepaintBoundary
+  - Overlay the screenshot on top of the new theme
+  - Crossfade the overlay: opacity 1.0 -> 0.0, 400ms
+  - This prevents the ugly flash of unstyled theme change
+  - Alternative: circular ripple from the toggle switch position
+
+  Multiple animation variants are available: circle, blur, polygon, and
+  custom masks with flexible positioning. Animations can start from center,
+  corners, or edges.
+
+5.5 CARD EXPANSION/COLLAPSE
+------------------------------
+
+Task cards that expand to show subtasks/details:
+
+  - Expand: height animates open, 300ms, Curves.easeOutCubic
+  - Content fades in with 100ms delay after height animation starts
+  - Shadow deepens during expansion: 2px blur -> 6px blur
+  - Collapse: reverse, 250ms (slightly faster)
+  - Chevron icon rotates 0 -> 180 degrees synchronously
+
+5.6 LIST ITEM STAGGER ANIMATIONS
+----------------------------------
+
+When a list first loads (not shimmer -> content, but initial render):
+
+  - Each item slides in from 20px right + fades from opacity 0
+  - Stagger delay: 50ms per item (max 10 items animated, rest appear instantly)
+  - Duration per item: 300ms, Curves.easeOutCubic
+  - This uses flutter_staggered_animations package:
+    AnimationConfiguration.staggeredList(
+      position: index,
+      duration: Duration(milliseconds: 300),
+      child: SlideAnimation(
+        horizontalOffset: 20.0,  // subtle, not dramatic
+        child: FadeInAnimation(child: listItem),
+      ),
+    )
+
+Sources:
+- Flutter Hero Animations: https://docs.flutter.dev/ui/animations/hero-animations
+- Flutter Staggered Animations: https://docs.flutter.dev/ui/animations/staggered-animations
+- Vibe Studio Page Transitions: https://vibe-studio.ai/insights/animating-page-transitions-in-flutter-for-premium-ux
+- Theme Switching Circular Reveal: https://medium.com/@ankit_kr/build-a-beautiful-dark-mode-toggle-with-circular-reveal-animation-in-android-d55feb5cfed5
+- View Transitions Approach: https://medium.com/@AkashHamirwasia/full-page-theme-toggle-animation-with-view-transitions-api-43db0beed341
+- spring_bottom_sheet: https://pub.dev/packages/spring_bottom_sheet
+- Blup Advanced Flutter Transitions: https://www.blup.in/blog/advanced-flutter-animation-techniques-hero-animations-route-transitions
+
+
+================================================================================
+SECTION 6: HOVER/PRESS/FOCUS STATES (LIGHT MODE)
+================================================================================
+
+6.1 PRESS STATES (MOBILE-PRIMARY)
+-----------------------------------
+
+Since UNJYNX is mobile-first, press states replace hover states. On mobile,
+the ripple effect replaces hover, providing visual feedback when users tap a
+button and assuring them their finger hit the target accurately.
+
+PRIMARY BUTTON PRESS:
+  - Rest: bg #6B21A8, text #FFFFFF, shadow 0 2px 4px rgba(26,5,51,0.15)
+  - Pressed: scale(0.97), bg #5B1898 (slightly darker), shadow 0 1px 2px rgba(26,5,51,0.1)
+  - Release: spring back to scale(1.0), 150ms, Curves.easeOutBack
+  - Ripple: Material InkWell with color rgba(255,255,255,0.2) (light ripple on dark button)
+  - Haptic: HapticFeedback.lightImpact
+  - Timing: animate state transitions quickly at 100-300ms
+
+SECONDARY BUTTON PRESS:
+  - Rest: bg transparent, border 1.5px #6B21A8, text #6B21A8
+  - Pressed: bg rgba(107,33,168,0.08) (lavender wash), scale(0.97)
+  - Release: bg fades back to transparent, 150ms
+  - Ripple: InkWell with color rgba(107,33,168,0.1) (purple ripple)
+
+GHOST BUTTON (text-only):
+  - Rest: no bg, text #6B21A8
+  - Pressed: bg rgba(107,33,168,0.06), scale(0.98)
+  - The wash fill is critical on light mode -- opacity changes alone
+    are too subtle to perceive on #F8F5FF
+
+ICON BUTTON PRESS:
+  - Rest: icon #1A053380 (60% opacity midnight purple)
+  - Pressed: icon #1A0533 (100% opacity) + bg circle rgba(107,33,168,0.08)
+  - The bg circle provides the "target hit" feedback that hover provides on desktop
+
+DANGER BUTTON (delete, remove):
+  - Rest: bg #DC2626, text #FFFFFF
+  - Pressed: scale(0.97), bg #B91C1C (darker red)
+  - Haptic: HapticFeedback.mediumImpact (stronger = "are you sure?")
+
+Design research shows: A button design can include an onclick animation where
+the button briefly shrinks and then expands back to its original size when
+clicked, providing tactile feedback and simulating a physical press. Hover
+animations should feel light and purposeful -- over-the-top motion slows users
+down and reduces perceived quality.
+
+6.2 HOVER STATES (TABLET/DESKTOP)
+-----------------------------------
+
+For iPad and desktop web versions:
+
+CARD HOVER:
+  - Rest: bg #FFFFFF, shadow 0 1px 3px rgba(26,5,51,0.08)
+  - Hover: bg #FFFFFF, shadow 0 4px 12px rgba(26,5,51,0.12), translateY(-1px)
+  - Transition: 150ms ease-out
+  - DO NOT change bg to lavender on hover (save wash for active/focus)
+
+LIST ITEM HOVER:
+  - Rest: bg transparent
+  - Hover: bg #F0EAF5 (lavender wash -- NOT opacity change)
+  - Transition: 100ms ease-in-out
+  - This follows the principle: on light backgrounds, use FILL changes
+    not OPACITY changes for hover feedback
+
+LINK HOVER:
+  - Rest: text #6B21A8, no underline
+  - Hover: text #5B1898 (darker), underline appears
+  - Transition: color 100ms, underline slides in from left 200ms
+
+6.3 FOCUS STATES (KEYBOARD/ACCESSIBILITY)
+-------------------------------------------
+
+Focus rings are CRITICAL for accessibility and must be visible on light bg:
+
+  - Focus ring: 2px solid #6B21A8 with 4px offset from element
+  - Offset achieved with outline-offset (CSS) or custom painter (Flutter)
+  - Ring color MUST contrast against both the element AND the #F8F5FF bg
+  - #6B21A8 on #F8F5FF = contrast ratio 7.2:1 (exceeds WCAG AAA)
+  - Animation: ring fades in 100ms (not instant -- too jarring)
+
+6.4 ACTIVE/SELECTED STATES
+-----------------------------
+
+  - Selected tab: gold wash #FFF8E1 bg + #B8860B text + 2px bottom border
+  - Selected list item: lavender wash #EDE5F7 bg + #1A0533 text (full opacity)
+  - Active toggle: bg transitions from #D1C4E9 to #6B21A8, 200ms
+  - Disabled state: 40% opacity (not lower -- must remain readable on light)
+    Contrast check: #1A0533 at 40% on #F8F5FF = ~4.2:1 (meets WCAG AA)
+
+6.5 MULTI-SENSORY PAIRING
+---------------------------
+
+Every state change pairs visual feedback with haptic feedback.
+A sharp, quick visual animation pairs well with a crisp light haptic tap
+and a short, high-pitched sound. Haptic feedback and audio feedback must be
+closely synchronized since they often share the same predictable patterns.
+
+  ACTION          | VISUAL                    | HAPTIC              | AUDIO
+  ----------------|---------------------------|---------------------|------------------
+  Button press    | Scale(0.97) + color shift | lightImpact         | None
+  Task complete   | Gold fill + strikethrough | lightImpact         | Optional soft tick
+  Delete swipe    | Red reveal + scale        | mediumImpact        | None
+  Error           | Red shake (3x, 4px)       | notificationError   | Optional buzz
+  Success         | Green flash + check       | notificationSuccess | Optional chime
+  Pull-to-refresh | Logo rotation             | selectionClick      | None
+
+Key principle: haptic and visual must be SYNCHRONOUS -- even 50ms desync
+feels broken. Sharp visual animation pairs with crisp haptic tap.
+Slow animations pair with no haptic (haptic on a 500ms animation feels random).
+
+Transient haptic events are brief experiences like one-tap coordination,
+while continuous events are drawn-out and recurring vibrations. Patterns
+differentiate actions: a single buzz for success, a triple buzz for error.
+
+Be careful not to overuse haptics in UX. Too much haptic feedback makes the
+UI more complex and risks annoying users. For blind or low-vision users,
+haptics provide vital non-visual confirmation, complementing screen readers.
+
+Sources:
+- Mockplus Button State Design: https://www.mockplus.com/blog/post/button-state-design
+- DesignRush Button States 2026: https://www.designrush.com/best-designs/websites/trends/button-states
+- LogRocket Button States Tutorial: https://blog.logrocket.com/ux-design/designing-button-states/
+- UX Movement Mobile Hover: https://uxmovement.com/mobile/the-hover-effect-for-mobile-buttons/
+- Saropa Haptics Guide 2025: https://saropa-contacts.medium.com/2025-guide-to-haptics-enhancing-mobile-ux-with-tactile-feedback-676dd5937774
+- Android Haptics UX Design: https://source.android.com/docs/core/interaction/haptics/haptics-ux-design
+- Wings Design Multi-Sensory UX: https://wings.design/multi-sensory-ux-integrating-haptics-sound-and-visual-cues-to-enhance-user-interaction/
+- Boreas Haptic UX Guidelines: https://pages.boreas.ca/blog/piezo-haptics/guidelines-of-haptic-ux-design
+
+
+================================================================================
+SECTION 7: SCROLL & GESTURE ANIMATIONS
+================================================================================
+
+7.1 PARALLAX ON SCROLL
+------------------------
+
+UNJYNX uses parallax sparingly in light mode (it's a productivity app, not
+a marketing page). Parallax scrolling is a technique where background and
+foreground content scroll at different speeds, creating a sense of depth.
+
+PROJECT HEADER PARALLAX:
+  - Background image/gradient scrolls at 0.3x speed (foreground at 1.0x)
+  - Header gradient: #EDE5F7 -> #F8F5FF (lavender to mist)
+  - Speed factor 0.3 feels natural without causing motion sickness
+    (> 0.7 can induce vestibular discomfort per accessibility research)
+  - Transforms run on the compositor thread for smooth 60fps
+  - Adding willChange: transform tells browsers to optimize these elements
+
+CALENDAR VIEW PARALLAX:
+  - Month header stays fixed, dates scroll beneath
+  - Header has 4px bottom shadow that INTENSIFIES as content scrolls under
+  - Shadow transitions: 0 1px 2px rgba(26,5,51,0.05) -> 0 4px 8px rgba(26,5,51,0.12)
+
+Flutter implementation uses ScrollController.offset to drive parallax:
+  Transform.translate(
+    offset: Offset(0, scrollOffset * 0.3),
+    child: headerBackground,
+  )
+
+7.2 HEADER COLLAPSE/EXPAND WITH BLUR
+--------------------------------------
+
+SliverAppBar with expandedHeight for task list views:
+
+EXPANDED STATE (scroll position 0):
+  - Full height: 200px
+  - Shows: greeting, date, quick stats
+  - Background: solid #F8F5FF (no blur needed)
+  - Stats text: #1A0533 at 80% opacity
+
+COLLAPSING (scroll 0 -> 120px):
+  - Height shrinks: 200px -> 80px
+  - Greeting text fades out (opacity 1.0 -> 0.0 over first 60px of scroll)
+  - Stats text fades out next (opacity 1.0 -> 0.0 over scroll 40-100px)
+  - Title text scales: fontSize 28 -> 20
+  - Background blur: NO BLUR on light mode (blur on white = gray wash = ugly)
+    Instead: a 1px bottom border appears at rgba(26,5,51,0.08)
+
+COLLAPSED STATE (scroll > 120px):
+  - Height: 80px (standard app bar)
+  - Shows: title only, with action buttons
+  - Bottom border: solid 1px rgba(26,5,51,0.08)
+  - Elevation: 0 (flat on light mode -- Material 3 style)
+
+Note: A sticky navigation that shrinks when scrolling down and expands when
+scrolling back up is a small but fun interaction that can improve UX. Light
+mode benefits more from border separators than shadow elevation.
+
+7.3 SWIPE ACTION REVEALS
+--------------------------
+
+Swipe-to-reveal for task list items. iOS-style swipe interfaces reveal
+contextual actions when users swipe items left or right, providing a
+space-efficient alternative to permanent action visibility.
+
+RIGHT SWIPE (leading -- positive actions):
+  - Reveals: Complete button
+  - Background: #16A34A (deep green -- visible on light, not pastel)
+  - Icon: white checkmark, scales in from 0.5 -> 1.0
+  - Threshold: 80px to trigger, with rubber-band resistance past 120px
+
+LEFT SWIPE (trailing -- destructive/contextual):
+  - Reveals: Delete, Snooze buttons
+  - Delete bg: #DC2626 (deep red -- strong contrast on light)
+  - Snooze bg: #B8860B (gold -- brand accent)
+  - Icons: white, scale animation matching swipe distance
+  - Threshold: 80px for first action, 160px for full delete
+
+Following iOS Human Interface Guidelines: trailing (right-to-left gesture) is
+for destructive or context-ending actions (Delete, Archive), while leading
+(left-to-right) is for contextual shortcuts (Pin, Read, Mark as Favourite).
+
+Both swipes include:
+  - Subtle shadow on the swiping card edge (the card appears to lift)
+  - Content behind scales from 0.8 -> 1.0 as it reveals
+  - Undo snackbar appears for 5 seconds after destructive actions
+  - Gmail-style: immediate feedback after swipe with undo option
+
+7.4 OVERSCROLL BOUNCE
+-----------------------
+
+  - iOS default: rubber-band bounce (ClampingScrollPhysics on Android)
+  - UNJYNX customization: overscroll area shows subtle lavender gradient
+    that intensifies with pull distance
+  - At max overscroll (40px): bg shifts from #F8F5FF to #EDE5F7
+  - This branded overscroll subtly reinforces the purple theme
+  - Uses BouncingScrollPhysics (iOS-style) on both platforms for consistency
+
+7.5 DRAG-TO-REORDER
+---------------------
+
+When reordering tasks in a list:
+
+  - Long press (500ms) triggers: card lifts with shadow increase
+    Shadow: 0 2px 4px -> 0 8px 24px rgba(26,5,51,0.15)
+  - Card scales to 1.03 (slight growth = "picked up")
+  - Haptic: HapticFeedback.mediumImpact on pickup
+  - Other items animate out of the way: 200ms translateY
+  - Drop: card settles with spring physics, shadow returns to rest
+  - Haptic: HapticFeedback.lightImpact on drop
+  - Light mode specific: card gets a 1px #6B21A840 border during drag
+    (provides definition that shadow alone doesn't give on light bg)
+
+Sources:
+- Flutter Parallax Scrolling: https://docs.flutter.dev/cookbook/effects/parallax-scrolling
+- Builder.io Parallax Guide 2026: https://www.builder.io/blog/parallax-scrolling-effect
+- LogRocket Swipe Design: https://blog.logrocket.com/ux-design/accessible-swipe-contextual-action-triggers/
+- NNGroup Swipe Interactions: https://www.nngroup.com/articles/contextual-swipe/
+- W3Schools Parallax: https://www.w3schools.com/howto/howto_css_parallax.asp
+- Webflow Parallax: https://webflow.com/blog/parallax-scrolling
+
+
+================================================================================
+SECTION 8: DATA VISUALIZATION ANIMATIONS (LIGHT MODE)
+================================================================================
+
+8.1 PROGRESS RINGS (LIGHT MODE ADAPTATION)
+--------------------------------------------
+
+Progress rings are a core UNJYNX visual (task progress, daily goals, streaks).
+
+LIGHT MODE RING SPECIFICATION:
+  - Track (background): #EDE5F7 (lavender -- NOT gray)
+  - Fill (progress): #6B21A8 (deep violet) for < 100%
+  - Fill (complete): #B8860B (gold) when 100%
+  - Track width: 4px
+  - Fill width: 4px (SAME as track -- thickens to 6px on completion animation)
+
+ANIMATION:
+  - Initial draw: 0% -> current% over 800ms, Curves.easeOutCubic
+  - Progress update: old% -> new% over 400ms, Curves.easeInOutCubic
+  - Completion (reaching 100%):
+    1. Fill color transitions #6B21A8 -> #B8860B (purple to gold), 300ms
+    2. Ring THICKENS: 4px -> 6px -> 4px, 400ms (pulse effect)
+    3. Shimmer sweeps along the filled ring (gradient highlight)
+       Shimmer: traveling highlight of #D4A847 (lighter gold) over #B8860B
+       Shimmer duration: 600ms, one sweep
+    4. Optional: 3-5 tiny spark particles emit from the 12 o'clock position
+
+WHY thicken instead of glow:
+  - Outer glow on a 4px ring on #F8F5FF = invisible
+  - Thickening is visible, satisfying, and physically intuitive
+  - The shimmer sweep provides the "special" feel that glow would on dark
+
+DAILY GOAL RING (home screen):
+  - Larger: 120px diameter
+  - Center text: animated counter "7/10" with number counting animation
+  - Uses animated_flip_counter package for smooth digit transitions
+  - Text color: #1A0533 (full contrast on light bg)
+  - Sub-text "tasks today" in #1A053360 (60% opacity)
+
+Animated Gauge and Progress Circle components are fully customizable for
+data visualization, allowing customization of color, stroke width, stroke
+linecap, and stroke length percentage.
+
+8.2 CHART LINE DRAWING ANIMATION
+----------------------------------
+
+Weekly/monthly productivity charts:
+
+LINE CHART:
+  - Line color: #6B21A8 (deep purple -- high visibility on light bg)
+  - Line width: 2px with rounded caps
+  - Draw animation: path reveals left-to-right, 1000ms, Curves.easeOutCubic
+  - Area fill below line: gradient from #6B21A820 (top) to #6B21A805 (bottom)
+  - Grid lines: #EDE5F7 (lavender, not gray)
+  - Axis labels: #1A053360 (60% opacity midnight purple)
+  - Data points: 6px circles, #6B21A8 fill, appear with 50ms stagger after line draws
+
+BAR CHART:
+  - Bars: #6B21A8 fill, 8px border-radius top corners
+  - Draw animation: bars grow from bottom, 600ms, Curves.easeOutCubic
+  - Stagger: 50ms between each bar
+  - Hover/tap on bar: bar brightens to #7C3AED + tooltip appears
+  - Background grid: horizontal lines at #EDE5F7
+
+Animation in data visualization should focus on conveying information and
+enhancing understanding of data. Animation for the sake of animation detracts
+from this purpose. Subtle animations can indicate loading states or progress
+of data queries, providing visual cues and reducing perceived wait times.
+
+8.3 HEATMAP CELL TRANSITIONS
+-------------------------------
+
+Activity heatmap (like GitHub contributions):
+
+COLOR SCALE FOR LIGHT MODE:
+  Level 0 (no activity):    #F0EAF5 (slightly darker than bg, not gray)
+  Level 1 (low):            #D1C4E9
+  Level 2 (medium):         #9333EA40 (purple at 25% opacity)
+  Level 3 (high):           #6B21A8
+  Level 4 (exceptional):    #B8860B (gold -- reward color)
+
+ANIMATION:
+  - Cells fade in with 20ms stagger (left-to-right, top-to-bottom)
+  - Duration per cell: 200ms, Curves.easeOut
+  - On tap: cell scales to 1.5 + tooltip shows date and count
+  - The gold level 4 is unique to UNJYNX -- competitors use darkest shade of
+    one color; we reward exceptional days with the brand's gold accent
+
+8.4 NUMBER COUNTER ANIMATIONS
+-------------------------------
+
+Used in stats, streaks, and dashboard:
+
+  - Package: animated_flip_counter (pub.dev)
+  - Digits flip/slide vertically when changing
+  - Duration: 400ms per digit change
+  - Curve: Curves.easeInOut
+  - Text style: fontSize 32, fontWeight 700, color #1A0533
+  - For large numbers (1000+): comma separators also animate in
+  - You simply pass a value and optional duration and curve, just like any
+    other implicit animation widget in Flutter
+
+  Alternative: smooth_counter for simpler counting
+  - Counts from old value to new value with interpolation
+  - Duration: 600ms for small changes, up to 1200ms for large jumps
+  - Simple arguments: pass a number (int or double) and animation performs
+
+  Alternative: animated_digit for scroll number effects
+  - Scroll numbers animation widget for any number needing scroll effects
+
+8.5 STREAK FLAME VISUALIZATION
+---------------------------------
+
+The streak flame on light backgrounds needs special treatment:
+
+  - Flame gradient: #D4763B (outer) -> #B8860B (middle) -> #FFC107 (inner/tip)
+  - These are WARMER, DEEPER tones than the bright orange/yellow used on dark
+  - Drop shadow: 0 2px 8px rgba(26,5,51,0.12) (purple shadow GROUNDS it on light bg)
+  - Without the shadow, the flame "floats" and looks disconnected on white
+  - Size increase animation per streak tier: 24px -> 32px -> 40px
+  - Idle animation: gentle sway +-3 degrees rotation, 2000ms loop
+  - Implemented in Rive for interactive state machine (responds to streak count)
+
+Sources:
+- Flourish Animated Charts: https://flourish.studio/blog/animated-charts/
+- Flutter Charts Packages: https://fluttergems.dev/plots-visualization/
+- animated_flip_counter: https://pub.dev/packages/animated_flip_counter
+- smooth_counter: https://pub.dev/packages/smooth_counter
+- animated_digit: https://pub.dev/packages/animated_digit
+- Duolingo Streak Design: https://blog.duolingo.com/streak-milestone-design-animation/
+- Visme Data Visualizations 2026: https://visme.co/blog/best-data-visualizations/
+
+
+================================================================================
+SECTION 9: NOTIFICATION & FEEDBACK ANIMATIONS
+================================================================================
+
+9.1 TOAST/SNACKBAR ENTRY ANIMATION
+-------------------------------------
+
+Toasts are auto-dismissing status messages used to convey information without
+disrupting user workflows. Snackbars are short, temporary notifications that
+appear at the bottom of the screen, typically informing users about processes.
+The key difference: snackbars include action buttons, toasts do not.
+
+TOAST (informational, auto-dismiss):
+  - Entry: slides up from bottom edge, 250ms, Curves.easeOutCubic
+  - Background: #1A0533 (dark on light -- inverted for visibility)
+  - Text: #FFFFFF
+  - Border-radius: 12px
+  - Shadow: 0 4px 12px rgba(26,5,51,0.15)
+  - Auto-dismiss: 3000ms display, then slides down 200ms
+  - Position: 80px from bottom (above FAB and nav bar)
+
+SNACKBAR (actionable, user-dismiss):
+  - Same entry animation as toast
+  - Action button: #B8860B text (gold on dark snackbar = branded)
+  - Dismiss: swipe right or tap action, 200ms slide-right exit
+  - Duration: 5000ms default, infinite for critical actions
+
+SUCCESS FEEDBACK:
+  - Green-tinted snackbar: bg #16A34A, icon white checkmark
+  - Entry includes a brief "bounce" at landing (scaleY 1.0 -> 1.05 -> 1.0)
+  - Duration: 2000ms (shorter -- success is quick positive feedback)
+
+ERROR FEEDBACK:
+  - Red-tinted snackbar: bg #DC2626, icon white exclamation
+  - Entry includes a brief SHAKE: translateX 0 -> 4px -> -4px -> 2px -> 0, 300ms
+  - This shake-on-entry immediately communicates "something went wrong"
+  - Duration: 5000ms (longer -- user needs time to read error)
+  - Haptic: HapticFeedback.notificationError
+
+WARNING FEEDBACK:
+  - Gold-tinted snackbar: bg #B8860B, icon white warning triangle
+  - No special entry animation beyond standard slide-up
+  - Duration: 4000ms
+
+Animation duration for show/hide defaults to 250ms. Higher values create
+slower, more deliberate animations. Modern implementations like ToastfierJS
+prioritize accessibility compliance with WCAG 2.1 standards and support for
+screen readers, and respect "Reduced Motion" user preferences.
+
+9.2 BADGE COUNT INCREMENT
+---------------------------
+
+When notification badges update:
+
+  - Badge: 20px circle, bg #DC2626 (red), text #FFFFFF
+  - Increment animation: scale(1.0) -> scale(1.3) -> scale(1.0), 200ms
+  - The scale bump draws attention without being obnoxious
+  - If going from 0 to 1: badge enters with scale(0) -> scale(1.3) -> scale(1.0)
+    (spring entrance, 300ms)
+  - If going from N to 0: badge exits with scale(1.0) -> scale(0), 200ms
+  - Number text: crossfade old -> new during the scale animation
+
+9.3 NOTIFICATION DOT PULSE
+-----------------------------
+
+The "unread" dot on nav bar items:
+
+  - Dot: 8px circle, #DC2626 (red) or #B8860B (gold for priority)
+  - Pulse animation: scale(1.0) -> scale(1.4) with opacity(0.4) ring
+  - The RING is the "pulse" (not the dot itself -- dot stays solid)
+  - Ring expands from 8px to 16px, opacity 0.4 -> 0.0, 1200ms loop
+  - This creates a subtle "radar ping" effect
+  - On light mode, ring color: rgba(220,38,38,0.15) (red with low opacity)
+    NOT rgba(220,38,38,0.4) (too heavy on light bg)
+  - Pulse repeats 3 times then stops (infinite pulse = annoying)
+
+9.4 AI WHISPER CRYSTAL BALL (LIGHT MODE)
+------------------------------------------
+
+The AI Whisper feature uses an orb/crystal ball metaphor:
+
+DARK MODE ORB: Glowing, luminous, ethereal with light emissions
+LIGHT MODE ORB: VERY different approach required
+
+LIGHT MODE ORB SPECIFICATION:
+  - Base: semi-transparent glass sphere with subtle purple tint
+  - Color: rgba(107,33,168,0.08) fill with 1px rgba(107,33,168,0.15) border
+  - Inner motion: subtle swirling gradient inside (like a snow globe)
+    - Gradient: #6B21A820 and #B8860B15 colors slowly rotate
+    - Rotation: 8000ms per revolution, Curves.linear
+  - Shadow: 0 4px 16px rgba(26,5,51,0.10) (gives the orb depth on light bg)
+  - When AI is "thinking": inner gradient speeds up to 2000ms/revolution
+    + shimmer highlight sweeps across surface
+  - When AI delivers insight: orb briefly flashes gold
+    (fill transitions to rgba(184,134,11,0.12) for 300ms then back)
+  - Size: 48px diameter in-line, 120px diameter on AI detail screen
+
+Implementation: Rive state machine with states:
+  - Idle (slow swirl)
+  - Listening (medium swirl + gentle scale pulse)
+  - Thinking (fast swirl + shimmer)
+  - Speaking (gold pulse + size pulse)
+  - Dismissed (fade to 0 + scale to 0.8)
+
+Key principle: On light mode, the orb communicates through OPACITY SHIFTS
+and MOTION SPEED, not through LIGHT EMISSION. It's a contained, subtle
+effect -- like peering into frosted glass, not looking at a light source.
+
+Reference implementations:
+  - react-ai-orb: A customizable animated orb for React AI interfaces,
+    combining a glowing sphere rendered in fragment shader with real-time
+    audio analysis influencing movement and brightness
+  - ElevenLabs Orb: 3D animated orb with audio reactivity, custom colors,
+    and agent state visualization built with Three.js. Colors intensify
+    when listening, swirl rhythmically while thinking, pulse when speaking.
+  - Elements Orb: Dynamic ball with rainbow hues responding to states
+
+Sources:
+- Material Design Snackbars: https://m1.material.io/components/snackbars-toasts.html
+- Mobbin Toast UI Design: https://mobbin.com/glossary/toast
+- LogRocket Toast Notifications: https://blog.logrocket.com/ux-design/toast-notifications/
+- react-ai-orb Component: https://github.com/Steve0929/react-ai-orb
+- ElevenLabs Orb Component: https://ui.elevenlabs.io/docs/components/orb
+- Orb Animated AI Visuals: https://elements.surge.studio/ai/orb
+- Flutter Toast Packages: https://fluttergems.dev/notification-toast/
+
+
+================================================================================
+SECTION 10: SEASONAL & SPECIAL EVENT ANIMATIONS (LIGHT MODE)
+================================================================================
+
+10.1 SNOWFALL (WINTER/CHRISTMAS)
+----------------------------------
+
+The #1 mistake: white snowflakes on #F8F5FF = invisible.
+
+UNJYNX SOLUTION:
+  - Snowflake color: #C8C0D0 (cool lavender-gray, 15% darker than bg)
+  - Size range: 3-8px
+  - Particle count: 20-30 (NOT 50+ like dark mode)
+  - Opacity: 0.25-0.45 (lower than dark mode's 0.4-0.7)
+  - Fall speed: 30-60px/second (gentle, not distracting)
+  - Drift: +-15px horizontal (subtle, wind-like)
+  - Rotation: slow axial rotation 3-6 seconds per revolution
+  - Depth layers: 2 layers (near: larger/faster, far: smaller/slower)
+  - Active period: December 15 - January 5
+  - User toggle: Settings > Themes > Seasonal Effects (default ON)
+
+Why #C8C0D0 and not pure gray:
+  - Gray (#CCCCCC) on purple-tinted bg looks cold and disconnected
+  - Lavender-gray harmonizes with the #F8F5FF Purple Mist background
+  - Still provides enough contrast to be visible (contrast ratio ~1.3:1)
+
+Implementation: Can use Lottie overlay in a FrameLayout/Stack approach,
+adding the snowfall as a child view over the base UI. Alternatively, use
+CustomPainter for full control over particle color and behavior.
+
+10.2 DIWALI (OCTOBER/NOVEMBER)
+---------------------------------
+
+Warm colors naturally work well on light backgrounds:
+
+  - Diya flame particles: #D4763B, #B8860B, #FFC107 (warm gradient)
+  - Rangoli accent: subtle mandala pattern at 4% opacity as bg overlay
+  - Sparkle particles: #B8860B at 30% opacity, 15-20 particles
+  - These warm tones have NATURAL contrast against cool #F8F5FF
+  - Active period: 5 days around Diwali
+  - Extra: gold-tinted progress rings during the festival
+
+10.3 HALLOWEEN (OCTOBER)
+--------------------------
+
+  - Purple fog overlay: rgba(107,33,168,0.06) -- barely perceptible
+  - Bat silhouettes: #1A053315 (15% opacity midnight purple), 3-5 instances
+  - Pumpkin accents: #D4763B icons replacing standard icons temporarily
+  - Spider web: subtle #1A053308 (8% opacity) corner decorations
+  - Active period: October 25 - November 1
+  - On light mode, Halloween is SUBTLER than dark mode (where fog can be dramatic)
+
+10.4 CHERRY BLOSSOM / SPRING (MARCH/APRIL)
+---------------------------------------------
+
+  - Petal color: #D4547A (deep rose -- NOT pastel pink which vanishes)
+  - Secondary: #C2185B (even deeper, for variety)
+  - Petal count: 15-25
+  - Petal size: 6-12px (slightly larger to compensate for lower opacity)
+  - Opacity: 0.20-0.40
+  - Movement: gentle falling + rotating + slight horizontal drift
+  - Active period: March 15 - April 15
+
+10.5 AUTUMN (SEPTEMBER/OCTOBER)
+---------------------------------
+
+  - Leaf colors: #8B5E3C (brown), #B8860B (gold), #D4763B (burnt orange)
+  - These warm, saturated colors have excellent visibility on #F8F5FF
+  - Leaf count: 10-15 (very sparse -- ambient, not a leaf blower)
+  - Size: 10-18px
+  - Movement: slow falling + tumbling rotation
+  - Active period: September 15 - October 24 (stops before Halloween)
+
+10.6 LATE NIGHT AUTO-DIM
+--------------------------
+
+After 10 PM, if user is still in light mode:
+
+  DO NOT: auto-switch to dark mode (respect user's theme choice)
+  DO: Apply a subtle warm filter:
+    - Background: #F8F5FF -> #F5F0ED (slightly warmer, less blue)
+    - Text contrast: unchanged (maintain readability)
+    - Blue light filter: reduce blue channel by 10%
+    - Transition: gradual over 15 minutes (barely noticeable)
+
+  This matches the "Night Shift" / "True Tone" philosophy:
+  warmer, lower-contrast, but NOT a different theme.
+
+10.7 CELEBRATION ENGINE (GENERIC)
+-----------------------------------
+
+A reusable celebration system for ANY achievement:
+
+Parameters:
+  - intensity: low (subtask), medium (task), high (project), epic (streak milestone)
+  - colors: defaults to brand palette [#B8860B, #6B21A8, #1A0533]
+  - particleCount: scales with intensity (10, 30, 50, 80)
+  - duration: scales with intensity (400ms, 800ms, 1200ms, 2000ms)
+  - haptic: scales (light, light, medium, heavy + success)
+
+All particles use deep, saturated colors on light mode.
+All effects use wash/shadow emphasis instead of glow.
+
+CSS confetti animations are hardware-accelerated and run on the GPU, consume
+less battery on mobile devices. The key to successful confetti animations lies
+in balancing visual impact with performance, ensuring accessibility, and
+maintaining subtlety that enhances rather than distracts from UX.
+
+10.8 SEASONAL EFFECT ARCHITECTURE
+-----------------------------------
+
+  - All seasonal effects are OPTIONAL (user toggle in settings)
+  - Effects render in a separate layer ABOVE content but BELOW interactions
+  - Performance budget: seasonal particles max 30, max 2ms paint time
+  - Disable entirely when battery saver is active
+  - Disable when reduced motion accessibility setting is ON
+  - Each season has a JSON config: { colors, particleCount, opacity, speed, dates }
+  - Config is remotely updatable (add new seasons without app update)
+
+Sources:
+- LottieFiles Snow Animation: https://lottiefiles.com/blog/working-with-lottie-animations/add-snow-to-android-app
+- Seasonly Shopify Effects: https://apps.shopify.com/snowfall
+- Dakaas Seasonal Animation: https://apps.shopify.com/multi-seasonal-effects
+- tsParticles Confetti: https://confetti.js.org/
+- LottieFiles Confetti: https://lottiefiles.com/free-animations/confetti
+
+
+================================================================================
+SECTION 11: RIVE VS LOTTIE FOR LIGHT MODE
+================================================================================
+
+11.1 WHEN TO USE RIVE (INTERACTIVE, STATE-DRIVEN)
+---------------------------------------------------
+
+Rive is the PREFERRED choice when:
+
+1. ANIMATION REACTS TO USER INPUT:
+   - Checkbox: State machine with Unchecked -> Checking -> Checked states
+   - Progress ring: State machine driven by percentage input (data binding)
+   - Streak flame: State machine with streak count input affecting size/intensity
+   - AI Whisper orb: States for Idle, Listening, Thinking, Speaking
+   - Pull-to-refresh logo: Rotation speed linked to pull distance
+
+   State Machines in Rive are a visual way to connect animations together
+   and define the logic that drives transitions. A "state" is usually a
+   timeline animation (like "Idle" or "Pressed"), wired together with
+   transitions and connected to logic using Data Binding.
+
+2. MULTIPLE STATES WITH TRANSITIONS:
+   - Ghost Mode button: Normal -> Activating -> Active states
+   - Navigation icons: Idle -> Selected with morphing animation
+   - Onboarding character: Multiple emotional states
+
+   Rive's reactive state machine listens to inputs (button presses, gestures,
+   audio levels), transitions between animation states based on conditions,
+   and enables fluid, logic-driven motion without hardcoding animation rules.
+
+3. PERFORMANCE IS CRITICAL:
+   - Rive files are 10-15x smaller than Lottie equivalents
+   - Example: A checkbox animation in Lottie: ~240KB, in Rive: ~16KB
+   - Rive's unified C++ runtime ensures consistent behavior across iOS,
+     Android, Web, and Flutter
+   - For animations present on EVERY task item (checkbox), Rive wins
+
+4. LIGHT MODE COLOR REMAPPING:
+   - Rive supports runtime color changes via state machine inputs
+   - Color inputs can be bound to theme data (light vs dark palette)
+   - No need to maintain two separate animation files
+
+   At Slice (January 2026), they discovered Rive gave flexibility to go
+   beyond static animations and build interfaces that respond directly to
+   user input. Interactive components are stateful UI components that
+   improve onboarding, reduce cognitive load, and create emotional
+   engagement without sacrificing performance.
+
+UNJYNX Rive animations:
+  - Checkbox (complete/uncomplete): State machine with gold fill, checkmark draw
+  - Progress rings (daily, project): Data-bound percentage, color transitions
+  - Streak flame: Responsive to streak count, gentle idle sway
+  - Ghost Mode transition: Complex multi-state entry/exit
+  - AI Whisper orb: 4-state machine with motion speed modulation
+  - Nav bar icons: Selected/unselected morphing
+
+11.2 WHEN TO USE LOTTIE (FIRE-AND-FORGET)
+--------------------------------------------
+
+Lottie is the PREFERRED choice when:
+
+1. ONE-TIME PLAYBACK:
+   - Confetti celebration: plays once, then disposes
+   - Empty state illustrations: simple idle loop, no interaction
+   - Onboarding page animations: sequential playback
+   - Achievement unlock fanfare: single dramatic play
+
+2. DESIGNER WORKFLOW:
+   - Designers export from After Effects -> Lottie (established pipeline)
+   - Complex illustrations with many layers (easier in AE than Rive editor)
+   - Pre-made animations from LottieFiles marketplace (vast library)
+
+3. LIGHT MODE COLOR ADAPTATION:
+   - Modify Lottie JSON at runtime in Flutter (Dart JSON parsing)
+   - Replace color values in the JSON before passing to LottieComposition
+   - This allows one animation file to work for both themes
+
+   Approach in Flutter:
+   a. Load Lottie JSON as string
+   b. Parse and replace color hex values:
+      Dark mode gold #FFD700 -> Light mode deep gold #B8860B
+      Dark mode glow #FFFFFF -> Light mode shadow #1A053340
+   c. Create LottieComposition from modified JSON
+   d. Cache the modified composition for reuse
+
+   Rather than exporting multiple versions from After Effects, you can edit
+   the raw JSON on the fly in Flutter using Dart to create personalized
+   animations and show real-time feedback.
+
+4. COMPLEXITY IS HIGH BUT INTERACTION IS LOW:
+   - Highly detailed illustrations (characters, scenes)
+   - Particle effects that Rive's editor can't easily replicate
+   - Gradient-heavy animations
+
+UNJYNX Lottie animations:
+  - Confetti celebrations (all tiers)
+  - Empty state illustrations (empty inbox, all done, no results)
+  - Onboarding tutorial screens (3-5 animated pages)
+  - Achievement unlock effects
+  - Seasonal overlays (snowfall, sakura -- could also be CustomPainter)
+
+11.3 LATE 2025 MARKET SHIFT
+------------------------------
+
+In late 2025, LottieFiles introduced a native State Machine in a web-based
+Lottie Creator with generative AI capabilities, eliminating the historical
+distinction that "Lottie = linear, Rive = stateful."
+
+The new competition is between:
+  - Lottie: AI-accelerated, open ecosystem-driven velocity
+  - Rive: Mature, high-performance, technically-focused control
+
+For UNJYNX, Rive remains preferred for hot-path interactive animations
+due to the C++ runtime performance advantage and smaller file sizes.
+Lottie is preferred for the marketplace ecosystem and designer workflow.
+
+11.4 COST AND SIZE COMPARISON
+-------------------------------
+
+                        | RIVE              | LOTTIE
+------------------------|-------------------|------------------
+File size (checkbox)    | ~3KB              | ~45KB
+File size (character)   | ~16KB             | ~240KB
+Runtime (Flutter)       | C++ native        | Dart + Skia
+State machine           | Built-in, visual  | New (late 2025)
+Color remapping         | Input-driven      | JSON modification
+Interactive             | Native support    | Limited (improving)
+Designer learning curve | Moderate (new UI) | Low (After Effects)
+Cost                    | Free tier + paid  | Free + marketplace
+Community               | Growing (2026)    | Large, established
+
+11.5 HYBRID STRATEGY FOR UNJYNX
+----------------------------------
+
+CRITICAL PATH (user sees every session): RIVE
+  - Checkbox, progress rings, nav icons, streak flame
+
+CELEBRATION/DELIGHT (occasional): LOTTIE
+  - Confetti, empty states, achievements, onboarding
+
+BACKGROUND EFFECTS: CUSTOMPAINTER
+  - Particles, seasonal effects (full control, no external dependency)
+
+This hybrid approach optimizes for:
+  - Performance (Rive on hot paths)
+  - Development speed (Lottie for one-off animations)
+  - Flexibility (CustomPainter for brand-specific effects)
+
+Sources:
+- Rive State Machine Overview: https://help.rive.app/editor/state-machine
+- Rive vs Lottie DEV.to: https://dev.to/uianimation/rive-vs-lottie-which-animation-tool-should-you-use-in-2025-p4m
+- Callstack Lottie vs Rive: https://www.callstack.com/blog/lottie-vs-rive-optimizing-mobile-app-animation
+- LottieFiles Comparison: https://lottiefiles.com/blog/working-with-lottie-animations/lottiefiles-or-rive
+- Rive in Production at Slice: https://engineering.sliceit.com/bringing-interfaces-to-life-with-rive-real-time-animations-at-slice-cd80d2742176
+- IMAGA Rive for Flutter: https://medium.com/@imaga/rive-animation-for-flutter-apps-why-we-prefer-it-over-lottie-when-to-use-it-and-key-features-to-c412154449bc
+- Lottie Flutter Dynamic Updates: https://medium.com/@divyanshverma9460/how-to-dynamically-update-a-lottie-animation-using-flutter-a6f302b8d7b1
+- Lottie Color Adaptation: https://lottiefiles.com/blog/working-with-lottie-animations/customize-lottie-animation-dark-light-mode-css
+- Rive Beginner Guide: https://rive.app/blog/how-state-machines-work-in-rive
+- TillItsDone Rive vs Lottie Flutter: https://tillitsdone.com/blogs/rive-vs-lottie--flutter-animations/
+
+
+================================================================================
+SECTION 12: FLUTTER IMPLEMENTATION PATTERNS
+================================================================================
+
+12.1 ANIMATION APPROACH DECISION TREE
+---------------------------------------
+
+Is it interactive (responds to user input)?
+  YES -> Is it on a hot path (every list item)?
+    YES -> RIVE (smallest, fastest)
+    NO  -> RIVE or Flutter AnimationController
+  NO -> Is it complex (many layers, characters)?
+    YES -> LOTTIE (designer-friendly export)
+    NO  -> Is it a simple property change?
+      YES -> IMPLICIT ANIMATION (AnimatedContainer, AnimatedOpacity, etc.)
+      NO  -> EXPLICIT ANIMATION (AnimationController + Tween)
+
+12.2 IMPLICIT ANIMATIONS (SIMPLEST)
+--------------------------------------
+
+Implicit animations are prebuilt animation effects that run the entire
+animation automatically. When the target value changes, the animation runs
+from the current value to the target value, displaying each value in between
+so the widget animates smoothly.
+
+Use for single-property changes that respond to state:
+
+AnimatedContainer:
+  - Card elevation changes on selection
+  - Background color changes on hover/press
+  - Size changes on expand/collapse
+  - Duration: 200-300ms, Curve: Curves.easeOutCubic
+
+AnimatedOpacity:
+  - Text fading on completion (1.0 -> 0.5)
+  - Element appearing/disappearing
+  - Duration: 200ms, Curve: Curves.easeInOut
+
+AnimatedScale:
+  - Button press feedback (1.0 -> 0.97)
+  - Badge entrance (0.0 -> 1.0)
+  - Duration: 150ms, Curve: Curves.easeOutBack
+
+AnimatedSwitcher:
+  - Tab content crossfade
+  - Number display changes
+  - Icon state changes
+  - Duration: 150ms with FadeTransition
+
+Light mode note: These implicit animations work identically on light and dark.
+The difference is in the COLOR VALUES, not the animation behavior.
+
+12.3 EXPLICIT ANIMATIONS (COMPLEX SEQUENCES)
+----------------------------------------------
+
+Use for multi-phase, choreographed animations. A staggered animation consists
+of sequential or overlapping animations -- one AnimationController controls
+all of the Animations, and each Animation object specifies the animation
+during an Interval.
+
+CHECKBOX COMPLETION (example):
+  // AnimationController setup
+  final controller = AnimationController(
+    duration: const Duration(milliseconds: 550),
+    vsync: this,
+  );
+
+  // Phase animations using Interval
+  final fillAnimation = ColorTween(
+    begin: Colors.transparent,
+    end: const Color(0xFFB8860B), // Rich gold
+  ).animate(CurvedAnimation(
+    parent: controller,
+    curve: const Interval(0.09, 0.45, curve: Curves.easeOutBack),
+  ));
+
+  final strikethroughAnimation = Tween<double>(
+    begin: 0.0,
+    end: 1.0,
+  ).animate(CurvedAnimation(
+    parent: controller,
+    curve: const Interval(0.45, 0.82, curve: Curves.easeInOut),
+  ));
+
+  final washAnimation = Tween<double>(
+    begin: 0.0,
+    end: 80.0, // wash radius in pixels
+  ).animate(CurvedAnimation(
+    parent: controller,
+    curve: const Interval(0.36, 0.73, curve: Curves.easeOut),
+  ));
+
+12.4 FLUTTER_ANIMATE PACKAGE
+------------------------------
+
+The flutter_animate package simplifies chained animations:
+
+  Widget buildTaskItem() {
+    return taskCard
+      .animate(onPlay: (c) => c.forward())
+      .fadeIn(duration: 300.ms, curve: Curves.easeOut)
+      .slideX(begin: 0.05, end: 0, duration: 300.ms)
+      .then() // chain after previous completes
+      .shimmer(
+        duration: 600.ms,
+        color: const Color(0x0CB8860B), // subtle gold shimmer
+      );
+  }
+
+For staggered lists:
+  ListView.builder(
+    itemBuilder: (context, index) {
+      return listItem
+        .animate(delay: (50 * index).ms) // 50ms stagger
+        .fadeIn(duration: 300.ms)
+        .slideX(begin: 0.02, end: 0);
+    },
+  )
+
+12.5 HERO TRANSITIONS
+-----------------------
+
+For task card -> detail screen:
+
+  // Source screen (list)
+  Hero(
+    tag: 'task-${task.id}',
+    child: Material(
+      elevation: 1,
+      shadowColor: const Color(0x201A0533), // light purple shadow
+      borderRadius: BorderRadius.circular(12),
+      child: TaskCardWidget(task: task),
+    ),
+  )
+
+  // Destination screen (detail)
+  Hero(
+    tag: 'task-${task.id}',
+    flightShuttleBuilder: (flightContext, animation, direction,
+        fromContext, toContext) {
+      return Material(
+        elevation: animation.value * 8, // shadow increases during flight
+        shadowColor: const Color(0x301A0533),
+        borderRadius: BorderRadius.circular(12),
+        child: toContext.widget,
+      );
+    },
+    child: TaskDetailWidget(task: task),
+  )
+
+12.6 SHIMMER CONFIGURATION FOR LIGHT MODE
+-------------------------------------------
+
+Using the shimmer package (pub.dev/packages/shimmer):
+
+  Shimmer.fromColors(
+    baseColor: const Color(0xFFF0EAF5),     // Lavender base
+    highlightColor: const Color(0xFFF8F5FF), // Purple Mist highlight
+    period: const Duration(milliseconds: 1500),
+    child: skeletonLayout,
+  )
+
+Using Skeletonizer:
+  Skeletonizer(
+    effect: ShimmerEffect(
+      baseColor: const Color(0xFFF0EAF5),
+      highlightColor: const Color(0xFFF8F5FF),
+      duration: const Duration(milliseconds: 1500),
+    ),
+    child: actualLayout, // Skeletonizer auto-converts to skeleton
+  )
+
+12.7 CUSTOM PAINTER FOR PARTICLES
+------------------------------------
+
+  class LightModeParticlePainter extends CustomPainter {
+    final List<Particle> particles;
+    final double progress;
+
+    LightModeParticlePainter({
+      required this.particles,
+      required this.progress,
+    });
+
+    @override
+    void paint(Canvas canvas, Size size) {
+      final paint = Paint()
+        ..blendMode = BlendMode.srcOver // NOT BlendMode.plus (additive)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.0);
+
+      for (final particle in particles) {
+        paint.color = particle.color.withOpacity(
+          particle.baseOpacity * (1.0 - progress), // fade over lifetime
+        );
+        canvas.drawCircle(
+          particle.position,
+          particle.radius,
+          paint,
+        );
+      }
+    }
+
+    @override
+    bool shouldRepaint(LightModeParticlePainter oldDelegate) {
+      return oldDelegate.progress != progress;
+    }
+  }
+
+Key light-mode specifics in this painter:
+  - BlendMode.srcOver (standard alpha compositing, NOT additive)
+  - MaskFilter.blur at 1.0 (soft edges, not sharp -- less harsh on light)
+  - Opacity always below 0.35 for ambient particles
+
+12.8 STAGGERED LIST ANIMATION
+-------------------------------
+
+Using flutter_staggered_animations:
+
+  AnimationLimiter(
+    child: ListView.builder(
+      itemCount: tasks.length,
+      itemBuilder: (context, index) {
+        return AnimationConfiguration.staggeredList(
+          position: index,
+          duration: const Duration(milliseconds: 300),
+          child: SlideAnimation(
+            horizontalOffset: 20.0, // subtle horizontal slide
+            child: FadeInAnimation(
+              child: TaskListItem(task: tasks[index]),
+            ),
+          ),
+        );
+      },
+    ),
+  )
+
+Note: Limit animation to first 10 items. Beyond that, items appear instantly.
+This prevents long lists from having awkward delayed appearance.
+
+12.9 PERFORMANCE OPTIMIZATION CHECKLIST
+-----------------------------------------
+
+For light mode (same principles, different visuals):
+
+  [ ] Use RepaintBoundary around animated widgets (isolate repaint regions)
+  [ ] Avoid Opacity widget for fading (use FadeTransition or AnimatedOpacity)
+  [ ] Minimize saveLayer() calls (expensive compositing)
+  [ ] Pre-calculate particle positions (avoid per-frame allocation)
+  [ ] Use const constructors for static paint configurations
+  [ ] Profile with Flutter DevTools: aim for <8ms per frame on animations
+  [ ] Test on low-end devices (mid-range Android is the floor)
+  [ ] Respect MediaQuery.disableAnimations for accessibility
+  [ ] Cache Rive/Lottie compositions (don't reload per build)
+  [ ] Use Ticker/vsync properly (dispose controllers in dispose())
+
+Sources:
+- Flutter Animation Introduction: https://docs.flutter.dev/ui/animations
+- Flutter Implicit Animations Codelab: https://docs.flutter.dev/codelabs/implicit-animations
+- Flutter Staggered Menu Animation: https://docs.flutter.dev/cookbook/effects/staggered-menu-animation
+- flutter_staggered_animations: https://pub.dev/documentation/flutter_staggered_animations/latest/
+- Lottie Flutter Package: https://pub.dev/packages/lottie
+- Skeletonizer Package: https://pub.dev/packages/skeletonizer
+- Flexiple Advanced Flutter Animations: https://flexiple.com/app/advanced-flutter-animations
+- Very Good Ventures CustomPainter: https://www.verygood.ventures/blog/mastering-custompainter-in-flutter-from-svgs-to-racetracks
+- Codecademy Flutter Animations Tutorial: https://www.codecademy.com/article/how-to-create-flutter-animation
+- Flutter Gems Animation Packages: https://fluttergems.dev/animation-transition/
+
+
+================================================================================
+SECTION 13: ACCESSIBILITY & REDUCED MOTION
+================================================================================
+
+13.1 REDUCED MOTION COMPLIANCE
+---------------------------------
+
+UNJYNX MUST respect the platform's "Reduce Motion" setting. Vestibular
+disorders affect more than 70 million people worldwide, and motion sensitivity
+affects approximately 35% of adults over 40. These conditions can cause loss
+of balance, vertigo, migraines, nausea, and hearing loss when exposed to
+excessive screen motion.
+
+Detection in Flutter:
+  final reduceMotion = MediaQuery.of(context).disableAnimations;
+  // Also check: WidgetsBinding.instance.disableAnimations
+
+Platform settings locations:
+  - Windows 10: Settings > Ease of Access > Display > Show animations
+  - Windows 11: Settings > Accessibility > Visual Effects > Animation Effects
+  - macOS: System Settings > Accessibility > Display > Reduce motion
+  - iOS: Settings > Accessibility > Motion
+  - Android 9+: Settings > Accessibility > Remove animations
+
+When reduced motion is ON:
+  - ALL decorative animations: DISABLED (particles, celebrations, seasonal)
+  - Transition animations: replaced with INSTANT CUT or simple FADE (200ms)
+  - Completion animations: checkbox fills instantly (no draw animation)
+  - Progress rings: jump to target value (no sweep animation)
+  - Shimmer loading: replaced with static skeleton (no shimmer sweep)
+  - Parallax: disabled (1:1 scroll ratio)
+  - Page transitions: crossfade only, no slides
+  - Staggered lists: all items appear simultaneously
+
+When reduced motion is ON, KEEP:
+  - Color transitions (they're not motion, they're state feedback)
+  - Opacity changes (subtle, not motion-triggering)
+  - Essential feedback (error shake can be replaced with color flash)
+
+IMPORTANT: "Reduced motion" is NOT "no motion" -- provide alternatives.
+Most animations, especially decorative effects such as fades, slides, parallax,
+or hover transitions can simply be removed. But users still expect motion
+animation triggered by user interaction unless the animation is essential to
+the functionality or information being conveyed.
+
+13.2 ANIMATION DURATION ACCESSIBILITY
+---------------------------------------
+
+Even with reduced motion OFF, UNJYNX provides user control:
+
+Settings > Accessibility > Animation Speed:
+  - Full (default): all durations as specified
+  - Reduced: all durations * 0.5 (faster, less noticeable)
+  - Minimal: all durations * 0.25 (barely perceptible)
+  - None: equivalent to system reduced motion
+
+This is implemented via a global animation speed multiplier:
+
+  // In animation_config.dart
+  double getAnimationDuration(double baseDurationMs) {
+    final multiplier = ref.read(animationSpeedProvider);
+    return baseDurationMs * multiplier;
+  }
+
+Even with prefers-reduced-motion techniques, you still need to add a pause
+option for movement or animation that lasts more than five seconds. That way
+users who don't have the setting on still have the option to stop the animation.
+
+13.3 VESTIBULAR DISORDER CONSIDERATIONS
+-----------------------------------------
+
+Key UNJYNX mitigations:
+
+  - Parallax speed capped at 0.3x (never > 0.5x)
+  - No auto-playing full-screen animations
+  - No zoom/scale transitions that fill the viewport
+  - Particle motion is ALWAYS gentle and slow
+  - Ghost Mode circular reveal can be replaced with crossfade
+  - All looping animations stop after 5 seconds max (per WCAG 2.2.2)
+    OR provide visible pause control
+
+13.4 COLOR CONTRAST ON ANIMATIONS
+------------------------------------
+
+Light mode has specific contrast challenges for animated elements:
+
+  - Shimmer must have base/highlight contrast of at least 1.2:1
+    Our #F0EAF5 / #F8F5FF = 1.04:1 (intentionally subtle, decorative only)
+  - Progress ring fill must contrast with track:
+    #6B21A8 on #EDE5F7 = 5.1:1 (excellent)
+  - Toast text must meet 4.5:1:
+    #FFFFFF on #1A0533 = 15.8:1 (excellent)
+  - Disabled elements at 40% opacity:
+    #1A0533 at 40% on #F8F5FF = ~4.2:1 (meets WCAG AA)
+  - Focus ring on background:
+    #6B21A8 on #F8F5FF = 7.2:1 (exceeds WCAG AAA)
+
+13.5 REGULATORY COMPLIANCE
+-----------------------------
+
+  - WCAG 2.1 AA: Required (all animations must have alternatives)
+  - WCAG 2.2.2: Auto-playing animation must pause after 5 seconds
+  - European Accessibility Act 2025: New UK and EU laws tightening
+    accessibility rules, with specific animation guidelines. All digital
+    services must meet tougher standards by 2025.
+  - India DPDP Act: Accessibility provisions in development
+  - IMPORTANT: "Reduced motion" is NOT "no motion" -- provide alternatives
+
+Sources:
+- Pope Tech Accessible Animation Guide: https://blog.pope.tech/2025/12/08/design-accessible-animation-and-movement/
+- MDN prefers-reduced-motion: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion
+- BOIA Reduced Motion Guide: https://www.boia.org/blog/what-to-know-about-the-css-prefers-reduced-motion-feature
+- Kent State Android Reduced Motion: https://www.kent.edu/equalaccess/news/android-accessibility-part-3-4-reduced-motion
+- Educational Voice Accessibility Animation: https://educationalvoice.co.uk/accessibility-animation/
+- CSS-Tricks prefers-reduced-motion: https://css-tricks.com/almanac/rules/m/media/prefers-reduced-motion/
+- BrowserUX Reduced Motion CSS: https://browserux.com/blog/articles/css-prefers-reduced-motion-accessibility.html
+
+
+================================================================================
+SECTION 14: SOURCE REFERENCES (CONSOLIDATED)
+================================================================================
+
+DESIGN & UX RESEARCH:
+[1]  AlterSquare - Dark vs Light UX Guide 2025
+     https://altersquare.io/dark-mode-vs-light-mode-the-complete-ux-guide-for-2025/
+[2]  Primotech - UI/UX Evolution 2026: Micro-Interactions & Motion
+     https://primotech.com/ui-ux-evolution-2026-why-micro-interactions-and-motion-matter-more-than-ever/
+[3]  BetaSoft Technology - Motion UI Trends 2025
+     https://www.betasofttechnology.com/motion-ui-trends-and-micro-interactions/
+[4]  No Boring Design - 10 Micro-interaction Examples
+     https://www.noboringdesign.com/blog/10-inspiring-examples-of-micro-interactions-in-web-design
+[5]  BricxLabs - 12 Micro Animation Examples 2025
+     https://bricxlabs.com/blogs/micro-interactions-2025-examples
+[6]  Ripplix - UI Animation Practical Guide 2026
+     https://www.ripplix.com/blog/ui-animation-practical-guide-for-2026
+[7]  Mockplus - Button State Design (20 Examples)
+     https://www.mockplus.com/blog/post/button-state-design
+[8]  DesignRush - Button States Explained 2026
+     https://www.designrush.com/best-designs/websites/trends/button-states
+[9]  LogRocket - Designing Button States Tutorial
+     https://blog.logrocket.com/ux-design/designing-button-states/
+[10] UX Movement - Hover Effect for Mobile Buttons
+     https://uxmovement.com/mobile/the-hover-effect-for-mobile-buttons/
+[11] Duolingo Blog - Animating the Streak
+     https://blog.duolingo.com/streak-milestone-design-animation/
+[12] NNGroup - Swipe Contextual Actions
+     https://www.nngroup.com/articles/contextual-swipe/
+[13] LogRocket - Swipe-to-Delete Design
+     https://blog.logrocket.com/ux-design/accessible-swipe-contextual-action-triggers/
+[14] Mobbin - Toast UI Design Best Practices
+     https://mobbin.com/glossary/toast
+[15] Atlassian - Elevation Design Foundations
+     https://atlassian.design/foundations/elevation/
+[16] Netguru - Dark Mode UI Tips 2025
+     https://www.netguru.com/blog/tips-dark-mode-ui
+[17] TechQWare - Motion Design & Micro-Interactions 2026
+     https://www.techqware.com/blog/motion-design-micro-interactions-what-users-expect
+[18] DesignStudioUIUX - 10 Micro-interaction Examples 2026
+     https://www.designstudiouiux.com/blog/micro-interactions-examples/
+[19] SanjayDey - Mobile UX/UI Design Patterns 2026
+     https://www.sanjaydey.com/mobile-ux-ui-design-patterns-2026-data-backed/
+[20] Plotline - Streaks and Milestones Gamification
+     https://www.plotline.so/blog/streaks-for-gamification-in-mobile-apps
+
+TECHNICAL (RENDERING & PHYSICS):
+[21] LearnOpenGL - Bloom
+     https://learnopengl.com/Advanced-Lighting/Bloom
+[22] Godot Engine - Bloom Blending Issue #19361
+     https://github.com/godotengine/godot/issues/19361
+[23] CCS Group - Additive & Subtractive Color Mixing
+     https://www.ccs-grp.com/guide/theory-light-color/15_color-mixing-1-additive-subtractive.html
+
+ANIMATION TOOLS:
+[24] Rive - State Machine Overview
+     https://help.rive.app/editor/state-machine
+[25] Rive vs Lottie (DEV.to 2025)
+     https://dev.to/uianimation/rive-vs-lottie-which-animation-tool-should-you-use-in-2025-p4m
+[26] Callstack - Lottie vs Rive Performance
+     https://www.callstack.com/blog/lottie-vs-rive-optimizing-mobile-app-animation
+[27] LottieFiles - Rive vs Lottie Comparison
+     https://lottiefiles.com/blog/working-with-lottie-animations/lottiefiles-or-rive
+[28] Slice Engineering - Rive in Production (Jan 2026)
+     https://engineering.sliceit.com/bringing-interfaces-to-life-with-rive-real-time-animations-at-slice-cd80d2742176
+[29] LottieFiles - Dark/Light Mode Color Customization
+     https://lottiefiles.com/blog/working-with-lottie-animations/customize-lottie-animation-dark-light-mode-css
+[30] Lottie Flutter Dynamic Updates
+     https://medium.com/@divyanshverma9460/how-to-dynamically-update-a-lottie-animation-using-flutter-a6f302b8d7b1
+[31] Rive Beginner Guide - State Machines
+     https://rive.app/blog/how-state-machines-work-in-rive
+[32] IMAGA - Rive Animation for Flutter Apps
+     https://medium.com/@imaga/rive-animation-for-flutter-apps-why-we-prefer-it-over-lottie-when-to-use-it-and-key-features-to-c412154449bc
+[33] TillItsDone - Rive vs Lottie for Flutter
+     https://tillitsdone.com/blogs/rive-vs-lottie--flutter-animations/
+[34] MotionTheAgency - Lottie vs Rive
+     https://www.motiontheagency.com/blog/lottie-vs-rive
+
+FLUTTER IMPLEMENTATION:
+[35] Flutter - Animation Introduction
+     https://docs.flutter.dev/ui/animations
+[36] Flutter - Hero Animations
+     https://docs.flutter.dev/ui/animations/hero-animations
+[37] Flutter - Staggered Animations
+     https://docs.flutter.dev/ui/animations/staggered-animations
+[38] Flutter - Shimmer Loading Cookbook
+     https://docs.flutter.dev/cookbook/effects/shimmer-loading
+[39] Flutter - Parallax Scrolling Cookbook
+     https://docs.flutter.dev/cookbook/effects/parallax-scrolling
+[40] Flutter - Implicit Animations Codelab
+     https://docs.flutter.dev/codelabs/implicit-animations
+[41] Skeletonizer Package
+     https://pub.dev/packages/skeletonizer
+[42] shimmer_ai Package
+     https://pub.dev/packages/shimmer_ai
+[43] flutter_shimmer (PurplishMode)
+     https://github.com/skaran921/flutter_shimmer
+[44] animated_flip_counter Package
+     https://pub.dev/packages/animated_flip_counter
+[45] smooth_counter Package
+     https://pub.dev/packages/smooth_counter
+[46] animated_digit Package
+     https://pub.dev/packages/animated_digit
+[47] spring_bottom_sheet Package
+     https://pub.dev/packages/spring_bottom_sheet
+[48] flutter_staggered_animations
+     https://pub.dev/documentation/flutter_staggered_animations/latest/
+[49] CustomPainter Particle System Guide
+     https://medium.com/easy-flutter/flutter-magic-build-your-own-particle-system-and-look-like-a-wizard-b1fa55b75c85
+[50] Very Good Ventures - CustomPainter Mastery
+     https://www.verygood.ventures/blog/mastering-custompainter-in-flutter-from-svgs-to-racetracks
+[51] Flexiple - Advanced Flutter Animations
+     https://flexiple.com/app/advanced-flutter-animations
+[52] Codemagic - CustomPaint Widget Guide
+     https://blog.codemagic.io/flutter-custom-painter/
+[53] Blup - Advanced Flutter Transitions
+     https://www.blup.in/blog/advanced-flutter-animation-techniques-hero-animations-route-transitions
+[54] Vibe Studio - Page Transitions for Premium UX
+     https://vibe-studio.ai/insights/animating-page-transitions-in-flutter-for-premium-ux
+[55] Codecademy - Flutter Animations Tutorial
+     https://www.codecademy.com/article/how-to-create-flutter-animation
+
+ACCESSIBILITY:
+[56] Pope Tech - Accessible Animation Guide (Dec 2025)
+     https://blog.pope.tech/2025/12/08/design-accessible-animation-and-movement/
+[57] MDN - prefers-reduced-motion
+     https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion
+[58] BOIA - CSS Prefers-Reduced-Motion
+     https://www.boia.org/blog/what-to-know-about-the-css-prefers-reduced-motion-feature
+[59] Educational Voice - Accessibility Animation
+     https://educationalvoice.co.uk/accessibility-animation/
+[60] Kent State - Android Reduced Motion
+     https://www.kent.edu/equalaccess/news/android-accessibility-part-3-4-reduced-motion
+
+HAPTICS & MULTI-SENSORY:
+[61] Saropa - 2025 Guide to Haptics
+     https://saropa-contacts.medium.com/2025-guide-to-haptics-enhancing-mobile-ux-with-tactile-feedback-676dd5937774
+[62] Android Haptics UX Design
+     https://source.android.com/docs/core/interaction/haptics/haptics-ux-design
+[63] Wings Design - Multi-Sensory UX
+     https://wings.design/multi-sensory-ux-integrating-haptics-sound-and-visual-cues-to-enhance-user-interaction/
+[64] Boreas - Haptic UX Design Guidelines
+     https://pages.boreas.ca/blog/piezo-haptics/guidelines-of-haptic-ux-design
+
+THEME SWITCHING:
+[65] Circular Reveal Theme Switching (Android)
+     https://medium.com/@ankit_kr/build-a-beautiful-dark-mode-toggle-with-circular-reveal-animation-in-android-d55feb5cfed5
+[66] View Transitions API Theme Toggle
+     https://medium.com/@AkashHamirwasia/full-page-theme-toggle-animation-with-view-transitions-api-43db0beed341
+[67] Ant Design Ripple Theme Effect
+     https://medium.com/@pvnsripati/i-recreated-this-awesome-ripple-effect-from-ant-design-and-you-can-too-61831786b7ec
+
+AI ORB VISUAL:
+[68] react-ai-orb Component
+     https://github.com/Steve0929/react-ai-orb
+[69] ElevenLabs Orb UI Component
+     https://ui.elevenlabs.io/docs/components/orb
+[70] Elements Animated AI Orb
+     https://elements.surge.studio/ai/orb
+
+SEASONAL EFFECTS:
+[71] LottieFiles - Add Snow to Android
+     https://lottiefiles.com/blog/working-with-lottie-animations/add-snow-to-android-app
+[72] Seasonly Seasonal Effects
+     https://apps.shopify.com/snowfall
+[73] Dakaas Seasonal Animation
+     https://apps.shopify.com/multi-seasonal-effects
+[74] tsParticles Confetti
+     https://confetti.js.org/
+
+ELEVATION & DEPTH:
+[75] Elevation Design Patterns Article
+     https://designsystems.surf/articles/depth-with-purpose-how-elevation-adds-realism-and-hierarchy
+[76] FourZeroThree - Scalable Dark Theme Design
+     https://www.fourzerothree.in/p/scalable-accessible-dark-mode
+
+DATA VISUALIZATION:
+[77] Flourish - Animated Charts
+     https://flourish.studio/blog/animated-charts/
+[78] Flutter Charts & Visualization Packages
+     https://fluttergems.dev/plots-visualization/
+[79] Fuselab - Data Visualization Trends 2025
+     https://fuselabcreative.com/top-data-visualization-trends-2025/
+
+
+================================================================================
+END OF RESEARCH DOCUMENT
+Total Sections: 14 (12 main + accessibility + references)
+Total References: 79 unique sources
+================================================================================

@@ -1,0 +1,22 @@
+import { pgTable, uuid, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { adminRoleEnum } from "./enums.js";
+
+export const profiles = pgTable("profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  logtoId: text("logto_id").unique().notNull(),
+  email: text("email"),
+  name: text("name"),
+  avatarUrl: text("avatar_url"),
+  timezone: text("timezone").default("Asia/Kolkata"),
+  adminRole: adminRoleEnum("admin_role"),
+  isBanned: boolean("is_banned").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export type Profile = typeof profiles.$inferSelect;
+export type NewProfile = typeof profiles.$inferInsert;

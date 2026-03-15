@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UNJYNX Network Security Configuration
+
+  - Blocks cleartext (HTTP) traffic by default.
+  - Allows cleartext only for localhost and Android emulator host (dev).
+  - Pins TLS certificates for the production API domain.
+  - Includes a backup pin to allow key rotation without bricking clients.
+
+  SHA-256 certificate pins for production domains.
+  Primary: leaf certificate SPKI hash.
+  Backup: Let's Encrypt E7 intermediate certificate SPKI hash.
+
+  To regenerate the primary pin:
+    openssl s_client -servername api.unjynx.me -connect api.unjynx.me:443 \
+      | openssl x509 -pubkey -noout \
+      | openssl pkey -pubin -outform der \
+      | openssl dgst -sha256 -binary \
+      | openssl enc -base64
+-->
+<network-security-config>
+
+    <!-- Global: disallow cleartext traffic by default -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Dev: allow cleartext for localhost and emulator host -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+
+    <!-- Production API: certificate pinning -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.unjynx.me</domain>
+        <domain includeSubdomains="true">auth.unjynx.me</domain>
+        <pin-set expiration="2027-06-01">
+            <!-- Primary pin: SHA-256 of the leaf certificate's SPKI -->
+            <pin digest="SHA-256">9WU70+kePZ7zIW1TPwYKzWR9dR9Q5XTbTo3N3UT2ZeE=</pin>
+            <!-- Backup pin: SHA-256 of Let's Encrypt E7 intermediate SPKI -->
+            <pin digest="SHA-256">y7xVm0TVJNahMr2sZydE2jQH8SquXV9yLF9seROHHHU=</pin>
+        </pin-set>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+</network-security-config>

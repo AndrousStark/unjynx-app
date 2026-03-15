@@ -1,0 +1,164 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# UNJYNX Production Docker Compose
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Minimal production stack: backend + PostgreSQL + Valkey (Redis-compatible)
+# No dev tools (Grafana, Prometheus, Mailpit, Ollama, etc.)
+#
+# Usage:
+#   cp .env.production.example .env.production
+#   # Fill in .env.production with real values
+#   docker compose -f docker-compose.production.yml up -d
+#
+# For cloud deployments, replace postgres/redis services with managed
+# equivalents (Neon, Upstash) and only deploy the backend service.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Backend API ──────────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: infra/production/Dockerfile
+    container_name: unjynx-backend
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-unjynx}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-unjynx}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - unjynx-net
+
+  # ── PostgreSQL 16 ────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: unjynx-postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Custom PostgreSQL configuration for production
+      - ./postgres.conf:/etc/postgresql/postgresql.conf:ro
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-unjynx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-unjynx}
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=768MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "max_wal_size=1GB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "log_min_duration_statement=1000"
+      - "-c"
+      - "log_statement=ddl"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-unjynx} -d ${POSTGRES_DB:-unjynx}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    networks:
+      - unjynx-net
+
+  # ── Valkey (Redis-compatible) ────────────────────────────────────────────
+
+  redis:
+    image: valkey/valkey:8-alpine
+    container_name: unjynx-redis
+    volumes:
+      - redis_data:/data
+    command:
+      - "valkey-server"
+      - "--maxmemory"
+      - "256mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--appendonly"
+      - "yes"
+      - "--appendfsync"
+      - "everysec"
+      - "--save"
+      - "60 1000"
+      - "--save"
+      - "300 100"
+      - "--tcp-backlog"
+      - "511"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
+    networks:
+      - unjynx-net
+
+# ── Volumes ────────────────────────────────────────────────────────────────
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ── Network ────────────────────────────────────────────────────────────────
+
+networks:
+  unjynx-net:
+    driver: bridge

@@ -1,0 +1,21 @@
+name: service_api
+description: UNJYNX HTTP API client for backend communication
+version: 0.1.0
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dio: ^5.7.0
+  flutter_riverpod: ^3.3.0
+  unjynx_core:
+    path: ../core
+  service_auth:
+    path: ../service_auth
+
+dev_dependencies:
+  test: ^1.25.0
+  very_good_analysis: ^7.0.0

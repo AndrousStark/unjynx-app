@@ -1,0 +1,274 @@
+################################################################################
+  UNJYNX - SCREENSHOT SPECIFICATION
+  Version: 1.0.0
+  Last Updated: 2026-03-11
+################################################################################
+
+================================================================================
+  OVERVIEW
+================================================================================
+
+  6 screenshots per store listing, optimized for three device classes.
+  All screenshots use UNJYNX brand styling: midnight purple background (#0F0A1A),
+  electric gold accents (#FFD700), brand violet (#6C5CE7), and purple-mist text
+  (#F8F5FF).
+
+  Typography: Bebas Neue for headlines, Outfit for body text, DM Sans for UI.
+
+================================================================================
+  DEVICE FRAMES & DIMENSIONS
+================================================================================
+
+  GOOGLE PLAY STORE:
+  - Pixel 8 Pro:      1344 x 2992 px (6.7" display, required flagship)
+  - 7" Tablet:        1200 x 1920 px (optional but recommended)
+  - 10" Tablet:       1600 x 2560 px (optional)
+
+  APPLE APP STORE:
+  - iPhone 15 Pro Max: 1290 x 2796 px (6.7" Super Retina XDR, REQUIRED)
+  - iPhone 8 Plus:     1242 x 2208 px (5.5" Retina HD, REQUIRED)
+  - iPad Pro 12.9":    2048 x 2732 px (optional)
+
+  FILE FORMAT:
+  - PNG or JPEG, sRGB color space
+  - No transparency (App Store rejects it)
+  - No device bezels in the image for App Store (Apple adds them)
+  - Google Play allows device frames in screenshots
+
+================================================================================
+  GLOBAL DESIGN RULES
+================================================================================
+
+  BACKGROUND:
+  - Solid gradient from #0F0A1A (top) to #1A0F2E (bottom)
+  - Subtle radial glow behind device frame: violet (#6C5CE7) at 8% opacity
+  - Optional: floating orbs (violet/gold, blurred) for depth
+
+  TEXT OVERLAYS:
+  - Headline: Bebas Neue, 72-96pt, #F8F5FF (purple-mist)
+  - Subheadline: Outfit, 36-48pt, #FFD700 (gold) or #F8F5FF at 60% opacity
+  - Position: above or below device frame, never overlapping UI
+  - Max 6 words per headline, 10 words per subheadline
+
+  DEVICE FRAME:
+  - Slight 5-degree tilt for dynamism (optional, keep consistent across set)
+  - Drop shadow: 0 24px 48px rgba(108, 92, 231, 0.15)
+  - Device frame color: space black for all devices
+
+  BRANDING:
+  - UNJYNX logo watermark in bottom-right corner, 60% opacity, small
+  - Gold accent line (2px) at top of each screenshot
+
+================================================================================
+  SCREENSHOT 1: HOME SCREEN + PROGRESS RINGS
+================================================================================
+
+  SCREEN SHOWN:
+  Home screen (C1) displaying:
+  - "Good morning, [Name]" greeting with date
+  - Today's task list (3-4 tasks visible, one completed with strikethrough)
+  - Progress rings in top-right: daily completion %, streak count
+  - Bottom navigation bar visible
+
+  APP STATE:
+  - Dark theme active
+  - 3 of 5 tasks completed (60% ring filled)
+  - 12-day streak badge glowing gold
+  - One task marked urgent (gold border)
+
+  TEXT OVERLAY:
+  Headline:    "YOUR DAY. ORGANIZED."
+  Subheadline: "Track tasks and streaks at a glance."
+
+  NOTES:
+  - This is the first screenshot users see -- it must communicate "task manager"
+    instantly while hinting at the progress/gamification angle
+  - Show realistic task names (e.g., "Review Q1 report", "Call dentist",
+    "Push feature branch")
+
+================================================================================
+  SCREENSHOT 2: MULTI-CHANNEL REMINDERS
+================================================================================
+
+  SCREEN SHOWN:
+  Channel selection screen (J2) or notification preferences showing:
+  - List of 7 channel tiles: WhatsApp (green), Telegram (blue),
+    Instagram (pink), SMS (gold), Discord (indigo), Slack (purple), Email (violet)
+  - Each tile shows: channel icon, name, toggle switch (some ON, some OFF)
+  - At least 3 channels toggled ON with checkmarks
+  - Escalation chain preview at bottom: "WhatsApp -> SMS -> Email"
+
+  APP STATE:
+  - WhatsApp: connected (green dot)
+  - Telegram: connected (blue dot)
+  - SMS: connected (gold dot)
+  - Others: available but not connected (dimmed)
+
+  TEXT OVERLAY:
+  Headline:    "REMINDERS. EVERYWHERE."
+  Subheadline: "WhatsApp. Telegram. Instagram. SMS. 7 channels."
+
+  NOTES:
+  - Channel icons should use their official brand colors
+  - The escalation chain visual is a key differentiator -- make it prominent
+  - Consider showing a WhatsApp message bubble mockup floating beside the phone
+
+================================================================================
+  SCREENSHOT 3: GHOST MODE + FOCUS TIMER
+================================================================================
+
+  SCREEN SHOWN:
+  Ghost Mode screen (G1) displaying:
+  - Large circular Pomodoro timer (25:00 or mid-session like 18:32)
+  - "GHOST MODE ACTIVE" badge at top
+  - Ambient sound selector showing current sound (e.g., "Rain" with waveform)
+  - Session stats: "Focus: 2h 15m today"
+  - Subtle ghost/invisible effect on background (translucent overlay)
+
+  APP STATE:
+  - Timer running at 18:32
+  - Rain ambient sound active (waveform animation implied)
+  - Dark theme with extra-dim background (Ghost Mode overlay)
+  - Gold timer ring with progress arc
+
+  TEXT OVERLAY:
+  Headline:    "LOCK IN. GO GHOST."
+  Subheadline: "Deep focus with Pomodoro + ambient sounds."
+
+  NOTES:
+  - The ghost/stealth aesthetic should feel premium and mysterious
+  - Timer ring should be the dominant visual element
+  - Ambient sound selector is a unique touch -- make sure it is visible
+  - Consider a subtle "apps blocked" indicator
+
+================================================================================
+  SCREENSHOT 4: PROGRESS HUB
+================================================================================
+
+  SCREEN SHOWN:
+  Progress Hub screen (I1) displaying:
+  - Three concentric completion rings (daily, weekly, monthly) -- Strava-style
+  - Contribution heatmap grid (GitHub-style, purple-to-gold color scale)
+  - Current streak: "47 days" with fire icon
+  - Personal best badge: "Longest streak: 47 days"
+  - Weekly insight card: "You complete 40% more tasks on Tuesdays"
+
+  APP STATE:
+  - Impressive streak number (47 days)
+  - Heatmap showing consistent activity over 3+ months
+  - All three rings nearly full (85%+)
+  - Weekly insight visible
+
+  TEXT OVERLAY:
+  Headline:    "TRACK YOUR STREAK."
+  Subheadline: "Heatmaps, rings, and personal bests."
+
+  NOTES:
+  - The heatmap and rings should feel like a fitness app dashboard
+  - Use purple-to-gold gradient for heatmap cells (cold to hot)
+  - Streak number should be large and gold
+  - This screenshot sells the gamification angle
+
+================================================================================
+  SCREENSHOT 5: DAILY WISDOM + MORNING RITUAL
+================================================================================
+
+  SCREEN SHOWN:
+  Daily Content screen (H1) or Morning Ritual screen (H3) displaying:
+  - Large quote card with decorative borders (gold accent lines)
+  - Quote text: a compelling Mahabharata or Stoic quote
+  - Author attribution below quote
+  - Category pill: "Stoic Philosophy" or "Mahabharata"
+  - "60+ categories" indicator
+  - Swipe hint or next/previous arrows
+
+  APP STATE:
+  - Beautiful quote card with glassmorphism effect
+  - Category selector showing multiple options
+  - Dark theme with the quote text in purple-mist, author in gold
+  - Morning ritual checklist partially visible below
+
+  TEXT OVERLAY:
+  Headline:    "START WITH PURPOSE."
+  Subheadline: "Daily wisdom from 60+ categories."
+
+  NOTES:
+  - The quote should be genuinely inspiring and legible
+  - Suggested quote: "The mind is everything. What you think, you become."
+  - Glass card effect should be visible (frosted, with violet tint)
+  - This differentiates UNJYNX from purely utilitarian task apps
+
+================================================================================
+  SCREENSHOT 6: TEAM COLLABORATION
+================================================================================
+
+  SCREEN SHOWN:
+  Team workspace view showing:
+  - Team name header: "Design Team" or "Engineering"
+  - Shared project with assigned members (avatar circles)
+  - Task list with assignee avatars next to each task
+  - Team progress bar: "Team completion: 78%"
+  - Member activity indicators (online/offline dots)
+  - "Invite member" button visible
+
+  APP STATE:
+  - 4-5 team members visible (avatar circles with initials)
+  - Mixed task states: some completed, some in progress, some upcoming
+  - Team analytics summary card visible
+  - Collaborative feel without being cluttered
+
+  TEXT OVERLAY:
+  Headline:    "TEAMS THAT SHIP."
+  Subheadline: "Shared tasks, analytics, and escalation chains."
+
+  NOTES:
+  - Show enough team members to communicate "collaboration" without clutter
+  - Use diverse avatar colors (pulled from brand palette: violet, gold, etc.)
+  - The team view should feel professional but not enterprise-dull
+  - This screenshot targets the Team plan upsell
+
+================================================================================
+  SCREENSHOT ORDER & RATIONALE
+================================================================================
+
+  1. Home Screen      -- Immediate comprehension: "This is a task manager"
+  2. Multi-Channel    -- Key differentiator: "This is not like other task apps"
+  3. Ghost Mode       -- Unique feature: "Focus mode that is actually cool"
+  4. Progress Hub     -- Gamification hook: "I want those streaks"
+  5. Daily Wisdom     -- Emotional hook: "This app cares about my growth"
+  6. Team View        -- Expansion: "My team could use this too"
+
+  This order follows the AIDA model:
+  - Attention (1-2): What is it + why is it different
+  - Interest (3-4): Unique features that intrigue
+  - Desire (5): Emotional connection
+  - Action (6): Team upsell / expansion
+
+================================================================================
+  LOCALIZATION NOTES
+================================================================================
+
+  For India (Hindi):
+  - Translate text overlays to Hindi
+  - Use INR pricing in Team screenshot: "Rs 149/mo"
+  - Daily Wisdom screenshot should show a Hindi quote option
+  - WhatsApp should be the first channel shown (highest usage in India)
+
+  For other markets:
+  - Prioritize channels by regional popularity
+  - Japan/Korea: LINE integration screenshot (future)
+  - Brazil: WhatsApp first
+  - US/EU: Email and Slack first
+
+================================================================================
+  ASSET DELIVERY CHECKLIST
+================================================================================
+
+  [ ] 6 screenshots x iPhone 15 Pro Max (1290x2796)
+  [ ] 6 screenshots x iPhone 8 Plus (1242x2208)
+  [ ] 6 screenshots x Pixel 8 Pro (1344x2992)
+  [ ] App icon: 1024x1024 PNG (no transparency, no rounded corners)
+  [ ] Feature graphic (Play Store): 1024x500 PNG
+  [ ] App Preview video (optional): 15-30 seconds, 1920x1080 or device resolution
+  [ ] All assets in sRGB color space
+  [ ] No alpha channels in any PNG

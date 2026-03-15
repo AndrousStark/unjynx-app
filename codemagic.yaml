@@ -1,0 +1,328 @@
+# ==============================================================================
+# UNJYNX - Codemagic CI/CD Configuration
+# ==============================================================================
+# Docs: https://docs.codemagic.io/yaml-quick-start/building-a-flutter-app/
+#
+# Required Codemagic environment variable groups:
+#   android_credentials:
+#     CM_KEYSTORE          - Base64-encoded .jks keystore file
+#     CM_KEYSTORE_PASSWORD - Keystore password
+#     CM_KEY_ALIAS         - Key alias name
+#     CM_KEY_PASSWORD      - Key password
+#
+#   apple_credentials:
+#     APP_STORE_CONNECT_ISSUER_ID      - App Store Connect API issuer ID
+#     APP_STORE_CONNECT_KEY_IDENTIFIER - Key ID
+#     APP_STORE_CONNECT_PRIVATE_KEY    - .p8 private key contents
+#     CERTIFICATE_PRIVATE_KEY          - RSA private key for code signing
+#
+#   slack_credentials:
+#     SLACK_WEBHOOK_URL - Slack incoming webhook for build notifications
+#
+#   sentry_credentials:
+#     SENTRY_DSN           - Sentry DSN for crash reporting
+#     SENTRY_AUTH_TOKEN     - Sentry auth token for symbol upload
+# ==============================================================================
+
+definitions:
+  environment: &flutter_env
+    flutter: stable
+    groups:
+      - slack_credentials
+
+  scripts:
+    - &install_deps
+      name: Install dependencies
+      script: |
+        flutter pub get
+        cd apps/mobile && flutter pub get
+
+    - &run_analyze
+      name: Run static analysis
+      script: |
+        cd apps/mobile
+        flutter analyze --fatal-infos
+
+    - &run_tests
+      name: Run tests
+      script: |
+        flutter test packages/core || EXIT_CODE=$?
+        flutter test packages/service_database || EXIT_CODE=$?
+        flutter test packages/service_auth || EXIT_CODE=$?
+        flutter test packages/service_sync || EXIT_CODE=$?
+        flutter test packages/feature_todos || EXIT_CODE=$?
+        flutter test packages/feature_projects || EXIT_CODE=$?
+        flutter test packages/feature_home || EXIT_CODE=$?
+        flutter test packages/feature_onboarding || EXIT_CODE=$?
+        flutter test packages/feature_settings || EXIT_CODE=$?
+        flutter test packages/feature_profile || EXIT_CODE=$?
+        flutter test packages/feature_notifications || EXIT_CODE=$?
+        exit ${EXIT_CODE:-0}
+
+  slack_publish: &slack_publish
+    slack:
+      channel: "#unjynx-builds"
+      notify_on_build_start: false
+      notify:
+        success: true
+        failure: true
+
+# ==============================================================================
+# Workflows
+# ==============================================================================
+workflows:
+  # --------------------------------------------------------------------------
+  # PR Check - lightweight validation on every pull request
+  # --------------------------------------------------------------------------
+  pr-check:
+    name: PR Check
+    max_build_duration: 20
+    instance_type: linux_x2
+    environment:
+      <<: *flutter_env
+    triggering:
+      events:
+        - pull_request
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: false
+      cancel_previous_builds: true
+    scripts:
+      - *install_deps
+      - *run_analyze
+      - name: Check formatting
+        script: dart format --set-exit-if-changed .
+      - *run_tests
+
+  # --------------------------------------------------------------------------
+  # Android Release - build signed AAB for Google Play
+  # --------------------------------------------------------------------------
+  android-release:
+    name: Android Release
+    max_build_duration: 45
+    instance_type: linux_x2
+    environment:
+      <<: *flutter_env
+      groups:
+        - android_credentials
+        - sentry_credentials
+        - slack_credentials
+      vars:
+        PACKAGE_NAME: "com.metaminds.unjynx"
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
+      cancel_previous_builds: false
+    scripts:
+      - name: Set up Android keystore
+        script: |
+          echo $CM_KEYSTORE | base64 --decode > $CM_BUILD_DIR/keystore.jks
+
+          cat > $CM_BUILD_DIR/apps/mobile/android/key.properties <<EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=$CM_BUILD_DIR/keystore.jks
+          EOF
+
+      - *install_deps
+      - *run_analyze
+      - *run_tests
+
+      - name: Build Android App Bundle
+        script: |
+          cd apps/mobile
+          flutter build appbundle \
+            --release \
+            --obfuscate \
+            --split-debug-info=build/symbols/android \
+            --tree-shake-icons \
+            --dart-define=ENV=production \
+            --dart-define=API_BASE_URL=https://api.unjynx.me \
+            --dart-define=LOGTO_ENDPOINT=https://auth.unjynx.me \
+            --dart-define=LOGTO_APP_ID=unjynx-mobile \
+            --dart-define=SENTRY_DSN=$SENTRY_DSN \
+            --build-number=$(($(google-play get-latest-build-number \
+              --package-name "$PACKAGE_NAME" \
+              --tracks=internal 2>/dev/null || echo 0) + 1))
+
+      - name: Upload debug symbols to Sentry
+        script: |
+          if [ -n "${SENTRY_AUTH_TOKEN:-}" ] && [ -n "${SENTRY_DSN:-}" ]; then
+            npm install -g @sentry/cli
+            sentry-cli debug-files upload \
+              --org metaminds \
+              --project unjynx-mobile \
+              apps/mobile/build/symbols/android
+          else
+            echo "Skipping Sentry symbol upload (no auth token configured)"
+          fi
+
+    artifacts:
+      - apps/mobile/build/**/outputs/**/*.aab
+      - apps/mobile/build/symbols/android/**
+
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+      <<: *slack_publish
+
+  # --------------------------------------------------------------------------
+  # iOS Release - build signed IPA for App Store / TestFlight
+  # --------------------------------------------------------------------------
+  ios-release:
+    name: iOS Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      <<: *flutter_env
+      xcode: latest
+      groups:
+        - apple_credentials
+        - sentry_credentials
+        - slack_credentials
+      vars:
+        BUNDLE_ID: "com.metaminds.unjynx.unjynxMobile"
+    integrations:
+      app_store_connect: METAminds ASC API Key
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
+      cancel_previous_builds: false
+    scripts:
+      - *install_deps
+
+      - name: Set up iOS code signing
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - *run_analyze
+      - *run_tests
+
+      - name: Build iOS IPA
+        script: |
+          cd apps/mobile
+          flutter build ipa \
+            --release \
+            --obfuscate \
+            --split-debug-info=build/symbols/ios \
+            --tree-shake-icons \
+            --dart-define=ENV=production \
+            --dart-define=API_BASE_URL=https://api.unjynx.me \
+            --dart-define=LOGTO_ENDPOINT=https://auth.unjynx.me \
+            --dart-define=LOGTO_APP_ID=unjynx-mobile \
+            --dart-define=SENTRY_DSN=$SENTRY_DSN \
+            --export-options-plist=$HOME/export_options.plist
+
+      - name: Upload debug symbols to Sentry
+        script: |
+          if [ -n "${SENTRY_AUTH_TOKEN:-}" ] && [ -n "${SENTRY_DSN:-}" ]; then
+            npm install -g @sentry/cli
+            sentry-cli debug-files upload \
+              --org metaminds \
+              --project unjynx-mobile \
+              apps/mobile/build/symbols/ios
+          else
+            echo "Skipping Sentry symbol upload (no auth token configured)"
+          fi
+
+    artifacts:
+      - apps/mobile/build/ios/ipa/*.ipa
+      - apps/mobile/build/symbols/ios/**
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        expire_build_submitted_for_review: true
+      <<: *slack_publish
+
+  # --------------------------------------------------------------------------
+  # Shorebird Patch - OTA update without store review
+  # --------------------------------------------------------------------------
+  shorebird-patch-android:
+    name: Shorebird Patch (Android)
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      <<: *flutter_env
+      groups:
+        - android_credentials
+        - slack_credentials
+      vars:
+        SHOREBIRD_TOKEN: $SHOREBIRD_TOKEN
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "patch-android-*"
+          include: true
+      cancel_previous_builds: false
+    scripts:
+      - name: Install Shorebird CLI
+        script: |
+          curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
+          echo 'export PATH="$HOME/.shorebird/bin:$PATH"' >> $CM_ENV
+          source $CM_ENV
+
+      - *install_deps
+
+      - name: Create Shorebird patch
+        script: |
+          cd apps/mobile
+          shorebird patch android \
+            --release-version=$(echo $CM_TAG | sed 's/patch-android-//')
+
+    publishing:
+      <<: *slack_publish
+
+  shorebird-patch-ios:
+    name: Shorebird Patch (iOS)
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      <<: *flutter_env
+      xcode: latest
+      groups:
+        - apple_credentials
+        - slack_credentials
+      vars:
+        SHOREBIRD_TOKEN: $SHOREBIRD_TOKEN
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "patch-ios-*"
+          include: true
+      cancel_previous_builds: false
+    scripts:
+      - name: Install Shorebird CLI
+        script: |
+          curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
+          echo 'export PATH="$HOME/.shorebird/bin:$PATH"' >> $CM_ENV
+          source $CM_ENV
+
+      - *install_deps
+
+      - name: Create Shorebird patch
+        script: |
+          cd apps/mobile
+          shorebird patch ios \
+            --release-version=$(echo $CM_TAG | sed 's/patch-ios-//')
+
+    publishing:
+      <<: *slack_publish

@@ -1,0 +1,652 @@
+# =============================================================================
+# Open-Source Flutter Reference Apps for UNJYNX
+# Research Date: 2026-03-02
+# Purpose: 15 best open-source Flutter repos to study for UNJYNX
+# =============================================================================
+
+meta:
+  total_repos_analyzed: 15
+  categories_covered:
+    - TODO/Task Management
+    - Large-Scale Production Apps
+    - Offline-First Sync
+    - Gamification
+    - Multi-Channel Notifications
+    - Monorepo/Melos
+    - Beautiful UI / Material 3
+    - AI/LLM Integration
+    - Plugin/Module Architecture
+
+# =============================================================================
+# TIER 1: PRIMARY REFERENCES (Most Relevant to UNJYNX)
+# =============================================================================
+
+tier_1_primary:
+
+  # -------------------------------------------------------------------------
+  # 1. AppFlowy - Open Source Notion Alternative
+  # -------------------------------------------------------------------------
+  - name: AppFlowy
+    github: https://github.com/AppFlowy-IO/AppFlowy
+    stars: "68,300+"
+    languages: "Dart 73.8%, Rust 24.1%"
+    architecture: DDD (Domain-Driven Design) with Flutter BLoC
+    state_management: flutter_bloc
+    database: "Rust-side persistence with Protobuf data models"
+    last_updated: "Actively maintained (7,200+ commits)"
+    folder_structure: |
+      frontend/
+        appflowy_flutter/
+          assets/          # Fonts, images, translations
+          lib/
+            core/          # Startup tasks, shared configs
+            plugins/       # Document, Grid, Board editors
+            startup/       # App initialization
+            user/          # User management
+            workspace/     # Workspace management
+          packages/        # Shared Flutter widgets
+    key_patterns:
+      - "Plugin-based editor system (Document, Grid, Board, Calendar)"
+      - "Protobuf-based communication between Flutter and Rust"
+      - "Event-driven BLoC: Widget -> Event -> Bloc -> State -> UI"
+      - "Workspace/App/View hierarchy"
+      - "Internationalization with translation resources"
+    what_unjynx_can_learn:
+      - "Plugin Architecture: extensible editor/view system where each view type is a separate plugin"
+      - "Scale: managing a 68k+ star project with clear architecture boundaries"
+      - "Offline-capable: desktop-first design with local-first data storage"
+      - "Code Generation: Protobuf for type-safe cross-language communication"
+    code_quality: "Production-grade, well-documented, active community. One of the best Flutter + Rust references."
+
+  # -------------------------------------------------------------------------
+  # 2. Immich - Self-Hosted Photo Management
+  # -------------------------------------------------------------------------
+  - name: Immich
+    github: https://github.com/immich-app/immich
+    stars: "90,000+"
+    languages: "Dart (mobile), TypeScript (server)"
+    architecture: MVVM with Clean Architecture layers
+    state_management: "Riverpod (providers)"
+    database: "Isar (local), PostgreSQL (server)"
+    last_updated: "Extremely active (v2.5.0 released 2026)"
+    folder_structure: |
+      mobile/lib/
+        constants/       # App-wide constants
+        domain/          # Business logic and rules
+        entities/        # Data model definitions
+        extensions/      # Class extensions
+        infrastructure/  # External service integrations
+        interfaces/      # Abstract contracts
+        mixins/          # Reusable behaviors
+        models/          # Data structures
+        pages/           # Full-screen UI views
+        platform/        # Platform-specific code
+        presentation/    # UI layer
+        providers/       # Riverpod state/DI
+        repositories/    # Data access abstraction
+        routing/         # Navigation config
+        services/        # Business logic services
+        theme/           # Design system
+        utils/           # Helpers
+        widgets/         # Reusable UI components
+    key_patterns:
+      - "MVVM with Riverpod: Models -> Providers -> Services -> Views"
+      - "Clean separation: domain, infrastructure, presentation layers"
+      - "Repository pattern for data access abstraction"
+      - "Background sync engine for photos"
+      - "Platform-specific implementations via platform/ directory"
+    what_unjynx_can_learn:
+      - "Riverpod at Scale: THE BEST example of Riverpod in a production app with 90k+ stars"
+      - "Offline Sync: Background photo upload/download queue patterns"
+      - "Repository Pattern: Clean data access layer design"
+      - "Folder Structure: One of the most comprehensive Flutter app structures"
+    code_quality: "Exceptional. Production app used by thousands. Gold standard for Flutter + Riverpod."
+
+  # -------------------------------------------------------------------------
+  # 3. VGV News Toolkit (Google + Very Good Ventures)
+  # -------------------------------------------------------------------------
+  - name: VGV News Toolkit
+    github: https://github.com/VGVentures/news_toolkit
+    stars: "1,400+"
+    architecture: "VGV Layered Architecture (4 layers)"
+    state_management: BLoC
+    database: "Firebase (remote)"
+    last_updated: "Maintained by Google and VGV"
+    architecture_layers: |
+      Presentation Layer  -> Flutter widgets, UI
+      Business Logic Layer -> BLoC (state management)
+      Repository Layer    -> Domain logic, data aggregation
+      Data Layer          -> Raw data from APIs/storage
+    folder_structure: |
+      flutter_news_example/
+        lib/
+          feature_name/
+            bloc/           # Business logic
+            view/           # Screens
+            widgets/        # Feature-specific widgets
+          app/              # App-level config
+          l10n/             # Localization
+    key_patterns:
+      - "Feature-first folder organization (layers INSIDE each feature)"
+      - "100% test coverage philosophy"
+      - "BLoC with clear event/state separation"
+      - "Firebase integration (auth, notifications, analytics, ads)"
+      - "Monetization patterns (ads + subscriptions)"
+      - "Very Good CLI for code generation"
+    what_unjynx_can_learn:
+      - "Feature-First Organization: each feature is self-contained"
+      - "Testing Philosophy: near-100% test coverage"
+      - "Production Patterns: auth, notifications, analytics"
+      - "Google-Endorsed: how Google recommends building Flutter apps"
+    code_quality: "Top-tier. Built by Google and VGV. Definitive BLoC architecture reference."
+
+  # -------------------------------------------------------------------------
+  # 4. Flutter Clean Architecture Example (State Management Comparison)
+  # -------------------------------------------------------------------------
+  - name: Flutter Clean Architecture Example
+    github: https://github.com/guilherme-v/flutter-clean-architecture-example
+    stars: "860+"
+    architecture: "Clean Architecture (3-layer)"
+    state_management: "BLoC, Cubit, Riverpod, Provider, MobX, GetIt (ALL compared)"
+    database: "Remote API with caching"
+    last_updated: Active
+    folder_structure: |
+      lib/layers/
+        data/           # DTOs, data sources, repo implementations
+        domain/         # Entities, use cases, repo interfaces
+        presentation/
+          using_bloc/
+          using_cubit/
+          using_riverpod/
+          using_provider/
+          using_mobx/
+          using_get_it/
+    key_patterns:
+      - "Same app built with 6 different state management approaches"
+      - "Material 3 theming (dark/light modes)"
+      - "Infinite scrolling implementation"
+      - "DTO -> Entity -> State mapping between layers"
+      - "Comprehensive unit and widget tests for each approach"
+    what_unjynx_can_learn:
+      - "State Management Decision: direct comparison to validate Riverpod choice"
+      - "Layer Mapping: transforming data between layers"
+      - "Testing Patterns: tests for 6 SM approaches"
+    code_quality: "Excellent educational quality. Perfect for understanding WHY each pattern exists."
+
+  # -------------------------------------------------------------------------
+  # 5. Clean Architecture TODO App (Riverpod + Drift)
+  # -------------------------------------------------------------------------
+  - name: Clean Architecture TODO App
+    github: https://github.com/rodydavis/clean_architecture_todo_app
+    stars: "164"
+    architecture: "Clean Architecture (3-layer)"
+    state_management: "Riverpod (Generator, StreamNotifier)"
+    database: "Drift (SQLite) with full-text search"
+    last_updated: "Updated for Material 3, latest Riverpod and Drift"
+    key_patterns:
+      - "TODO app with Riverpod + Drift -- EXACTLY the UNJYNX stack"
+      - "StreamNotifier and FutureNotifier patterns"
+      - "Adaptive layouts supporting all 6 Flutter platforms"
+      - "Code generation (Riverpod Generator + Drift)"
+      - "Full-text search with Drift"
+    what_unjynx_can_learn:
+      - "Exact Stack Match: Flutter + Clean Arch + Riverpod + Drift"
+      - "Drift Patterns: setup with code gen and full-text search"
+      - "Riverpod Generator: modern codegen approach"
+      - "Cross-Platform: adaptive layouts"
+    code_quality: "Good reference quality. Small but focused on the exact UNJYNX tech stack."
+
+# =============================================================================
+# TIER 2: ARCHITECTURE AND PATTERNS REFERENCES
+# =============================================================================
+
+tier_2_architecture:
+
+  # -------------------------------------------------------------------------
+  # 6. ssoad Riverpod Clean Architecture Template
+  # -------------------------------------------------------------------------
+  - name: Flutter Riverpod Clean Architecture Template
+    github: https://github.com/ssoad/flutter_riverpod_clean_architecture
+    stars: "63"
+    architecture: "Strict Clean Architecture"
+    state_management: "Riverpod 2.0 (Notifier, AsyncNotifier)"
+    error_handling: "fpdart (Either<Failure, T>)"
+    last_updated: Active
+    folder_structure: |
+      lib/
+        core/              # Shared kernel (Errors, Network, Utils)
+        features/
+          auth/
+            domain/        # Entities, repos (interfaces), usecases
+            data/          # Datasources, models, repo implementations
+            presentation/  # Providers, screens, widgets
+            providers/     # Riverpod DI for data layer
+          chat/
+          survey/
+        main.dart
+    key_patterns:
+      - "fpdart for functional error handling (Either<Failure, T>)"
+      - "Feature Generator script (./generate_feature.sh)"
+      - "WebSocket integration pattern"
+      - "Form validation patterns"
+      - "Secure storage + biometric authentication"
+      - "Golden tests for visual regression"
+    what_unjynx_can_learn:
+      - "Feature Generator: auto-create boilerplate for new features"
+      - "Functional Error Handling: fpdart Either pattern"
+      - "Riverpod 2.0: modern Notifier/AsyncNotifier usage"
+      - "WebSocket: real-time communication patterns"
+
+  # -------------------------------------------------------------------------
+  # 7. Momentous Flutter Starter App
+  # -------------------------------------------------------------------------
+  - name: Momentous Flutter Starter App
+    github: https://github.com/momentous-developments/flutter-starter-app
+    stars: "29"
+    architecture: "Clean Architecture + Feature-First"
+    state_management: "Riverpod 2.0 with codegen"
+    routing: GoRouter
+    ui: "Material 3 with flex_color_scheme"
+    folder_structure: |
+      lib/
+        core/
+          constants/
+          error_handling/
+          models/
+          providers/
+          router/
+          services/
+          theme/
+        features/
+          auth/
+          dashboard/
+          forms/
+          home/
+          notifications/
+          onboarding/
+          settings/
+          users/
+        l10n/
+        shared/
+        main.dart
+    key_patterns:
+      - "Pre-built features: auth, dashboard, notifications, onboarding, settings"
+      - "Skeleton screens and loading states"
+      - "Responsive design patterns"
+      - "flutter_animate for smooth animations"
+      - "flex_color_scheme for dynamic theming"
+      - "i18n with intl"
+    what_unjynx_can_learn:
+      - "Pre-Built Features: many overlap with UNJYNX features"
+      - "Theming: flex_color_scheme + Material 3 dynamic theming"
+      - "Animations: flutter_animate integration"
+      - "Responsive Design: adaptive layouts"
+
+  # -------------------------------------------------------------------------
+  # 8. Flutterando Modular (Plugin Architecture Framework)
+  # -------------------------------------------------------------------------
+  - name: Flutterando Modular
+    github: https://github.com/Flutterando/modular
+    stars: "1,400+"
+    architecture: "Feature-First Modular"
+    routing: "Built-in modular routing"
+    di: "Built-in dependency injection"
+    module_structure: |
+      Each Module contains:
+        - Routes (ChildRoute for pages, ModuleRoute for sub-modules)
+        - Binds (Dependency injection registrations)
+
+      Module tree mirrors widget tree:
+        AppModule
+          - HomeModule
+          - AuthModule
+            - LoginModule
+            - RegisterModule
+          - SettingsModule
+    key_patterns:
+      - "Module nesting (modules within modules)"
+      - "Scoped routing per module"
+      - "Scoped dependency injection per module"
+      - "Works with ANY state management"
+      - "Dynamic routes, wildcards, query parameters"
+    what_unjynx_can_learn:
+      - "Plugin Architecture: true plugin system where features are independent modules"
+      - "Module Lifecycle: modules created/destroyed on demand"
+      - "Scoped DI: each module has its own dependency scope"
+      - "Route Isolation: each module manages its own routes"
+    code_quality: "Production-ready package used by many Flutter apps."
+
+  # -------------------------------------------------------------------------
+  # 9. StuartApp Modular Architecture (Hexagonal)
+  # -------------------------------------------------------------------------
+  - name: Stuart Flutter Modular Architecture
+    github: https://github.com/StuartApp/flutter-modular-architecture
+    stars: "41"
+    architecture: "Clean Architecture + Hexagonal (Ports and Adapters)"
+    state_management: BLoC
+    di: "GetIt with DependencyConfigurator pattern"
+    folder_structure: |
+      packages/
+        shared/all/core/              # Shared core utilities
+        use_cases/
+          find_bikes/
+            real_adapters/            # Production implementations
+            fake_adapters/            # Test/dev implementations
+        features/
+          bike_map/
+            lib/
+              bloc/
+              screens/
+              widgets/
+    key_patterns:
+      - "Ports and Adapters: use cases expose interfaces, adapters implement"
+      - "Real vs Fake Adapters: swap production/test implementations"
+      - "DependencyConfigurator: each package registers its own deps"
+      - "Package-level isolation: each use case/feature is its own Dart package"
+    what_unjynx_can_learn:
+      - "Hexagonal Architecture: true adapter pattern for swappable implementations"
+      - "Package-Level Modules: each feature is a separate Dart package"
+      - "Fake Adapters: clean testing with swappable implementations"
+      - "Enterprise Patterns: inspired by Android at Scale at Square"
+
+# =============================================================================
+# TIER 3: SPECIALIZED REFERENCES
+# =============================================================================
+
+tier_3_specialized:
+
+  # -------------------------------------------------------------------------
+  # 10. Syncable (Offline-First Multi-Device Sync)
+  # -------------------------------------------------------------------------
+  - name: Syncable
+    github: https://github.com/Mr-Pepe/syncable
+    stars: "40"
+    database: "Drift (SQLite) local, Supabase (PostgreSQL) remote"
+    sync_strategy: "Offline-first with timestamp-based conflict resolution"
+    key_patterns:
+      - "Background sync loop processing change queues"
+      - "Timestamp-based conflict resolution (newer wins)"
+      - "Soft deletion with deleted flag propagation"
+      - "User-scoped syncing (per-user data isolation)"
+      - "Persistent sync timestamp storage for incremental updates"
+      - "Device presence tracking to minimize real-time connections"
+      - "Supabase real-time subscriptions for live sync"
+    what_unjynx_can_learn:
+      - "Offline Sync Engine: complete Drift + Supabase offline-first sync"
+      - "Conflict Resolution: timestamp-based last-write-wins"
+      - "Incremental Sync: only sync what changed"
+      - "Drift + Supabase: exact combo relevant to UNJYNX"
+
+  # -------------------------------------------------------------------------
+  # 11. HabitQuest (Gamified Habit Tracker)
+  # -------------------------------------------------------------------------
+  - name: HabitQuest
+    github: https://github.com/nalugala-vc/HabitQuest
+    stars: "4"
+    architecture: "Feature-based with GetX"
+    state_management: GetX
+    database: "Firebase Firestore with offline persistence"
+    gamification_features:
+      - "Achievement Badges: unlockable rewards for milestones"
+      - "XP System: points tied to habit completion"
+      - "Streaks: continuous completion tracking with visual celebrations"
+      - "Heatmap Calendar: visual progress over time"
+    folder_structure: |
+      lib/
+        api/
+        auth/
+        core/           # Controllers, DI
+        home/
+        models/
+        notifications/
+        profile/
+        services/
+        streaks/
+    what_unjynx_can_learn:
+      - "Gamification Implementation: XP, badges, streaks, heatmaps"
+      - "Streak Tracking: implementation and visualization"
+      - "Heatmap Calendar: flutter_heatmap_calendar usage"
+      - "Firebase Offline: built-in offline persistence"
+
+  # -------------------------------------------------------------------------
+  # 12. Teqani Rewards (Gamification Package)
+  # -------------------------------------------------------------------------
+  - name: Teqani Rewards
+    github: https://github.com/teqani-org/teqani_rewards
+    stars: "2"
+    type: "Flutter package (library)"
+    storage: "SharedPreferences, SQLite, Hive, Firebase (all supported)"
+    features:
+      - "Achievement system with customizable point values"
+      - "Streak tracking (current, longest, daily engagement)"
+      - "Time-limited challenges with deadlines"
+      - "Firebase Analytics integration"
+      - "AES-256 encryption for anti-tampering"
+      - "Pre-built UI widgets"
+    what_unjynx_can_learn:
+      - "Gamification as Package: encapsulate into reusable library"
+      - "Multiple Storage Backends: abstraction over storage options"
+      - "Anti-Tampering: AES-256 encryption for game data"
+      - "Analytics Events: Firebase Analytics for tracking"
+
+  # -------------------------------------------------------------------------
+  # 13. WhatsApp Clone (Notifications and Real-Time)
+  # -------------------------------------------------------------------------
+  - name: Flutter WhatsApp Clone
+    github: https://github.com/RivaanRanawat/flutter-whatsapp-clone
+    stars: "285"
+    architecture: "Feature-first with Riverpod"
+    state_management: "Riverpod 2.0"
+    backend: "Firebase (Auth, Firestore, Storage, FCM)"
+    features:
+      - "Real-time messaging"
+      - "Group chats"
+      - "Push notifications (FCM)"
+      - "Voice/Video calls"
+      - "File sharing (GIF, images, videos)"
+    what_unjynx_can_learn:
+      - "Push Notifications: FCM with Riverpod"
+      - "Real-Time: Firestore listeners for live data"
+      - "Feature-First + Riverpod: folder structure"
+      - "Multi-Channel Communication"
+
+  # -------------------------------------------------------------------------
+  # 14. Nimblehq Monorepo Example
+  # -------------------------------------------------------------------------
+  - name: Nimblehq Flutter Monorepo Example
+    github: https://github.com/nimblehq/flutter-monorepo-example
+    stars: "23"
+    architecture: "Melos Monorepo"
+    tools: "Melos for workspace management"
+    folder_structure: |
+      apps/
+        buyer_app/        # Buyer application
+        seller_app/       # Seller application
+      shared/
+        shared_widget/    # Shared UI components
+      resources/          # Project assets
+      melos.yaml          # Workspace config
+    melos_commands:
+      - "melos bs                      # Bootstrap all packages"
+      - "melos run run:buyer           # Run buyer app"
+      - "melos run formatting:check    # Check formatting"
+      - "melos run analyze             # Analyze all packages"
+    what_unjynx_can_learn:
+      - "Melos Setup: complete melos.yaml configuration"
+      - "Shared Packages: sharing widgets/code across apps"
+      - "CI/CD for Monorepo: GitHub Actions multi-package"
+      - "Package Linking: apps depending on shared packages"
+
+  # -------------------------------------------------------------------------
+  # 15. PocketLLM (AI Chat with Flutter)
+  # -------------------------------------------------------------------------
+  - name: PocketLLM
+    github: https://github.com/PocketLLM/PocketLLM
+    stars: "30"
+    architecture: "Client-Server (Flutter + FastAPI)"
+    state_management: Riverpod
+    routing: GoRouter
+    ui: "Material 3"
+    features:
+      - "Multi-provider LLM integration (OpenAI, Groq, OpenRouter)"
+      - "Streaming chat responses"
+      - "Markdown rendering"
+      - "Token accounting"
+      - "Encrypted secrets (Fernet)"
+      - "Onboarding with invite system"
+    what_unjynx_can_learn:
+      - "AI Integration: connecting Flutter to multiple LLM providers"
+      - "Streaming Responses: real-time streaming chat UI"
+      - "Provider Abstraction: dynamic model catalog"
+      - "Secret Management: Fernet encryption for API keys"
+      - "Riverpod + GoRouter + Material 3: exact UNJYNX UI stack"
+
+# =============================================================================
+# TECHNOLOGY MATRIX SUMMARY
+# =============================================================================
+
+technology_matrix:
+  - { num: 1,  app: AppFlowy,              stars: "68.3k", arch: "DDD + BLoC",     sm: flutter_bloc,    db: "Rust/Protobuf",     key_learning: "Plugin architecture, scale" }
+  - { num: 2,  app: Immich,                stars: "90k+",  arch: "MVVM + Clean",   sm: Riverpod,        db: "Isar + PostgreSQL", key_learning: "Riverpod at scale, offline sync" }
+  - { num: 3,  app: "VGV News Toolkit",    stars: "1.4k",  arch: "VGV 4-Layer",    sm: BLoC,            db: Firebase,            key_learning: "Feature-first, testing" }
+  - { num: 4,  app: "Clean Arch Example",  stars: "860",   arch: "Clean Arch",     sm: "ALL 6 compared", db: "API + Cache",      key_learning: "State mgmt comparison" }
+  - { num: 5,  app: "Clean Arch TODO",     stars: "164",   arch: "Clean Arch",     sm: Riverpod,        db: Drift,               key_learning: "Exact UNJYNX stack" }
+  - { num: 6,  app: "Riverpod Clean Arch", stars: "63",    arch: "Clean Arch",     sm: "Riverpod 2.0",  db: Hive,                key_learning: "Feature generator, fpdart" }
+  - { num: 7,  app: "Momentous Starter",   stars: "29",    arch: "Clean Arch",     sm: "Riverpod 2.0",  db: Mock,                key_learning: "Pre-built features, theming" }
+  - { num: 8,  app: "Flutterando Modular", stars: "1.4k",  arch: Modular,          sm: Any,             db: Any,                 key_learning: "Plugin/module system" }
+  - { num: 9,  app: "Stuart Modular",      stars: "41",    arch: Hexagonal,        sm: BLoC,            db: Any,                 key_learning: "Ports and Adapters" }
+  - { num: 10, app: Syncable,              stars: "40",    arch: "Offline-First",  sm: "-",             db: "Drift + Supabase",  key_learning: "Sync engine, conflict resolution" }
+  - { num: 11, app: HabitQuest,            stars: "4",     arch: "Feature-based",  sm: GetX,            db: Firebase,            key_learning: "Gamification (XP, streaks)" }
+  - { num: 12, app: "Teqani Rewards",      stars: "2",     arch: Package,          sm: "-",             db: "Multi-backend",     key_learning: "Gamification package API" }
+  - { num: 13, app: "WhatsApp Clone",      stars: "285",   arch: "Feature-first",  sm: Riverpod,        db: Firebase,            key_learning: "Notifications, real-time" }
+  - { num: 14, app: "Nimblehq Monorepo",   stars: "23",    arch: "Melos Monorepo", sm: "-",             db: "-",                 key_learning: "Melos setup, shared packages" }
+  - { num: 15, app: PocketLLM,             stars: "30",    arch: "Client-Server",  sm: Riverpod,        db: "-",                 key_learning: "AI/LLM integration" }
+
+# =============================================================================
+# RECOMMENDED STUDY ORDER
+# =============================================================================
+
+study_order:
+  phase_1_architecture_foundation:
+    - "Immich (#2): Riverpod at production scale, folder structure"
+    - "VGV News Toolkit (#3): VGV 4-layer architecture, testing"
+    - "Clean Arch Example (#4): Compare state management approaches"
+    - "Clean Arch TODO (#5): Exact Riverpod + Drift stack"
+
+  phase_2_module_plugin_system:
+    - "AppFlowy (#1): Plugin architecture for editors/views"
+    - "Flutterando Modular (#8): Module lifecycle and scoped DI"
+    - "Stuart Modular Arch (#9): Hexagonal/Ports and Adapters"
+
+  phase_3_offline_sync:
+    - "Syncable (#10): Drift + Supabase offline sync engine"
+    - "Immich (#2 revisited): Background sync queue patterns"
+
+  phase_4_gamification:
+    - "HabitQuest (#11): XP, streaks, badges implementation"
+    - "Teqani Rewards (#12): Gamification package API design"
+
+  phase_5_notifications_and_ai:
+    - "WhatsApp Clone (#13): FCM push notifications + real-time"
+    - "PocketLLM (#15): AI/LLM integration patterns"
+
+  phase_6_monorepo_setup:
+    - "Nimblehq Monorepo (#14): Melos configuration"
+    - "Momentous Starter (#7): Feature scaffolding"
+
+# =============================================================================
+# ARCHITECTURAL DECISIONS VALIDATED
+# =============================================================================
+
+validated_decisions:
+  riverpod_as_state_management:
+    status: VALIDATED
+    evidence:
+      - "Immich (90k stars) uses Riverpod in production at massive scale"
+      - "Multiple clean architecture templates use Riverpod 2.0 with codegen"
+      - "Riverpod provider system maps cleanly to Clean Architecture"
+
+  drift_as_local_database:
+    status: VALIDATED
+    evidence:
+      - "Syncable uses Drift for offline-first sync with Supabase"
+      - "Clean Architecture TODO app uses Drift with full-text search"
+      - "Drift is the most type-safe SQLite solution for Flutter"
+      - "Drift supports reactive streams (pairs well with Riverpod)"
+
+  clean_architecture:
+    status: VALIDATED
+    evidence:
+      - "Every major production app uses layered architecture"
+      - "VGV 4-layer is most prescriptive and well-documented"
+      - "Feature-first scales better than layer-first"
+
+  feature_first_folder_structure:
+    status: VALIDATED
+    evidence:
+      - "VGV, Immich, ssoad template, Momentous starter all use feature-first"
+      - "Each feature contains its own domain/data/presentation layers"
+      - "Scales much better than layer-first"
+
+  melos_monorepo:
+    status: VALIDATED
+    evidence:
+      - "Nimblehq example shows practical Melos configuration"
+      - "Melos handles cross-package commands, versioning, publishing"
+
+  plugin_module_architecture:
+    status: VALIDATED
+    evidence:
+      - "AppFlowy plugin system for editors is the best reference"
+      - "Flutterando Modular provides framework-level module support"
+      - "Stuart Hexagonal enables swappable implementations"
+
+  offline_first_with_sync_queue:
+    status: VALIDATED
+    evidence:
+      - "Syncable implements transactional outbox pattern with Drift"
+      - "GeekyAnts blueprint shows sync_queue table with retry logic"
+      - "Timestamp-based conflict resolution is the standard approach"
+
+  gamification_xp_streaks_badges:
+    status: VALIDATED
+    evidence:
+      - "HabitQuest shows full gamification implementation"
+      - "Teqani Rewards shows packageable gamification library"
+      - "Both validate the feature set planned for UNJYNX"
+
+# =============================================================================
+# ADDITIONAL RESOURCES
+# =============================================================================
+
+additional_resources:
+  official_flutter:
+    - { name: "Flutter Architecture Guide", url: "https://docs.flutter.dev/app-architecture/guide" }
+    - { name: "Flutter Architecture Case Study", url: "https://docs.flutter.dev/app-architecture/case-study" }
+    - { name: "Flutter Offline-First Pattern", url: "https://docs.flutter.dev/app-architecture/design-patterns/offline-first" }
+
+  very_good_ventures:
+    - { name: "VGV Layered Architecture Blog", url: "https://www.verygood.ventures/blog/very-good-flutter-architecture" }
+    - { name: "VGV Engineering Docs", url: "https://engineering.verygood.ventures/architecture/" }
+    - { name: "Very Good CLI", url: "https://cli.vgv.dev/docs/templates/core" }
+
+  offline_first:
+    - { name: "Offline-First Flutter with Drift", url: "https://777genius.medium.com/building-offline-first-flutter-apps-a-complete-sync-solution-with-drift-d287da021ab0" }
+    - { name: "Offline-First Blueprint (GeekyAnts)", url: "https://geekyants.com/blog/offline-first-flutter-implementation-blueprint-for-real-world-apps" }
+    - { name: "Local-First with Riverpod + Drift + PowerSync", url: "https://dinkomarinac.dev/blog/building-local-first-flutter-apps-with-riverpod-drift-and-powersync/" }
+
+  sync_packages:
+    - { name: Synquill, url: "https://pub.dev/packages/synquill" }
+    - { name: Syncable, url: "https://github.com/Mr-Pepe/syncable" }
+    - { name: offline_sync_helper, url: "https://pub.dev/packages/offline_sync_helper" }
+
+  ai_llm:
+    - { name: "Flutter AI Toolkit (Official)", url: "https://docs.flutter.dev/ai/ai-toolkit" }
+    - { name: "Flutter AI GitHub", url: "https://github.com/flutter/ai" }
+    - { name: PocketLLM, url: "https://github.com/PocketLLM/PocketLLM" }
+
+  curated_lists:
+    - { name: "Awesome Open Source Flutter Apps", url: "https://github.com/fluttergems/awesome-open-source-flutter-apps" }
+    - { name: "200+ Flutter Projects", url: "https://github.com/Hamed233/Flutter-Awesome-Projects" }
+    - { name: "Awesome Flutter", url: "https://github.com/Solido/awesome-flutter" }
+    - { name: "Open Source Flutter Apps", url: "https://github.com/tortuvshin/open-source-flutter-apps" }

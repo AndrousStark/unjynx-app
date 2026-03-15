@@ -1,0 +1,232 @@
+# =============================================================================
+# TODO Reminder App - Complete Local Development Stack
+# =============================================================================
+# Run: docker compose up -d
+# Stop: docker compose down
+# Reset everything: docker compose down -v
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # DATABASE: PostgreSQL 16
+  # ===========================================================================
+  # Production migration: pg_dump -> Neon PostgreSQL (free tier: 0.5GB)
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: todo-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-todoapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-todoapp_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-todoapp}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-todoapp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # CACHE: Valkey (Redis-compatible, truly open source)
+  # ===========================================================================
+  # Production migration: Upstash Redis (10K cmds/day free)
+  # ===========================================================================
+  redis:
+    image: valkey/valkey:8-alpine
+    container_name: todo-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # AUTH: Logto (OIDC-compliant, self-hosted)
+  # ===========================================================================
+  # Admin console: http://localhost:3002
+  # Auth endpoint: http://localhost:3001
+  # Production: Logto Cloud or keep self-hosted on Hetzner
+  # ===========================================================================
+  logto:
+    image: svhd/logto:latest
+    container_name: todo-logto
+    restart: unless-stopped
+    ports:
+      - "3001:3001"  # Auth endpoint
+      - "3002:3002"  # Admin console
+    environment:
+      TRUST_PROXY_HEADER: "1"
+      DB_URL: postgresql://${POSTGRES_USER:-todoapp}:${POSTGRES_PASSWORD:-todoapp_dev_password}@postgres:5432/logto
+      ENDPOINT: http://localhost:3001
+      ADMIN_ENDPOINT: http://localhost:3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ===========================================================================
+  # FILE STORAGE: MinIO (S3-compatible)
+  # ===========================================================================
+  # Console: http://localhost:9001 (minioadmin/minioadmin)
+  # API: http://localhost:9000
+  # Production migration: Cloudflare R2 (10GB free, no egress fees)
+  # ===========================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: todo-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Web Console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # EMAIL: Mailpit (local email testing)
+  # ===========================================================================
+  # Web UI: http://localhost:8025
+  # SMTP: localhost:1025
+  # Production migration: Resend (3K emails/mo free)
+  # ===========================================================================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: todo-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
+  # ===========================================================================
+  # AI: Ollama (local LLM)
+  # ===========================================================================
+  # API: http://localhost:11434 (OpenAI-compatible)
+  # Production migration: Claude API (Anthropic) or OpenAI
+  # After startup, run: docker exec todo-ollama ollama pull llama3.2:3b
+  # ===========================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: todo-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Uncomment for NVIDIA GPU passthrough:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ===========================================================================
+  # MONITORING: Grafana (dashboards)
+  # ===========================================================================
+  # Web UI: http://localhost:3003 (admin/admin)
+  # Production: Grafana Cloud (free: 3 users, 10K metrics)
+  # ===========================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: todo-grafana
+    restart: unless-stopped
+    ports:
+      - "3003:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+  # ===========================================================================
+  # MONITORING: Prometheus (metrics collection)
+  # ===========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: todo-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+
+  # ===========================================================================
+  # MONITORING: Loki (log aggregation)
+  # ===========================================================================
+  loki:
+    image: grafana/loki:latest
+    container_name: todo-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+
+  # ===========================================================================
+  # DATABASE ADMIN: pgAdmin 4
+  # ===========================================================================
+  # Web UI: http://localhost:5050 (admin@todo.local / admin)
+  # ===========================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: todo-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-aniruddh.atrey111101@gmail.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  ollama_data:
+    driver: local
+  grafana_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  loki_data:
+    driver: local
+  pgadmin_data:
+    driver: local

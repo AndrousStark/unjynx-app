@@ -1,0 +1,688 @@
+# UNJYNX UI/UX MASTER IDEAS DOCUMENT
+# Generated: 2026-03-10 | Sources: 50+ research articles, competitive analysis, UI/UX Pro Max tool
+# Covers: All 66 screens + design system + 12 original innovations + implementation priorities
+
+
+========================================================================
+PART 1: DESIGN SYSTEM UPGRADES (Beyond Current Spec)
+========================================================================
+
+## 1.1 GLASSMORPHISM CARD SYSTEM (#1 Visual Upgrade)
+
+Apple Liquid Glass (iOS 26, WWDC June 2025) made glassmorphism THE defining UI of 2026. 64% of premium apps use it. 23% higher perceived quality. Midnight purple + frosted glass = PERFECT.
+
+Dark mode: ClipRRect + BackdropFilter(blur:12px) + white 8% fill + 1px rgba(208,188,255,0.15) border
+Light mode: ClipRRect + BackdropFilter(blur:8px) + white 60% fill + 1px rgba(107,33,168,0.08) border
+Hero cards (Rings, Content) get purple-to-gold gradient border that shimmers on interaction.
+3 glass depth levels: surface glass, elevated glass, modal glass (increasing blur/opacity).
+
+Flutter pattern:
+  ClipRRect(borderRadius: 16, child: BackdropFilter(
+    filter: ImageFilter.blur(sigmaX:12, sigmaY:12),
+    child: Container(decoration: BoxDecoration(
+      color: Colors.white.withOpacity(isDark ? 0.08 : 0.6),
+      border: Border.all(color: violet.withOpacity(isDark ? 0.15 : 0.08))
+    ))
+  ))
+
+WHY: Todoist=flat. TickTick=basic Material. UNJYNX glassmorphism on midnight purple = nothing else exists.
+
+
+## 1.2 LIVING GRADIENT BACKGROUND
+
+Background = slowly-animating gradient mesh, 3-4 points drifting over 60s (Perlin noise).
+PRODUCTIVE (3+ done): #0F0A1A->#1A0533->#2D1B69 + sparse gold particles
+IDLE: muted #0F0A1A->#1A0533, no particles
+ALL DONE: warm gold wash + 20-30 golden shimmer particles (slow drift)
+OVERDUE: very subtle warm/red tint in one gradient point
+Performance: Single CustomPainter+RepaintBoundary, GPU-optimized. Fragment Shader where supported.
+prefers-reduced-motion: static gradient.
+
+
+## 1.3 RIVE INTERACTIVE ANIMATIONS (Replace Lottie for Key Elements)
+
+Rive = 3.5x framerate of Lottie, 15x smaller files. Duolingo switched.
+USE RIVE (interactive, state-driven): Progress Rings, Streak flame, Checkbox, Pomodoro ring, XP bar, Ghost Mode breathing, Splash logo, Tab bar icons
+USE LOTTIE (fire-and-forget): Confetti, Achievement unlocks, Empty states, Seasonal, Skeletons
+Key advantage: Rive animations RESPOND to data. Ring grows with completion. Flame evolves with streak.
+
+
+## 1.4 HAPTIC LANGUAGE SYSTEM (Original Innovation)
+
+No productivity app has systematic haptics. UNJYNX owns this.
+COMPLETION: single=medium tap, last=success(light-medium-heavy), ring=double+sustained, streak=ascending
+NAVIGATION: tab=light tick, sheet=soft thud, pull-refresh=selection click
+ALERT: overdue=gentle double buzz, timer=rhythmic triple tap
+GHOST MODE: all haptics 50% intensity. Settings: Off/Subtle/Standard/Strong.
+
+
+========================================================================
+PART 2: SCREEN-BY-SCREEN ENHANCEMENT IDEAS
+========================================================================
+
+== A. PRE-AUTH (A1-A3) ==
+
+A1. SPLASH - "Curse-Breaking Reveal"
+- PARTICLE GENESIS: Black -> single gold particle -> splits into thousands forming logotype. Rive state machine (genesis->forming->solid). 1.5s.
+- DARK-TO-DARK CONTINUITY: Logo particles SCATTER outward, Home elements fade in from particle positions. Splash BECOMES the app.
+- RETURNING USER: After week 1, 0.8s. Logo appears formed, brief gold pulse.
+
+A2. LOGIN - "The Gateway"
+- PARALLAX DEPTH: 3 layers behind glass card. Far: purple nebula. Mid: gold constellation. Near: glass login card. Accelerometer.
+- GLASS SOCIAL BUTTONS: Each = glass card + provider icon. Press = glow in brand color. Stagger-in 50ms.
+- ANIMATED TAGLINE: "Break the Satisfactory" letter-by-letter (30ms/letter). Gold underline draws after.
+- BIOMETRIC (returning): fingerprint/face + "Welcome back, [Name]" -> single tap -> Home.
+
+
+== B. ONBOARDING (B1-B4) ==
+
+B1. CAROUSEL - "The Hook" (77% abandon in 3 days)
+- INTERACTIVE SLIDE 1: 5 scattered task bubbles. User TAPS each -> snaps to list. Last = chain-breaking. User PARTICIPATED.
+- INTERACTIVE SLIDE 2: Phone mockup, channel icons orbit. Swipe = real notification preview per channel.
+- INTERACTIVE SLIDE 3: Split screen chaos->order. Drag slider to morph. Ghost Mode at max.
+- PROGRESS = CHAIN BREAKING: 3 chain links break per slide. Snap + haptic. All broken -> "Let's Unjynx!"
+
+B2. PERSONALIZATION
+- IDENTITY: Glass cards + Rive-animated icons. Tap=elevate+celebrate. Others dim.
+- GOALS: Chips drift in as cloud. Selected rise + glow gold, group magnetically. Metaphor: goals rise above noise.
+- CHANNELS: Toggle ON -> animated preview of ACTUAL channel notification. Value tangible before setup.
+- CONTENT: Swipeable full-screen cards (Tinder-style). Up=love, down=skip. Playfair quote. Bg shifts per category.
+
+B3. FIRST TASK
+- CONVERSATIONAL: Chat-like. "First curse to break?" -> user types -> "Buy milk tomorrow 9AM. Right?" -> "Yes!"
+- FIRST COMPLETION: "Crush it now?" -> Done = FULL celebration. Chains break, dust, ring moves. "One down. Curse weakens." MOST IMPORTANT MOMENT.
+- VOICE: Live gold waveform + real-time transcription.
+
+
+== C. HOME SCREEN (C1) - "Command Center" ==
+
+GREETING:
+- Morning "break some curses" / Afternoon "[N] tasks left" / Evening "close those rings" / Late night "night owl energy" / Monday "fresh curses" / Friday "finish strong" / All done "go live your best life"
+- Weather-aware (permission): Rainy="Perfect for indoor productivity"
+
+STREAK FLAME (Rive):
+- 1-6d: spark | 7-13: candle | 14-29: flame | 30-99: gold flame | 100-364: blue-gold | 365+: purple-gold legendary
+- Flickers with scroll. Tap = streak detail glass card.
+
+PROGRESS RINGS:
+- URGENCY GRADIENT: 0-25% muted -> 75-99% full brightness+glow -> 100% gold pulse
+- OVERACHIEVEMENT: Past 100% = second transparent lap. "120% Overachiever"
+- WEEKLY SPARKLINE: 7-day trend (60x16px) below each ring. Green if improving.
+
+DAILY CONTENT:
+- PARALLAX CARD: 3 layers respond to device tilt. Feels PHYSICAL.
+- SHARE AS STORY: 1-tap 9:16 image. 5 styles (Classic/Minimal/Bold/Artistic/Dark). UNJYNX watermark. #1 ORGANIC GROWTH.
+- QUOTE TRANSITION: Fades left, new materializes letter-by-letter (300ms).
+
+TASKS:
+- PRIORITY GLOW: P1=gold edge glow(2px). P2=amber. P3/P4=none. Natural hierarchy.
+- ENERGY-ADAPTIVE ORDER: Morning=high-energy top, afternoon=medium, evening=low.
+- SWIPE: RIGHT=green+spring. LEFT=3 icons. Rubber-band resistance.
+
+QUICK ACTIONS: Glass pill buttons (icon+label). Active fills with accent.
+AI INSIGHT: "UNJYNX WHISPERS" + crystal ball icon. Magical, not technical.
+
+
+== D. TASK MANAGEMENT (D1-D6) ==
+
+D1. QUICK CREATE:
+- NLP LIVE PREVIEW: Parsed chips below text in real-time. [Buy milk] [Mar 11] [9 AM]. Color-coded. Tap to override.
+- ADD ANOTHER: After create, text clears, cursor ready. Rapid-fire without reopening.
+
+D2. TASK DETAIL:
+- HERO TRANSITION: Card EXPANDS to full screen. Shared element: bg expands, title morphs, project dot -> header bar.
+- INLINE EDITING: Every field tappable inline. No edit mode. Auto-save. Linear-style.
+- SUBTASK SEGMENTS: Visual bar (not "3/5"). Each segment fills with spring on completion.
+
+D3. TASK LIST:
+- FILTER ANIMATION: Items stagger out/in (30ms each). Matching fade IN from below.
+- SMART HEADERS: "Today - 3 left, halfway!" not "Today (6)".
+
+D4. KANBAN:
+- DRAG PHYSICS: Elevate+shadow, source/target gaps spring, drop overshoots. Headers glow.
+- WIP LIMIT: Color dots. Column rejects with shake when over limit.
+
+D5. RECURRING:
+- VISUAL PREVIEW: Mini calendar, next 5 occurrences as gold dots. Animate on change.
+
+D6. TEMPLATES:
+- CARDS: Mini task tree viz. "Used 1,247 times" social proof. "4.8/5" rating.
+
+
+== E. PROJECTS (E1-E4) ==
+
+E1. LIST:
+- GLASS CARDS: Project color gradient left edge. Gold progress line bottom. Avatar stacks.
+- FAVORITES CAROUSEL: Horizontal scroll above list. Large cards. ONE-tap access.
+
+E2. DETAIL:
+- HEALTH: Green/amber/red heartbeat. >=80%=green, <50%=red.
+- VIEW TOGGLE: List->Kanban: cards FLY between positions. 400ms staggered.
+
+
+== F. CALENDAR (F1-F3) ==
+
+F1. CALENDAR:
+- HEATMAP MONTH: Cells tinted by density (0=none, 1-2=subtle purple, 3-5=medium, 6+=deep+gold).
+- DRAG RESCHEDULE: Long press -> tasks peek as pills. Drag to another day.
+- GOLD TIME LINE: Current time = gold horizontal line, moving live.
+
+F2. TIME BLOCKING:
+- SPLIT-SCREEN: Left inbox (draggable), right timeline. Empty slots GLOW. Snap 15min+haptic.
+- AUTO-SCHEDULE: Tasks fly inbox->timeline (staggered). Semi-transparent until confirmed.
+
+F3. POMODORO - "Focus Forge":
+- AMBIENT PARTICLES: Rain=blue drops, Forest=green leaves, Cafe=warm orange, Lo-fi=purple notes. 5-10 particles, 30% opacity.
+- TIMER: 12dp gold ring. Bebas Neue 48sp. Task title below. Session counter.
+- BUBBLE: Navigate away = draggable mini-ring + time.
+- BREAK: Lighter purple, emerald ring. "Breathe. You earned this." Breathing circle (4-4-4).
+
+
+== G. GHOST MODE - "The Sanctuary" ==
+
+- PARTICLES: 20-30 purple, 10-15% opacity, floating up. Parallax on device movement.
+- BREATHING GUIDE: Optional ring (4s expand/hold/contract). Purple+gold edge.
+- COMPLETION: Task dissolves to gold particles -> drift up -> 2s pause -> next materializes.
+- ZEN ALL DONE: Particles converge -> lotus outline -> glow gold. "Peace. You conquered today."
+
+
+== H. CONTENT & RITUALS (H1-H4) ==
+
+H1. CONTENT FEED:
+- FULL-SCREEN: Unique gradient per category (Stoic=charcoal, Indian=amber, Humor=black, Anime=blue, all ->purple). Playfair gold.
+- SHARE: 5 styles. Watermark. FREE MARKETING per share.
+- SAVE: Heart purple->gold gradient + particles. "Wisdom library" masonry grid.
+
+H2. CATEGORIES:
+- TALL CARDS (140x200dp): Rive icons + tagline + quote peek. Horizontal snap. Active=gold glow.
+
+H3. MORNING RITUAL - "Dawn Protocol":
+- SUNRISE BG: Step 1=night -> Step 2=pre-dawn blue -> Step 3=dawn pink -> Step 4=sunrise -> Step 5=gold wash -> Step 6=burst.
+- MOOD SLIDER: Continuous gradient. Rive face morphs tired->energized as thumb moves.
+- GRATITUDE: Each word glows gold briefly. Submit = text floats up and fades.
+
+H4. EVENING REVIEW - "Twilight Debrief":
+- MOONRISE: Bg dims through steps. Final=midnight blue+stars.
+- RING REPLAY: Refill 0->final (2s staggered). Satisfying.
+- CARRY FORWARD: Drag RIGHT=tomorrow (flies right). Drag LEFT=drop (crumbles). No shame.
+
+
+== I. PROGRESS (I1-I4) ==
+
+I1. HUB:
+- HEATMAP: 52-week grid. 0=dark, 1-2=light purple, 3-5=violet, 6-9=bright, 10+=GOLD. "Year in Review" timelapse (3s). MOST MOTIVATING.
+- STREAK EVOLUTION: spark->candle->campfire->bonfire->phoenix. Unique Rive per tier.
+- BESTS: Glass trophy cards. Bebas Neue value. Crown for biggest. Horizontal scroll.
+
+I2. DASHBOARD (Pro):
+- LINEAR CHARTS: Gold line on purple, gradient fill. Draw-in animations.
+- POLAR: 24 hour-segments from center. Peaks JUMP OUT. Better than any competitor.
+- SANKEY: Created->(Deferred xN)->Completed/Dropped. "62% first try."
+
+I4. GAME MODE:
+- XP BAR: 4dp gold bar, fill pulses on gain. "Lv.8" Bebas Neue.
+- BADGES: 80x100dp glass cards. Earned=shimmer. Unearned=silhouette+"?". Tap=flip.
+- LEVELS: 1-5 "Getting Started", 6-10 "Momentum", 11-20 "In the Zone", 21-30 "Curse Breaker", 31-50 "Unjynxed", 50+ "Legendary".
+
+
+== J. CHANNELS (J1-J6) ==
+
+J1. HUB:
+- LIVE STATUS: Green pulse=working, amber=issue, gray=disconnected.
+- FALLBACK CHAIN: Visual [WhatsApp]->[Telegram]->[Email]->[Push]. Drag to reorder.
+- USAGE: Per-channel quota bars. "7/10 WhatsApp today."
+
+J2-J6: UNIFIED ANIMATION: Icon pulses->connects->tests->confetti in channel brand color.
+
+
+== L. PROFILE ==
+
+- AVATAR RING: Free=purple. Pro=gold shimmer. Team=dual-tone.
+- COUNTERS: Animate 0->actual (1.5s ease-out). Bebas Neue.
+- HEATMAP HERO: Full-width heatmap IS the profile.
+
+
+== M. SETTINGS ==
+
+- GLASS GROUPS: Each section = glass card + colored left border.
+- LIVE PREVIEW: Theme toggle shows mini phone mockup. Font slider resizes live.
+- SOUNDS: Grid, tap=plays. "Crystal Ding", "Zen Bell", "Cash Register".
+- PLAN: Two glass cards (Free muted, Pro gold border). Lock icons glow.
+
+
+========================================================================
+PART 3: ORIGINAL UNJYNX-ONLY INNOVATIONS (Nobody Else Has These)
+========================================================================
+
+3.1 "CURSED" TASK VISUALIZATION
+Tasks deferred 3+ times get dark purple AURA. Intensifies per deferral (3x=faint, 5x=noticeable, 7+=strong). Completing = aura SHATTERS, gold particles scatter. +10 XP in Game Mode. Loss aversion is 2x stronger than gain.
+
+3.2 "ENERGY FLOW ENGINE"
+Home card: predicted energy curve (smooth wave, 24h). Peak=gold, current=dot. "Peak: 9-11 AM." Tasks reorder by energy match. v1=rules, v2=ML.
+
+3.3 "UNJYNX AURA" - Dynamic App Icon (iOS)
+Icon CHANGES by streak. No streak=default. 7d=gold ring. 30d=+flame. 100d=gold tint. 365d=legendary. Users keep streaks for the icon. Social proof visible to everyone.
+
+3.4 "PRODUCTIVITY WEATHER"
+"Sunny (8 tasks)" / "Stormy (12 tasks, 3 deadlines)" / "Partly cloudy (1 deadline 3pm)". Weather icon. Instant complexity communication.
+
+3.5 "CURSE BREAKING CHAIN" - Weekly Story
+Sunday: scrollable story cards (IG format). "23 curses broken. Biggest: Quarterly Report - deferred twice, crushed Thursday." Shareable.
+
+3.6 "PHANTOM TASKS" - Ghost Mode Easter Egg
+Complete ALL in Ghost Mode -> 5s wait -> ghostly card: "Reward yourself." ("Walk"/"Snack"/"Text someone"). Special badge. Simple, memorable, shareable.
+
+3.7 "THE UNJYNX EFFECT" - Before/After
+30 days: split screen chaos->order. "In 30 days: [N] tasks, [X]-day streak, [Y] channels." Show at 30/90/365. RETENTION SUPERWEAPON.
+
+3.8 "NOTIFICATION PERSONALITY"
+Tone adapts per channel. WhatsApp=casual+emoji. Telegram=clean+buttons. SMS=compact. Email=professional. Just FEELS right on each.
+
+3.9 WALLPAPER GENERATOR
+10 templates: gradient mesh, constellation, logo, today quote, rings (real data), heatmap (real year), flame, minimalist, geometric, custom. Phone-res PNG. YOUR PHONE = UNJYNX BILLBOARD.
+
+3.10 "TASK FUNERAL"
+Permanently drop a task: card crumbles to golden dust, drifts away. Tiny "R.I.P." for 500ms. Funny, removes guilt, makes dropping feel like a CHOICE.
+
+3.11 "CONSTELLATION MODE"
+Alternative progress view: completed tasks as STARS in night sky. Tasks form constellations by project. "847 stars built." Unique, shareable.
+
+3.12 "INBOX ZERO" CELEBRATION
+Empty task list: rings briefly turn confetti, sky shimmers. "Zero tasks. Infinite possibility." Fades to calm empty state. Once per day.
+
+
+========================================================================
+PART 4: IMPLEMENTATION PRIORITIES
+========================================================================
+
+TIER 1 (Phase 2/3 - Highest Visual Impact):
+ 1. Glassmorphism cards (BackdropFilter built-in)
+ 2. Progress Rings in Rive
+ 3. Streak flame evolution (Rive state machine)
+ 4. Task completion choreography (500ms sequence)
+ 5. Heatmap with UNJYNX color scale
+ 6. Living gradient background (CustomPainter+Perlin)
+ 7. Share-as-story generator
+ 8. Ghost Mode particles
+ 9. Morning ritual sunrise gradient
+10. Hero transitions (card->detail)
+
+TIER 2 (Phase 3/4 - Polish):
+11. Interactive onboarding
+12. NLP live preview in task creation
+13. Kanban drag physics
+14. Pomodoro ambient particles
+15. Channel celebration animations
+16. Settings live preview
+17. Cursed task aura
+18. Energy flow engine
+19. Adaptive completion feedback
+20. Seasonal UI variations
+
+TIER 3 (Phase 5+ - Delight):
+21. Dynamic app icon (streak-based)
+22. Wallpaper generator
+23. Before/After visualization
+24. Polar productivity chart
+25. Procrastination Sankey diagram
+26. Phantom Ghost Mode tasks
+27. Weekly narrative stories
+28. Constellation Mode
+29. Task Funeral animation
+30. Sound library with names
+
+FLUTTER PACKAGES TO ADD:
+  rive: ^0.13.x              - Interactive state-machine animations (3.5x Lottie speed)
+  particles_flutter: ^0.1.4   - Particle systems (Ghost Mode, backgrounds)
+  shimmer: ^3.0.0             - Loading skeleton shimmer
+  share_plus: ^10.0.0         - Social sharing
+  screenshot: ^3.0.0          - Shareable card generation
+  flutter_animate: ^4.5.0     - Declarative animation sequences
+  sensors_plus: ^6.0.0        - Accelerometer for parallax effects
+  fl_chart: ^0.69.0           - Charts for analytics dashboard
+  flutter_heatmap_calendar    - GitHub-style heatmap
+
+
+========================================================================
+PART 5: COMPETITIVE POSITIONING
+========================================================================
+
+vs TODOIST: Flat, clinical, no emotion -> UNJYNX: Glassmorphism, living gradients, satisfying animations
+vs TICKTICK: Generic Material, visually busy -> UNJYNX: Curated hierarchy, glass cards
+vs THINGS 3: Beautiful but boring, no personality -> UNJYNX: Purple+gold = unmistakable brand
+vs NOTION: Overwhelming, blank canvas -> UNJYNX: Opinionated, everything has a place
+vs HABITICA: Juvenile pixel art -> UNJYNX: Adult gamification, glass badges, subtle XP
+vs STRUCTURED: Single-purpose -> UNJYNX: Tasks+channels+content+gamification
+vs LINEAR: Dev teams only -> UNJYNX: Linear-level craft for CONSUMER productivity
+
+THE VISUAL THESIS:
+UNJYNX = Linear's craft + Apple Watch rings + GitHub heatmap + Duolingo streaks + Headspace calm
+All in midnight purple + gold. No other app looks like this. No other app COULD.
+The brand colors alone make every screenshot unmistakable on any app store page.
+
+
+
+========================================================================
+PART 6: LIGHT MODE — EQUALLY DESIGNED, DISTINCTLY UNJYNX
+========================================================================
+
+CORE PHILOSOPHY: Light mode is NOT "dark mode with inverted colors." It is a
+PARALLEL design system where purple becomes text, gold becomes richer, and
+the app feels warm instead of clinical. Both modes must feel premium and
+unmistakably UNJYNX. A user switching themes should feel like the same brand
+in a different mood — midnight velvet vs morning silk.
+
+KEY PRINCIPLE: #F8F5FF not #FFFFFF. Pure white is clinical. #F8F5FF has a
+subtle purple warmth that users feel subconsciously. Todoist uses #FEFDFC.
+Notion uses warm gray. Premium apps NEVER use pure white.
+
+
+## 6.1 LIGHT MODE COLOR PSYCHOLOGY
+
+Dark mode = focused, intense, "night shift energy"
+Light mode = open, airy, "morning coffee energy"
+
+In light mode, the brand presence shifts:
+- Purple (#1A0533) BECOMES the text color (18.5:1 contrast — better than black!)
+- Gold shifts #FFD700 -> #B8860B (Dark Goldenrod, 4.8:1 contrast — gold washes out on white otherwise)
+- Emerald deepens #10B981 -> #059669
+- Amber deepens #F59E0B -> #D97706
+- Rose deepens #F43F5E -> #E11D48
+- Channel brand colors deepen: WhatsApp #25D366->#16A34A, Telegram #06B6D4->#0891B2
+
+The brand is ALWAYS visible. In dark mode through surface colors. In light mode through text colors.
+
+
+## 6.2 LIGHT MODE GLASSMORPHISM (Different Technique)
+
+Dark glassmorphism: translucent white on dark = frosted glass glow
+Light glassmorphism: translucent white on light = soft frosted pane
+
+LIGHT GLASS CARD:
+  ClipRRect(borderRadius: 16, child: BackdropFilter(
+    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),  // less blur than dark (8 vs 12)
+    child: Container(decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.65),           // more opaque (0.65 vs 0.08)
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: UnjynxColors.brandViolet.withOpacity(0.08), // subtle purple border
+      ),
+      boxShadow: [BoxShadow(
+        color: Color(0x0F1A0533),  // purple-tinted shadow, NOT gray
+        blurRadius: 8, offset: Offset(0, 2),
+      )],
+    ))
+  ))
+
+KEY DIFFERENCES:
+- Blur: 8px (not 12) — light backgrounds don't need as much diffusion
+- Opacity: 65% white (not 8%) — needs more fill to be visible on light bg
+- Shadow: purple-tinted rgba(26,5,51,0.06) — NEVER generic #000 shadow
+- Border: visible 1px purple border rgba(107,33,168,0.08) — needed for definition
+- Hero cards: purple-to-richGold gradient border (not purple-to-electricGold)
+
+RESULT: Cards feel like frosted lavender panes floating above a warm purple mist.
+This is a DISTINCTLY different aesthetic from dark mode, not just colors swapped.
+
+
+## 6.3 LIGHT MODE LIVING GRADIENT BACKGROUND
+
+Dark uses deep animated mesh. Light uses SUBTLE warm washes.
+
+PRODUCTIVE: #F8F5FF -> #F0EAFC with faint lavender shimmer particles
+IDLE: pure #F8F5FF, no animation (calm, clean)
+ALL DONE: #F8F5FF -> warm #FFF8E1 (gold wash) tint + sparse gold particles (30% opacity of dark mode)
+OVERDUE: #F8F5FF with very subtle warm pink tint in one corner
+GHOST MODE FROM LIGHT: crossfade #F8F5FF -> deep purple gradient (400ms, seamless)
+
+Particle counts: 30% of dark mode. Light mode is about CLARITY, dark about IMMERSION.
+Movement: 5-10% of dark mode drift. Light should feel still and focused.
+
+
+## 6.4 SCREEN-BY-SCREEN LIGHT MODE ENHANCEMENTS
+
+A1. SPLASH:
+- Light mode splash: white bg -> purple UNJYNX text materializes (not particles — too noisy on light)
+- Logo in deep purple (#1A0533) + gold accent (#B8860B)
+- Clean, editorial reveal: logo letter-by-letter with purple ink feel
+- Transition to Home: logo fades into position as app bar title
+
+A2. LOGIN:
+- Background: #F8F5FF with very subtle purple radial gradient center
+- Glass card: white 85% opacity + purple-tinted shadow + purple border
+- Social buttons: white cards with subtle purple shadow, provider icon full color
+- Tagline in midnight purple (#1A0533), gold underline uses #B8860B
+
+B1-B4. ONBOARDING:
+- Carousel backgrounds: soft gradient washes per slide (not deep gradients)
+  Slide 1: #F8F5FF -> #F0EAFC (lavender wash)
+  Slide 2: #F8F5FF -> #EDE5F7 (deeper lavender for channel showcase)
+  Slide 3: #F8F5FF -> #FFF8E1 (warm gold wash for the "your way" feeling)
+- Chain link progress: deep purple chains, gold spark on break
+- Category cards (Step 4): white cards + purple shadow + purple text
+  Active = gold wash bg (#FFF8E1) instead of gold glow
+- Interactive elements: purple outlines, gold fills on selection
+
+C1. HOME SCREEN (The Most Important Light Mode Screen):
+- Background: solid #F8F5FF (no gradient mesh in light — clarity > immersion)
+- Greeting: midnight purple (#1A0533) text. "Good morning" feels warm on light.
+- Streak flame: same Rive animation but with richer orange/gold on light bg
+  (fire looks MORE natural on light backgrounds — like a real flame in daylight)
+- Progress Rings: ring colors UNCHANGED (Gold/Violet/Emerald are vibrant enough)
+  Background track: rgba(107,33,168,0.06) instead of rgba(255,255,255,0.05)
+  Center text: #1A0533. Completion glow: #B8860B shimmer.
+- Daily Content Card: white card + purple-tinted shadow + subtle purple border
+  Quote text (Playfair Display): #1A0533 (midnight purple — rich, editorial contrast)
+  Category badge: deep violet bg + white text (same as dark — stays punchy)
+  Share card light mode variant: purple bg + gold text (inverts for social sharing drama)
+- Task Cards: white bg (#FFFFFF) + purple-tinted shadow
+  Priority glow: P1 = rich gold (#B8860B) left edge, P2 = deep amber (#D97706)
+  Overdue: deep rose (#E11D48) left border + subtle pink tint on card
+  Checkbox: deep purple ring, fills with #B8860B gold on completion
+  Strikethrough: purple wipe (not gold — more visible on white)
+  Text: #1A0533 primary, #6B21A8 secondary, #475569 tertiary
+- Quick Actions: purple-bordered glass pills on light. Active = gold wash fill (#FFF8E1)
+- AI Whisper: white card, purple shadow. Crystal ball icon in deep violet.
+
+D1. QUICK CREATE (Light):
+- Sheet bg: #FFFFFF with purple-tinted shadow at top edge
+- Text input: white field, purple border on focus, gold cursor
+- NLP chips: purple bg + white text for category, gold wash bg for date/time
+- "Add" button: rich gold (#B8860B) bg + white text (4.8:1 contrast)
+- Voice waveform: deep purple base, rich gold peaks (not electric gold)
+
+D2. TASK DETAIL (Light):
+- Hero header: gradient from white -> subtle gold wash (#FFF8E1) if task has deadline today
+- All inline edit fields: purple underline on focus
+- Subtask segments: deep violet fill on light lavender track
+- Activity timeline: purple dots + lavender connecting lines
+
+D4. KANBAN (Light):
+- Column headers: lavender bg (#EDE5F7) + purple text
+- Cards: white + purple shadow
+- Dragging card: stronger purple shadow + scale 1.02
+- Column glow on hover: lavender brightens to near-white
+
+F1. CALENDAR (Light):
+- Heatmap month cells (light mode scale):
+  0 tasks: #F8F5FF (same as bg — invisible)
+  1-2: #EDE5F7 (light violet)
+  3-5: #D0BCFF (medium violet)
+  6-9: #6B21A8 (brand violet — BOLD)
+  10+: #B8860B (rich gold — legendary)
+- Current time line: rich gold (#B8860B) — visible on white bg
+- Task blocks: project color at 15% opacity fill + 2px left border at full project color
+
+F3. POMODORO (Light):
+- Timer ring: rich gold (#B8860B) fill on lavender track
+- Background: #F8F5FF with very subtle warm tint
+- Ambient particles: reduced opacity (20% vs 30% in dark). Darker tint particles.
+  Rain = deep blue-gray. Forest = deep green. Cafe = deep brown-orange.
+- Break mode: warm #FFF8E1 wash, emerald ring
+
+G. GHOST MODE (Light -> Dark Override):
+- Ghost Mode ALWAYS uses dark aesthetics regardless of system theme
+- Entering from light: UI fades out -> bg crossfades #F8F5FF -> deep purple (400ms)
+- This transition IS the design moment. The world shifts. Focus begins.
+- Exiting: reverse crossfade. Purple melts back to lavender mist.
+- The contrast between light app and dark Ghost Mode makes it feel MORE impactful
+
+H1. CONTENT FEED (Light):
+- Full-screen quote: backgrounds use DEEPER versions of category gradients
+  Stoic: #1A0533 -> #2D1B69 (STILL dark — quotes look best on dark bg even in light mode)
+  Option: user toggle "Light quotes" uses #F8F5FF bg + #1A0533 text + #B8860B accents
+- Content cards in feed: white + purple shadow + Playfair in midnight purple
+- Share cards: ALWAYS generated in dark mode aesthetic (social media impact)
+
+H3. MORNING RITUAL (Light):
+- Sunrise progression adapts: starts from lavender (#F0EAFC), not from night
+  Step 1: #F0EAFC (cool lavender)
+  Step 2: #F8F5FF (warming)
+  Step 3: #FFF8E1 (gold dawn wash)
+  Step 4: warm peach tint
+  Step 5: full warm gold wash
+  Step 6: gold shimmer on lavender
+- Mood slider: purple (drained) -> rich gold (energized) on light gradient track
+- Gratitude glow: each word highlights with gold wash bg (not gold text glow)
+
+H4. EVENING REVIEW (Light):
+- Moonrise: starts warm (#FFF8E1), dims to cool (#F0EAFC -> #EDE5F7)
+- Final state: deep lavender, not midnight. Light mode stays light even at "night"
+- Ring replay: same animation, rings use standard light mode colors
+
+I1. PROGRESS HUB (Light):
+- Heatmap: see F1 calendar color scale above
+- Streak counter: flame Rive uses richer warm tones. Number in #1A0533.
+- Personal bests cards: white glass cards + purple shadow + #1A0533 stat values
+- Weekly sparklines: deep violet line on lavender track
+
+I2. DASHBOARD (Light):
+- Charts: deep violet lines on #F8F5FF bg. Area fill = light lavender gradient
+- Gold highlights only for "today" or "best" markers
+- Polar chart: purple segments, gold peak segments
+- Sankey: purple flows, gold for completed path
+
+I4. GAME MODE (Light):
+- XP bar: rich gold fill (#B8860B) on lavender track
+- Badges: white glass cards + purple shadow. Gold border for earned. Purple silhouette for locked.
+- Level text: #1A0533 + small gold accent
+
+J1. CHANNEL HUB (Light):
+- Channel cards: white + purple shadow
+- Connected = deep emerald chip (#059669) bg + white text
+- "Test" button: deep violet outline
+- Pro badge: deep violet bg + white text
+- Usage bars: deep violet fill on lavender track. Quota warning = deep amber.
+
+L1. PROFILE (Light):
+- Avatar ring: Free = deep violet. Pro = rich gold (#B8860B) shimmer. Team = violet+gold.
+- Stat numbers: #1A0533 in Bebas Neue
+- Heatmap: light mode color scale (lavender -> violet -> gold)
+- Plan badge: Pro = gold wash bg + rich gold border. Free = purple outline.
+
+M1. SETTINGS (Light):
+- Glass card groups: white + purple-tinted shadow + purple left border accents
+- Toggle switches: deep violet active state, lavender inactive
+- Theme preview: mini phone mockup shows ACTUAL light/dark preview side by side
+- Sound library icons: deep purple icons on white. Active = gold wash bg.
+
+M2. PLAN & BILLING (Light):
+- Free card: white + purple border
+- Pro card: gold wash bg (#FFF8E1) + rich gold border + subtle gold shimmer
+- CTA button: rich gold bg + white text. "Start 7-Day Free Trial"
+- Social proof counter: deep violet text
+
+
+## 6.5 LIGHT MODE ANIMATION ADAPTATIONS
+
+All animations work in both modes with these adjustments:
+
+TASK COMPLETION:
+- Dark: checkbox fills with #FFD700 (electric gold), gold ripple glow
+- Light: checkbox fills with #B8860B (rich gold), gold WASH expansion (no glow — glow invisible on light)
+
+PROGRESS RINGS:
+- Dark: glow effect on 100% (outer glow visible on dark bg)
+- Light: NO glow (invisible). Instead: ring THICKENS briefly + #B8860B shimmer
+
+STREAK FLAME:
+- Colors identical (fire looks natural in both modes)
+- But: flame has subtle purple shadow on light mode (grounds it visually)
+
+SWIPE ACTIONS:
+- Dark: green/red REVEAL behind card
+- Light: green/red REVEAL but slightly darker shades (#059669/#E11D48) for contrast
+
+GHOST MODE ENTER:
+- Dark: UI fades out, deep purple gradient fades in
+- Light: UI fades out, #F8F5FF crossfades to deep purple (DRAMATIC shift)
+
+PULL TO REFRESH:
+- Dark: UNJYNX logo with gold shimmer
+- Light: UNJYNX logo in deep purple + gold accent, no shimmer (cleaner)
+
+SKELETON LOADING:
+- Dark: purple shimmer on dark surface (#1D1B20 -> #2B2930 shimmer)
+- Light: lavender shimmer on white (#F8F5FF -> #EDE5F7 shimmer)
+
+PARTICLES (all types):
+- Light mode: 30% particle count of dark mode
+- 20-30% less opacity per particle
+- Deeper tint (dark purple instead of light purple)
+- Movement amplitude: 50% of dark mode (light = calm, not immersive)
+
+
+## 6.6 LIGHT MODE EMPTY STATES
+
+- Illustrations use deeper purple/gold on #F8F5FF (bold, grounded feel vs luminous in dark)
+- Gold accents: #B8860B in light (not #FFD700 which washes out)
+- Lottie animations: same but with alternate color set
+- Background particles/sparkles: 30% less opacity in light mode
+- CTA buttons: rich gold bg + white text (not electric gold)
+
+
+## 6.7 LIGHT MODE SEASONAL VARIATIONS
+
+- Snowfall: slightly darker snowflakes for visibility
+- Diwali: warm orange tint works naturally on both modes
+- Halloween: purple fog = rgba(107,33,168,0.06) overlay (subtle, not muddy)
+- Late night auto-dim: shifts to warmer lower-contrast variant (NOT auto-switch to dark)
+- Gold accents in ALL seasonal: #B8860B consistently
+- Confetti: deeper tints for visibility on light bg
+
+
+## 6.8 LIGHT MODE WIDGET THEMING
+
+Widgets respect SYSTEM theme (not app theme):
+- Dark widget: midnight purple bg (#0F0A1A), snow white text, gold accents
+- Light widget: purple mist bg (#F8F5FF), midnight purple text, rich gold accents (#B8860B)
+- Widget border radius: 16dp (matches OS widget style)
+- Light widget cards: white + subtle purple border
+- Light widget progress rings: same colors (vibrant enough on light)
+
+
+## 6.9 THE LIGHT MODE DIFFERENTIATOR
+
+What makes UNJYNX light mode BETTER than competitors:
+
+TODOIST light: Pure white bg, gray text, red accent. Generic.
+UNJYNX light: Purple mist bg, midnight purple text, rich gold accent. Warm, branded.
+
+TICKTICK light: Blue accent on white. Every productivity app does this.
+UNJYNX light: Purple + gold on warm off-white. Nobody does this.
+
+THINGS 3 light: Excellent but ONLY blue accent. No personality.
+UNJYNX light: Deep violet + rich gold + warm purple bg = strong brand identity.
+
+NOTION light: Neutral, almost colorless. Intentionally bland.
+UNJYNX light: Intentionally warm, purple-tinted, gold-accented. Opinionated.
+
+THE KEY INSIGHT: Most apps design dark mode first and make light mode an afterthought
+(just invert colors). UNJYNX designs BOTH as first-class. The purple mist background,
+the purple-tinted shadows, the deepened semantic colors, the gold wash selections —
+these are NOT automatic inversions. They are deliberate choices that make light mode
+feel like a DIFFERENT premium experience of the SAME brand.
+
+A user who uses light mode should feel like UNJYNX was DESIGNED for light mode.
+A user who uses dark mode should feel like UNJYNX was DESIGNED for dark mode.
+Neither should feel like the afterthought. That's the standard.
