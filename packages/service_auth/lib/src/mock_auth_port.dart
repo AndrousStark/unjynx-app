@@ -28,4 +28,11 @@ class MockAuthPort implements AuthPort {
 
   @override
   Future<AuthUser?> getUserProfile() async => _mockUser;
+
+  @override
+  Future<String> signInWithSocial({
+    required String provider,
+    required String idToken,
+  }) async =>
+      'mock-social-token';
 }

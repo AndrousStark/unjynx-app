@@ -35,6 +35,13 @@ class FakeAuthPort implements AuthPort {
 
   @override
   Future<AuthUser?> getUserProfile() async => const AuthUser(id: 'user-1');
+
+  @override
+  Future<String> signInWithSocial({
+    required String provider,
+    required String idToken,
+  }) async =>
+      token ?? '';
 }
 
 /// Helper to start a local HTTP server that returns controlled responses.

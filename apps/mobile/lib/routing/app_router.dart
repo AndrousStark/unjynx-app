@@ -7,10 +7,13 @@ import 'package:feature_projects/feature_projects.dart';
 import 'package:feature_team/feature_team.dart';
 import 'package:feature_todos/todo_plugin.dart';
 import 'package:feature_widgets/feature_widgets.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:service_auth/service_auth.dart';
 import 'package:unjynx_core/core.dart';
+
+import 'package:unjynx_mobile/firebase/firebase_init.dart';
 
 /// Creates the app router by collecting routes from all registered plugins.
 ///
@@ -233,6 +236,10 @@ GoRouter createAppRouter(
 
   return GoRouter(
     initialLocation: isOnboardingComplete ? defaultLocation : '/onboarding',
+    observers: [
+      if (FirebaseInit.analytics != null)
+        FirebaseAnalyticsObserver(analytics: FirebaseInit.analytics!),
+    ],
     errorBuilder: (context, state) => Scaffold(
       body: Center(
         child: Column(

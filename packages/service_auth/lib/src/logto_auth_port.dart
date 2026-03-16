@@ -166,6 +166,84 @@ class LogtoAuthPort implements AuthPort {
     }
   }
 
+  @override
+  Future<String> signInWithSocial({
+    required String provider,
+    required String idToken,
+  }) async {
+    // Exchange the social provider's ID token with Logto for access tokens.
+    // Logto exposes a social verification endpoint for native apps.
+    final response = await _dio.post<Map<String, dynamic>>(
+      '${_config.endpoint}/api/interaction',
+      data: {
+        'event': 'SignIn',
+        'identifier': {
+          'connectorId': provider,
+          'connectorData': {'id_token': idToken},
+        },
+      },
+      options: Options(
+        contentType: Headers.jsonContentType,
+      ),
+    );
+
+    if (response.data == null) {
+      throw Exception('Social sign-in failed: empty response');
+    }
+
+    // If Logto returns tokens directly, handle them.
+    // Otherwise fall back to the standard OIDC flow with the social hint.
+    if (response.data!.containsKey('access_token')) {
+      await _handleTokenResponse(response.data!);
+      return _accessToken!;
+    }
+
+    // Fallback: use the standard sign-in flow with social connector hint.
+    // This opens the browser but pre-selects the social provider.
+    final codeVerifier = _generateCodeVerifier();
+    final codeChallenge = _generateCodeChallenge(codeVerifier);
+
+    final authUrl = Uri.parse('${_config.endpoint}/oidc/auth').replace(
+      queryParameters: {
+        'client_id': _config.appId,
+        'redirect_uri': _config.redirectUri,
+        'response_type': 'code',
+        'scope': _config.scopes.join(' '),
+        'prompt': 'consent',
+        'code_challenge': codeChallenge,
+        'code_challenge_method': 'S256',
+        'direct_sign_in': 'social:$provider',
+      },
+    );
+
+    final callbackUrl = await FlutterWebAuth2.authenticate(
+      url: authUrl.toString(),
+      callbackUrlScheme: 'unjynx',
+    );
+
+    final code = Uri.parse(callbackUrl).queryParameters['code'];
+    if (code == null) {
+      throw Exception('No authorization code received from social sign-in');
+    }
+
+    final tokenResponse = await _dio.post<Map<String, dynamic>>(
+      '${_config.endpoint}/oidc/token',
+      data: {
+        'grant_type': 'authorization_code',
+        'client_id': _config.appId,
+        'redirect_uri': _config.redirectUri,
+        'code': code,
+        'code_verifier': codeVerifier,
+      },
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
+
+    await _handleTokenResponse(tokenResponse.data!);
+    return _accessToken!;
+  }
+
   Future<void> _refreshAccessToken() async {
     final response = await _dio.post<Map<String, dynamic>>(
       '${_config.endpoint}/oidc/token',

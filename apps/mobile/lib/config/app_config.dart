@@ -44,6 +44,14 @@ class AppConfig {
     defaultValue: '',
   );
 
+  /// Google OAuth Web Client ID (from Firebase Console → Auth → Google).
+  /// Required for google_sign_in to return an ID token.
+  static const String googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+    defaultValue:
+        '763197051286-if56o7s0d7g7k9vt7r26dh6ehfgp3kc1.apps.googleusercontent.com',
+  );
+
   /// Whether real auth is configured.
   static bool get isAuthConfigured =>
       logtoEndpoint.isNotEmpty && logtoAppId.isNotEmpty;

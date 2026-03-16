@@ -94,12 +94,35 @@ Future<void> bootstrap() async {
     }
   }());
 
-  // Initialize FCM (gracefully skips if google-services.json is missing)
+  // Initialize FCM and register token with backend.
   unawaited(() async {
     try {
       final fcmToken = await FcmTokenManager.initialize();
       if (fcmToken != null) {
-        FcmTokenManager.startTokenSync();
+        // Sync token to backend via channel API (if available).
+        ChannelApiService? channelApi;
+        try {
+          channelApi = ChannelApiService(getIt<ApiClient>());
+        } on Exception {
+          // ApiClient not available (e.g. no auth token yet).
+        }
+        FcmTokenManager.startTokenSync(channelApi: channelApi);
+        FcmTokenManager.setupForegroundHandler(
+          onForegroundMessage: (message) {
+            // Display foreground FCM messages via awesome_notifications.
+            final title = message.notification?.title;
+            final body = message.notification?.body;
+            if (title != null || body != null) {
+              notificationPort.schedule(
+                id: message.messageId ??
+                    DateTime.now().millisecondsSinceEpoch.toString(),
+                title: title ?? 'UNJYNX',
+                body: body ?? '',
+                scheduledAt: DateTime.now(),
+              );
+            }
+          },
+        );
       }
     } on Exception catch (e) {
       debugPrint('FCM initialization failed: $e');

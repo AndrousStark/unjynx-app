@@ -82,10 +82,18 @@
 -keep class androidx.core.** { *; }
 
 # ----------------------------------------------------------------------------
-# Firebase Cloud Messaging (FCM)
+# Firebase (Core, FCM, Crashlytics, Analytics)
 # ----------------------------------------------------------------------------
 -keep class com.google.firebase.** { *; }
 -keep class com.google.android.gms.** { *; }
+-keep public class * extends java.lang.Exception
+-keep class com.google.firebase.crashlytics.** { *; }
+-keep class com.google.firebase.analytics.** { *; }
+-keep class com.google.firebase.messaging.** { *; }
+
+# Google Sign-In
+-keep class com.google.android.gms.auth.** { *; }
+-keep class com.google.android.gms.common.** { *; }
 
 # ----------------------------------------------------------------------------
 # Suppress Common Warnings

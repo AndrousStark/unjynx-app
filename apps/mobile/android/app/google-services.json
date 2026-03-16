@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "763197051286",
+    "project_id": "unjynx-313eb",
+    "storage_bucket": "unjynx-313eb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:763197051286:android:732297477d5efc14ac4db7",
+        "android_client_info": {
+          "package_name": "com.metaminds.unjynx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBLEy0dAYsjyWzzMxqCAe-rLFXdg-LbNU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

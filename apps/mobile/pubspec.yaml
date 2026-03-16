@@ -35,8 +35,11 @@ dependencies:
     path: ../../packages/feature_todos
   feature_widgets:
     path: ../../packages/feature_widgets
-  # firebase_core: ^3.12.0    # Re-enable after creating Firebase project
-  # firebase_messaging: ^15.2.0  # Re-enable after downloading google-services.json
+  firebase_core: ^3.12.0
+  firebase_messaging: ^15.2.0
+  firebase_analytics: ^11.4.0
+  firebase_crashlytics: ^4.3.0
+  google_sign_in: ^6.2.0
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.3.0

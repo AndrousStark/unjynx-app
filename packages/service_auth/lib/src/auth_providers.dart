@@ -48,6 +48,22 @@ class AuthNotifier extends Notifier<AsyncValue<bool>> {
     }
   }
 
+  Future<void> signInWithSocial({
+    required String provider,
+    required String idToken,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      await ref.read(authPortProvider).signInWithSocial(
+            provider: provider,
+            idToken: idToken,
+          );
+      state = const AsyncData(true);
+    } on Exception catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
+
   Future<void> signOut() async {
     state = const AsyncLoading();
     try {

@@ -19,6 +19,16 @@ abstract class AuthPort {
 
   /// Get the current user's profile info.
   Future<AuthUser?> getUserProfile();
+
+  /// Sign in using a social provider (e.g. Google).
+  ///
+  /// [provider] is the social connector name (e.g. 'google').
+  /// [idToken] is the identity token obtained from the social provider.
+  /// Returns the access token on success.
+  Future<String> signInWithSocial({
+    required String provider,
+    required String idToken,
+  });
 }
 
 /// Authenticated user info from the auth provider.

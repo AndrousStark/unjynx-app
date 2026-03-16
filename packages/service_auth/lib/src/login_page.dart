@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:unjynx_core/core.dart';
 
 import 'auth_providers.dart';
+import 'google_sign_in_helper.dart';
 
 /// Login screen (A2) - Logto OIDC sign-in flow.
 ///
@@ -25,6 +26,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
   bool _isSigningIn = false;
+  String? _activeProvider;
 
   @override
   void initState() {
@@ -46,12 +48,19 @@ class _LoginPageState extends ConsumerState<LoginPage>
     super.dispose();
   }
 
-  Future<void> _handleSignIn() async {
+  Future<void> _handleSignIn({String? provider}) async {
     if (_isSigningIn) return;
-    setState(() => _isSigningIn = true);
+    setState(() {
+      _isSigningIn = true;
+      _activeProvider = provider;
+    });
 
     try {
-      await ref.read(authNotifierProvider.notifier).signIn();
+      if (provider == 'google') {
+        await _handleGoogleSignIn();
+      } else {
+        await ref.read(authNotifierProvider.notifier).signIn();
+      }
       if (mounted) {
         context.go(widget.redirectTo ?? '/');
       }
@@ -67,9 +76,35 @@ class _LoginPageState extends ConsumerState<LoginPage>
       }
     } finally {
       if (mounted) {
-        setState(() => _isSigningIn = false);
+        setState(() {
+          _isSigningIn = false;
+          _activeProvider = null;
+        });
       }
     }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    // Get the Google Web Client ID from compile-time env or fallback.
+    const webClientId = String.fromEnvironment(
+      'GOOGLE_WEB_CLIENT_ID',
+      defaultValue:
+          '763197051286-if56o7s0d7g7k9vt7r26dh6ehfgp3kc1.apps.googleusercontent.com',
+    );
+
+    final idToken = await GoogleSignInHelper.getIdToken(
+      webClientId: webClientId,
+    );
+
+    if (idToken == null) {
+      throw Exception('Google sign-in was cancelled');
+    }
+
+    final authPort = ref.read(authPortProvider);
+    await authPort.signInWithSocial(
+      provider: 'google',
+      idToken: idToken,
+    );
   }
 
   @override
@@ -117,8 +152,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     borderColor: isLight
                         ? const Color(0xFF1A0533).withValues(alpha: 0.1)
                         : null,
-                    onTap: _handleSignIn,
-                    isLoading: _isSigningIn,
+                    onTap: () => _handleSignIn(provider: 'google'),
+                    isLoading: _isSigningIn && _activeProvider == 'google',
                   ),
 
                   const SizedBox(height: 12),
@@ -128,8 +163,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     icon: Icons.apple,
                     color: isLight ? const Color(0xFF1A0533) : Colors.white,
                     textColor: isLight ? Colors.white : Colors.black87,
-                    onTap: _handleSignIn,
-                    isLoading: _isSigningIn,
+                    onTap: () => _handleSignIn(provider: 'apple'),
+                    isLoading: _isSigningIn && _activeProvider == 'apple',
                   ),
 
                   const SizedBox(height: 12),
@@ -139,8 +174,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     icon: Icons.email_outlined,
                     color: colorScheme.primary,
                     textColor: Colors.white,
-                    onTap: _handleSignIn,
-                    isLoading: _isSigningIn,
+                    onTap: () => _handleSignIn(),
+                    isLoading: _isSigningIn && _activeProvider == null,
                   ),
 
                   const SizedBox(height: 16),

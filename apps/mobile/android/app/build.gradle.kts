@@ -5,11 +5,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
     // Firebase — applied only when google-services.json exists
     id("com.google.gms.google-services") apply false
+    id("com.google.firebase.crashlytics") apply false
 }
 
-// Conditionally apply google-services plugin when config file exists
+// Conditionally apply Firebase plugins when config file exists
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
 }
 
 android {
