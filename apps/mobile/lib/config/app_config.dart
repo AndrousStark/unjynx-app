@@ -61,17 +61,17 @@ class AppConfig {
 
   static const bool featureTeam = bool.fromEnvironment(
     'FEATURE_TEAM',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   static const bool featureImportExport = bool.fromEnvironment(
     'FEATURE_IMPORT_EXPORT',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   static const bool featureWidgets = bool.fromEnvironment(
     'FEATURE_WIDGETS',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   /// API config for the service_api package.

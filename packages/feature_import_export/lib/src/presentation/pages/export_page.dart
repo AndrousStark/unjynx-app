@@ -1,6 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:service_api/service_api.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../../domain/models/export_format.dart';
@@ -130,13 +137,13 @@ class ExportPage extends ConsumerWidget {
                 ),
               ),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {
-                // Phase 4: Show project picker from existing projects
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Project filter coming soon'),
-                  ),
-                );
+              onTap: () async {
+                final selected = await _showProjectPicker(context, ref);
+                if (selected != null) {
+                  ref.read(exportProjectFilterProvider.notifier).set(
+                    selected.isEmpty ? null : selected,
+                  );
+                }
               },
             ),
           ),
@@ -216,47 +223,100 @@ class ExportPage extends ConsumerWidget {
     );
   }
 
-  // TODO(export): Wire to real export API endpoint once backend export
-  //  streaming is implemented in Phase 6+.
+  /// Builds a filename based on the export format and current date.
+  String _exportFilename(ExportFormat format) {
+    final date = DateTime.now().toIso8601String().split('T').first;
+    final extension = switch (format) {
+      ExportFormat.csv => 'csv',
+      ExportFormat.json => 'json',
+      ExportFormat.ics => 'ics',
+    };
+    return 'unjynx-export-$date.$extension';
+  }
+
+  /// Converts the raw API response data into a string suitable for writing
+  /// to a file.
+  String _encodeExportData(dynamic data, ExportFormat format) {
+    if (data is String) return data;
+    if (format == ExportFormat.json) {
+      return const JsonEncoder.withIndent('  ').convert(data);
+    }
+    return data.toString();
+  }
+
+  /// Executes the export: calls the API, writes to a temp file, and shares it.
   Future<void> _startExport(BuildContext context, WidgetRef ref) async {
     ref.read(exportLoadingProvider.notifier).set(true);
 
     try {
-      // Attempt real export via the existing exportProvider
+      // Invalidate previous result so the provider re-fetches
+      ref.invalidate(exportProvider);
       final result = await ref.read(exportProvider.future);
 
-      if (context.mounted) {
-        if (result != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Export ready! Check your downloads.'),
+      if (!context.mounted) return;
+
+      if (result == null) {
+        final error = ref.read(exportErrorProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error ?? 'Export failed. Please try again.'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
-          );
-        } else {
-          // exportProvider returned null (API unavailable)
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Export via web admin panel coming soon. Full data export '
-                'will be available at launch.',
-              ),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        }
+          ),
+        );
+        return;
       }
-    } catch (_) {
-      // API not wired yet - show honest message
+
+      final format = ref.read(exportFormatProvider)!;
+      final filename = _exportFilename(format);
+      final content = _encodeExportData(result, format);
+
+      // Write to temp directory
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/$filename');
+      await file.writeAsString(content, flush: true);
+
+      if (!context.mounted) return;
+
+      // Share the file via the system share sheet
+      final xFile = XFile(file.path);
+      await Share.shareXFiles(
+        [xFile],
+        subject: 'UNJYNX Export - $filename',
+      );
+    } on DioException catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              'Export via web admin panel coming soon. Full data export '
-              'will be available at launch.',
+            content: Text(
+              'Network error: ${e.message ?? 'Connection failed'}',
             ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -267,5 +327,123 @@ class ExportPage extends ConsumerWidget {
     } finally {
       ref.read(exportLoadingProvider.notifier).set(false);
     }
+  }
+
+  /// Shows a dialog for picking a project to filter exports by.
+  ///
+  /// Returns the selected project name, an empty string to clear the filter,
+  /// or null if the dialog was dismissed.
+  Future<String?> _showProjectPicker(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Try to fetch projects from the API
+    ProjectApiService? projectApi;
+    try {
+      projectApi = ref.read(projectApiProvider);
+    } catch (_) {
+      // Provider not overridden
+    }
+
+    List<String> projectNames = [];
+    String? fetchError;
+
+    if (projectApi != null) {
+      try {
+        final response = await projectApi.getProjects();
+        if (response.success && response.data != null) {
+          projectNames = (response.data!)
+              .map((item) {
+                if (item is Map<String, dynamic>) {
+                  return item['name']?.toString() ?? '';
+                }
+                return '';
+              })
+              .where((name) => name.isNotEmpty)
+              .toList();
+        }
+      } on DioException {
+        fetchError = 'Could not load projects. Check your connection.';
+      } on ApiException catch (e) {
+        fetchError = e.message;
+      }
+    } else {
+      fetchError = 'Project service unavailable.';
+    }
+
+    if (!context.mounted) return null;
+
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: Text(
+            'Select Project',
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+          children: [
+            // "All projects" option to clear filter
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, ''),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.all_inclusive_rounded,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'All projects',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (fetchError != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
+                child: Text(
+                  fetchError,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.error,
+                  ),
+                ),
+              ),
+            ...projectNames.map(
+              (name) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(dialogContext, name),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.folder_outlined,
+                      color: colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: TextStyle(color: colorScheme.onSurface),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

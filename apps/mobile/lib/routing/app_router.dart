@@ -87,6 +87,12 @@ GoRouter createAppRouter(
       ),
     ),
 
+    // Kanban Board (full-screen, outside shell)
+    GoRoute(
+      path: '/kanban',
+      builder: (context, state) => const KanbanBoardPage(),
+    ),
+
     // Content Feed (full-screen, outside shell)
     GoRoute(
       path: '/content',

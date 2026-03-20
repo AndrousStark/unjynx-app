@@ -40,6 +40,12 @@ async function resolveUserPlan(userId: string): Promise<Plan> {
  */
 export function planGuard(...allowedPlans: Plan[]) {
   return createMiddleware(async (c, next) => {
+    // Alpha release: all features unlocked for all users
+    if (process.env.ALPHA_MODE === "true") {
+      await next();
+      return;
+    }
+
     const auth = c.get("auth");
     const plan = await resolveUserPlan(auth.profileId);
 

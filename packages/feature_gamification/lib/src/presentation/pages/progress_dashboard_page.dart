@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unjynx_core/core.dart';
 
+import '../../domain/models/leaderboard_entry.dart';
 import '../providers/gamification_providers.dart';
 import '../widgets/category_breakdown_chart.dart';
 import '../widgets/completion_trend_chart.dart';
+import '../widgets/leaderboard_tile.dart';
 import '../widgets/productivity_by_day_chart.dart';
 import '../widgets/productivity_by_hour_chart.dart';
 
@@ -67,6 +69,7 @@ class ProgressDashboardPage extends ConsumerWidget {
           ref.invalidate(productivityByDayProvider);
           ref.invalidate(productivityByHourProvider);
           ref.invalidate(categoryBreakdownProvider);
+          ref.invalidate(leaderboardProvider);
         },
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -117,6 +120,37 @@ class ProgressDashboardPage extends ConsumerWidget {
             icon: Icons.pie_chart_outline_rounded,
             child: ref.watch(categoryBreakdownProvider).when(
                   data: (data) => CategoryBreakdownChart(data: data),
+                  loading: () => const _ChartPlaceholder(),
+                  error: (e, _) => _ChartError(error: e),
+                ),
+          ),
+          const SizedBox(height: 20),
+
+          // 5. Leaderboard
+          _ChartSection(
+            title: 'Leaderboard',
+            icon: Icons.leaderboard_rounded,
+            child: ref.watch(leaderboardProvider).when(
+                  data: (List<LeaderboardEntry> entries) => entries.isEmpty
+                      ? SizedBox(
+                          height: 120,
+                          child: Center(
+                            child: Text(
+                              'No leaderboard data yet.\n'
+                              'Complete tasks to climb the ranks!',
+                              textAlign: TextAlign.center,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            for (final entry in entries)
+                              LeaderboardTile(entry: entry),
+                          ],
+                        ),
                   loading: () => const _ChartPlaceholder(),
                   error: (e, _) => _ChartError(error: e),
                 ),

@@ -1,11 +1,80 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:feature_home/feature_home.dart';
 
+// ---------------------------------------------------------------------------
+// Minimal stub AudioPlayer for unit tests.
+//
+// Tests only verify state management (selectSound, setVolume, play/pause/stop).
+// Actual audio playback is tested via integration / E2E tests on a real device.
+// ---------------------------------------------------------------------------
+
+/// A lightweight fake that satisfies the AudioPlayer interface just enough
+/// for the AmbientSoundController state-management tests. Because just_audio
+/// requires native platform plugins, we override [ambientAudioPlayerProvider]
+/// with this stub so the tests can run without a platform channel.
+// ignore: avoid_implementing_value_types
+class _StubAudioPlayer implements AudioPlayer {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    // Return correctly typed futures for the methods the controller calls.
+    final name = invocation.memberName;
+
+    // setAudioSource returns Future<Duration?>
+    if (name == #setAudioSource) {
+      return Future<Duration?>.value(Duration.zero);
+    }
+
+    // setLoopMode, setVolume, pause, stop, dispose return Future<void>
+    if (name == #setLoopMode ||
+        name == #setVolume ||
+        name == #pause ||
+        name == #stop ||
+        name == #dispose) {
+      return Future<void>.value();
+    }
+
+    // play returns Future<void>
+    if (name == #play) {
+      return Future<void>.value();
+    }
+
+    return null;
+  }
+}
+
 void main() {
+  // Required for just_audio's LockCachingAudioSource which calls
+  // getTemporaryDirectory() via path_provider.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  // Provide a fake response for path_provider's getTemporaryDirectory.
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (MethodCall methodCall) async {
+        if (methodCall.method == 'getTemporaryDirectory') {
+          return '.';
+        }
+        return null;
+      },
+    );
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      null,
+    );
+  });
+
   group('AmbientSound enum', () {
-    test('silence has no asset path', () {
-      expect(AmbientSound.silence.assetPath, isNull);
+    test('silence has no remote URL', () {
+      expect(AmbientSound.silence.remoteUrl, isNull);
+      expect(AmbientSound.silence.assetPath, isNull); // legacy alias
       expect(AmbientSound.silence.isSilence, isTrue);
     });
 
@@ -20,11 +89,30 @@ void main() {
       }
     });
 
-    test('non-silence sounds have asset paths', () {
+    test('non-silence sounds have remote URLs', () {
       for (final sound in AmbientSound.values) {
         if (!sound.isSilence) {
-          expect(sound.assetPath, isNotNull);
+          expect(sound.remoteUrl, isNotNull);
+          expect(sound.remoteUrl, startsWith('https://'));
         }
+      }
+    });
+
+    test('remote URLs point to api.unjynx.me/static/sounds', () {
+      for (final sound in AmbientSound.values) {
+        if (!sound.isSilence) {
+          expect(
+            sound.remoteUrl,
+            startsWith('https://api.unjynx.me/static/sounds/'),
+          );
+          expect(sound.remoteUrl, endsWith('.ogg'));
+        }
+      }
+    });
+
+    test('assetPath alias returns remoteUrl for compatibility', () {
+      for (final sound in AmbientSound.values) {
+        expect(sound.assetPath, equals(sound.remoteUrl));
       }
     });
   });
@@ -68,7 +156,11 @@ void main() {
     late ProviderContainer container;
 
     setUp(() {
-      container = ProviderContainer();
+      container = ProviderContainer(
+        overrides: [
+          ambientAudioPlayerProvider.overrideWithValue(_StubAudioPlayer()),
+        ],
+      );
     });
 
     tearDown(() {

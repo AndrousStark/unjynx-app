@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -133,21 +134,30 @@ class _UploadStep extends ConsumerWidget {
 
           // Upload area
           GestureDetector(
-            onTap: () {
-              // TODO(import): Integrate file_picker package for native file
-              //  selection once app is published.
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text(
-                    'File picker coming soon - use the web admin panel '
-                    'to import data',
-                  ),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              );
+            onTap: () async {
+              try {
+                final result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: ['csv', 'json', 'ics'],
+                );
+                if (result != null && result.files.single.path != null) {
+                  ref.read(importFlowProvider.notifier).uploadFile(
+                    result.files.single.path!,
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to pick file: $e'),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
+                }
+              }
             },
             child: Container(
               height: 180,

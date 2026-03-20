@@ -3,10 +3,12 @@ import 'package:feature_home/src/domain/services/ambient_sound_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:just_audio/just_audio.dart';
 
 // Re-export models so widgets can import everything from this file.
 export 'package:feature_home/src/domain/models/home_models.dart';
 export 'package:feature_home/src/domain/services/ambient_sound_service.dart';
+export 'package:just_audio/just_audio.dart' show AudioPlayer;
 
 // ---------------------------------------------------------------------------
 // User & streak
@@ -601,41 +603,112 @@ final ambientSoundProvider =
   _AmbientSoundNotifier.new,
 );
 
-/// Controls ambient sound playback.
+/// Factory provider for the [AudioPlayer] instance used by the ambient
+/// sound controller. Extracted as a provider so tests can override it
+/// with a mock without pulling in platform audio plugins.
+final ambientAudioPlayerProvider = Provider<AudioPlayer>((ref) {
+  final player = AudioPlayer();
+  ref.onDispose(player.dispose);
+  return player;
+});
+
+/// Controls ambient sound playback via just_audio.
 ///
-/// Phase 2: State tracking only (no audio playback).
-/// Phase 3: Wire to just_audio for actual sound playback.
+/// Sounds are streamed from the UNJYNX backend using
+/// [LockCachingAudioSource] for on-demand download + caching.
+/// Loop mode is set to [LoopMode.one] so the ambient track repeats
+/// seamlessly during the entire Pomodoro session.
 final ambientSoundControllerProvider =
     NotifierProvider<AmbientSoundController, AmbientSoundState>(
   AmbientSoundController.new,
 );
 
 class AmbientSoundController extends Notifier<AmbientSoundState> {
+  /// Currently loaded audio source, kept to avoid reloading the same
+  /// sound when play is called repeatedly.
+  LockCachingAudioSource? _cachedSource;
+
+  /// The [AmbientSound] value that [_cachedSource] was built for.
+  AmbientSound? _cachedSoundKey;
+
+  AudioPlayer get _player => ref.read(ambientAudioPlayerProvider);
+
   @override
   AmbientSoundState build() => const AmbientSoundState();
 
+  /// Select a sound. If a different sound was playing, stop + reload.
   void selectSound(AmbientSound sound) {
+    final previous = state.sound;
     state = state.copyWith(sound: sound);
-  }
 
-  void setVolume(double volume) {
-    state = state.copyWith(volume: volume.clamp(0.0, 1.0));
-  }
-
-  void play() {
-    if (!state.sound.isSilence) {
-      state = state.copyWith(isPlaying: true);
-      // Phase 3: actual audio playback via just_audio
+    // If the sound changed and we were playing, restart with the new one.
+    if (sound != previous && state.isPlaying) {
+      _loadAndPlay();
     }
   }
 
-  void pause() {
-    state = state.copyWith(isPlaying: false);
-    // Phase 3: pause actual audio
+  /// Adjust volume (0.0 - 1.0). Applied immediately to the player.
+  void setVolume(double volume) {
+    final clamped = volume.clamp(0.0, 1.0);
+    state = state.copyWith(volume: clamped);
+    _player.setVolume(clamped);
   }
 
+  /// Start or resume playback of the selected ambient sound.
+  void play() {
+    if (state.sound.isSilence) return;
+
+    state = state.copyWith(isPlaying: true);
+    _loadAndPlay();
+  }
+
+  /// Pause playback (keeps buffered audio ready for instant resume).
+  void pause() {
+    state = state.copyWith(isPlaying: false);
+    _player.pause();
+  }
+
+  /// Stop playback and release platform audio resources.
   void stop() {
     state = state.copyWith(isPlaying: false);
-    // Phase 3: stop and dispose audio
+    _player.stop();
+    _cachedSource = null;
+    _cachedSoundKey = null;
+  }
+
+  // -----------------------------------------------------------------------
+  // Internal
+  // -----------------------------------------------------------------------
+
+  /// Loads the audio source (if not already cached) and starts playing.
+  Future<void> _loadAndPlay() async {
+    final sound = state.sound;
+    if (sound.isSilence || sound.remoteUrl == null) return;
+
+    try {
+      // Only reload if the sound changed since the last load.
+      if (_cachedSoundKey != sound) {
+        _cachedSource = LockCachingAudioSource(Uri.parse(sound.remoteUrl!));
+        _cachedSoundKey = sound;
+
+        await _player.setAudioSource(_cachedSource!);
+        // Guard after async gap -- the provider may have been disposed.
+        if (!ref.mounted) return;
+
+        await _player.setLoopMode(LoopMode.one);
+        if (!ref.mounted) return;
+      }
+
+      await _player.setVolume(state.volume);
+      if (!ref.mounted) return;
+
+      await _player.play();
+    } on Exception catch (e) {
+      // Log but don't crash -- ambient sound is non-critical.
+      debugPrint('[AmbientSoundController] playback error: $e');
+      if (ref.mounted) {
+        state = state.copyWith(isPlaying: false);
+      }
+    }
   }
 }

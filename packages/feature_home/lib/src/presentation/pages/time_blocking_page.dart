@@ -83,31 +83,17 @@ final timeBlocksProvider =
   _TimeBlocksNotifier.new,
 );
 
-/// Unscheduled tasks (tasks with no time block assigned).
+/// Unscheduled tasks — reads today's real tasks from [homeTodayTasksProvider],
+/// filters out completed tasks (already-scheduled ones are filtered in the
+/// widget via [timeBlocksProvider]).
 final unscheduledTasksProvider = Provider<List<HomeTask>>((ref) {
-  // Placeholder: In integration, filter tasks not in any time block.
-  return const [
-    HomeTask(
-      id: 'unsch-1',
-      title: 'Review PR comments',
-      priority: HomeTaskPriority.high,
-    ),
-    HomeTask(
-      id: 'unsch-2',
-      title: 'Write unit tests',
-      priority: HomeTaskPriority.medium,
-    ),
-    HomeTask(
-      id: 'unsch-3',
-      title: 'Update documentation',
-      priority: HomeTaskPriority.low,
-    ),
-    HomeTask(
-      id: 'unsch-4',
-      title: 'Team standup notes',
-      priority: HomeTaskPriority.none,
-    ),
-  ];
+  final tasksAsync = ref.watch(homeTodayTasksProvider);
+  return tasksAsync.when(
+    data: (tasks) =>
+        tasks.where((t) => !t.isCompleted).toList(growable: false),
+    loading: () => const <HomeTask>[],
+    error: (_, __) => const <HomeTask>[],
+  );
 });
 
 // =============================================================================

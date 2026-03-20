@@ -1,38 +1,66 @@
-/// Ambient sound service for Pomodoro focus sessions.
-///
-/// Uses a port-based abstraction so the actual audio implementation
-/// can be swapped (just_audio for real, mock for tests).
-/// For Phase 2, this is a stub that tracks state without actual playback.
-/// Phase 3+ will wire just_audio when the package is added.
+// Ambient sound service for Pomodoro focus sessions.
+//
+// Sounds are streamed from the UNJYNX backend and cached on-device
+// using just_audio's LockCachingAudioSource. No bundled assets needed.
 
+/// Base URL for remotely hosted ambient sound files.
+const String _soundBaseUrl = 'https://api.unjynx.me/static/sounds';
+
+/// Available ambient sounds for Pomodoro focus sessions.
 enum AmbientSound {
+  /// No sound -- silence.
   silence('Silence', null),
-  rain('Rain', 'assets/sounds/rain.mp3'),
-  forest('Forest', 'assets/sounds/forest.mp3'),
-  cafe('Cafe', 'assets/sounds/cafe.mp3'),
-  lofi('Lo-Fi', 'assets/sounds/lofi.mp3'),
-  whiteNoise('White Noise', 'assets/sounds/white_noise.mp3');
 
-  const AmbientSound(this.label, this.assetPath);
+  /// Rainfall ambiance.
+  rain('Rain', '$_soundBaseUrl/rain.ogg'),
 
+  /// Forest / nature ambiance.
+  forest('Forest', '$_soundBaseUrl/forest.ogg'),
+
+  /// Coffee shop ambiance.
+  cafe('Cafe', '$_soundBaseUrl/cafe.ogg'),
+
+  /// Lo-Fi beats ambiance.
+  lofi('Lo-Fi', '$_soundBaseUrl/lofi.ogg'),
+
+  /// White noise ambiance.
+  whiteNoise('White Noise', '$_soundBaseUrl/white_noise.ogg');
+
+  const AmbientSound(this.label, this.remoteUrl);
+
+  /// Human-readable display name.
   final String label;
-  final String? assetPath;
 
+  /// Remote URL for streaming + caching. Null for [silence].
+  final String? remoteUrl;
+
+  /// Whether this is the "no sound" option.
   bool get isSilence => this == AmbientSound.silence;
+
+  /// Legacy alias kept for backward compatibility with tests.
+  /// Returns [remoteUrl] (was previously named `assetPath`).
+  String? get assetPath => remoteUrl;
 }
 
 /// State for the ambient sound player.
 class AmbientSoundState {
-  final AmbientSound sound;
-  final double volume;
-  final bool isPlaying;
-
+  /// Creates an ambient sound state.
   const AmbientSoundState({
     this.sound = AmbientSound.silence,
     this.volume = 0.5,
     this.isPlaying = false,
   });
 
+  /// The currently selected sound.
+  final AmbientSound sound;
+
+  /// Playback volume (0.0 to 1.0).
+  final double volume;
+
+  /// Whether the sound is currently playing.
+  final bool isPlaying;
+
+  /// Returns a copy with the given fields replaced.
   AmbientSoundState copyWith({
     AmbientSound? sound,
     double? volume,
