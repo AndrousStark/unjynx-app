@@ -1,77 +1,146 @@
 ---
 const testimonials = [
-  {
-    quote: 'Finally, a TODO app that actually reminds me where I\'ll see it -- on WhatsApp. I stopped missing deadlines the day I installed UNJYNX.',
-    name: 'Arjun Mehta',
-    role: 'Product Manager at a Series B startup',
-    initials: 'AM',
-    gradient: 'from-violet to-deep-violet',
-  },
-  {
-    quote: 'The Ghost Mode is insane. My productivity doubled in a week. No other app lets me block distractions while automatically telling my team I\'m in deep focus.',
-    name: 'Priya Sharma',
-    role: 'Senior Software Engineer',
-    initials: 'PS',
-    gradient: 'from-gold/80 to-rich-gold',
-  },
-  {
-    quote: 'Daily wisdom quotes are my favorite morning ritual now. The Mahabharata quotes combined with productivity insights is genuinely unique.',
-    name: 'David Chen',
-    role: 'Freelance Designer & Illustrator',
-    initials: 'DC',
-    gradient: 'from-emerald-500 to-teal-600',
-  },
+  { quote: 'Finally, a TODO app that actually reminds me where I\'ll see it -- on WhatsApp. I stopped missing deadlines the day I installed UNJYNX.', name: 'Arjun Mehta', role: 'Product Manager at a Series B startup', initials: 'AM' },
+  { quote: 'The Ghost Mode is insane. My productivity doubled in a week. No other app lets me block distractions while automatically telling my team I\'m in deep focus.', name: 'Priya Sharma', role: 'Senior Software Engineer', initials: 'PS' },
+  { quote: 'Daily wisdom quotes are my favorite morning ritual now. The Mahabharata quotes combined with productivity insights is genuinely unique.', name: 'David Chen', role: 'Freelance Designer & Illustrator', initials: 'DC' },
+  { quote: 'We moved our entire team to UNJYNX. The escalation chains ensure nobody misses a critical task, and the analytics are next level.', name: 'Sneha Reddy', role: 'Engineering Lead, FinTech', initials: 'SR' },
+  { quote: 'I\'ve tried every TODO app out there. UNJYNX is the only one that stuck. Getting reminders on Telegram is a game changer for me.', name: 'Marco Rossi', role: 'Content Creator', initials: 'MR' },
+  { quote: 'The offline-first approach is perfect for my workflow. I capture ideas on the go and everything syncs beautifully when I\'m back online.', name: 'Aisha Khan', role: 'Startup Founder', initials: 'AK' },
 ];
+
+const row1 = testimonials.slice(0, 3);
+const row2 = testimonials.slice(3, 6);
 ---
 
-<section class="relative py-24 sm:py-32">
-  <!-- Background -->
-  <div class="absolute inset-0 bg-gradient-to-b from-midnight via-midnight to-midnight-light/30"></div>
+<section class="relative py-16 sm:py-28 md:py-36 overflow-hidden">
+  <div class="absolute inset-0 bg-gradient-to-b from-midnight via-midnight to-midnight-light/20"></div>
+  <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet/10 to-transparent"></div>
 
-  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <!-- Section header -->
-    <div class="text-center mb-16 sm:mb-20 reveal">
-      <p class="font-body text-sm font-semibold text-gold uppercase tracking-widest mb-4">
-        Testimonials
-      </p>
-      <h2 class="font-heading font-bold text-3xl sm:text-4xl md:text-5xl text-purple-mist mb-6">
-        Loved by people who<br />
-        <span class="text-violet">actually get things done</span>
-      </h2>
-    </div>
+  <!-- Large decorative quote mark background -->
+  <div class="absolute top-[10%] left-[5%] pointer-events-none select-none" aria-hidden="true">
+    <span class="font-heading font-black text-[8rem] sm:text-[14rem] md:text-[20rem] leading-none text-violet/[0.03]">&ldquo;</span>
+  </div>
+  <div class="absolute bottom-[5%] right-[8%] pointer-events-none select-none" aria-hidden="true">
+    <span class="font-heading font-black text-[6rem] sm:text-[10rem] md:text-[14rem] leading-none text-gold/[0.02]">&rdquo;</span>
+  </div>
 
-    <!-- Testimonial cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto reveal-children">
-      {testimonials.map((testimonial) => (
-        <div class="relative p-8 rounded-2xl border border-violet/10 bg-midnight-light/20 backdrop-blur-sm hover:border-violet/20 transition-all duration-500 group">
-          <!-- Quote mark -->
-          <svg class="w-10 h-10 text-violet/20 mb-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10H14.017zM0 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151C7.546 6.068 5.983 8.789 5.983 11H10v10H0z" />
-          </svg>
-
-          <!-- Quote text -->
-          <p class="font-body text-base leading-relaxed text-purple-mist/70 mb-8 group-hover:text-purple-mist/90 transition-colors duration-300">
-            "{testimonial.quote}"
-          </p>
-
-          <!-- Author -->
-          <div class="flex items-center gap-4">
-            <div class={`w-12 h-12 rounded-full bg-gradient-to-br ${testimonial.gradient} flex items-center justify-center`}>
-              <span class="font-heading font-bold text-sm text-white">
-                {testimonial.initials}
-              </span>
-            </div>
-            <div>
-              <p class="font-heading font-semibold text-sm text-purple-mist">
-                {testimonial.name}
-              </p>
-              <p class="font-body text-xs text-purple-mist/40">
-                {testimonial.role}
-              </p>
-            </div>
+  <div class="relative z-10">
+    <!-- Header with frosted glass overlay -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10 sm:mb-16 reveal">
+      <div class="relative inline-block">
+        <!-- Frosted glass backing -->
+        <div class="absolute -inset-6 -inset-x-8 rounded-2xl glass-light opacity-40 pointer-events-none" aria-hidden="true"></div>
+        <div class="relative">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-8 h-px bg-gold"></div>
+            <span class="font-body text-xs font-semibold text-gold uppercase tracking-[0.2em]">Testimonials</span>
+          </div>
+          <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+            <h2 class="font-heading font-bold text-3xl sm:text-4xl md:text-5xl lg:text-[3.5rem] text-purple-mist leading-[1.1]">
+              Loved by people who<br />
+              <span class="text-violet/80">actually get things done</span>
+            </h2>
+            <p class="font-body text-purple-mist/40 text-sm max-w-xs">
+              Join thousands of users who've transformed their productivity.
+            </p>
           </div>
         </div>
-      ))}
+      </div>
+    </div>
+
+    <!-- Scrolling rows -->
+    <div class="space-y-5">
+      <!-- Row 1 -->
+      <div class="testimonial-marquee">
+        <div class="flex gap-5 animate-marquee">
+          {[...row1, ...row1, ...row1, ...row1].map((t) => (
+            <div class="testimonial-card flex-shrink-0 w-[280px] sm:w-[380px] md:w-[420px] p-5 sm:p-7 rounded-2xl glass-light transition-all duration-500 group">
+              <div class="flex gap-0.5 mb-4 sm:mb-5">
+                {[0,1,2,3,4].map(() => (
+                  <svg class="w-3.5 h-3.5 text-gold/60 star-glow" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <p class="font-body text-sm sm:text-[15px] leading-relaxed text-purple-mist/60 group-hover:text-purple-mist/80 transition-colors duration-500 mb-5 sm:mb-7">
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet/60 to-deep-violet flex items-center justify-center">
+                  <span class="font-heading font-bold text-[11px] text-purple-mist/90">{t.initials}</span>
+                </div>
+                <div>
+                  <p class="font-heading font-semibold text-sm text-purple-mist">{t.name}</p>
+                  <p class="font-body text-[11px] text-purple-mist/40">{t.role}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="testimonial-marquee">
+        <div class="flex gap-5 animate-marquee-reverse">
+          {[...row2, ...row2, ...row2, ...row2].map((t) => (
+            <div class="testimonial-card flex-shrink-0 w-[280px] sm:w-[380px] md:w-[420px] p-5 sm:p-7 rounded-2xl glass-light transition-all duration-500 group">
+              <div class="flex gap-0.5 mb-4 sm:mb-5">
+                {[0,1,2,3,4].map(() => (
+                  <svg class="w-3.5 h-3.5 text-gold/60 star-glow" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <p class="font-body text-sm sm:text-[15px] leading-relaxed text-purple-mist/60 group-hover:text-purple-mist/80 transition-colors duration-500 mb-5 sm:mb-7">
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-gold/40 to-rich-gold flex items-center justify-center">
+                  <span class="font-heading font-bold text-[11px] text-white/90">{t.initials}</span>
+                </div>
+                <div>
+                  <p class="font-heading font-semibold text-sm text-purple-mist">{t.name}</p>
+                  <p class="font-body text-[11px] text-purple-mist/40">{t.role}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   </div>
 </section>
+
+<style>
+  .testimonial-marquee {
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  }
+  .testimonial-marquee:hover .animate-marquee,
+  .testimonial-marquee:hover .animate-marquee-reverse {
+    animation-play-state: paused;
+  }
+
+  /* Subtle border glow on hover */
+  .testimonial-card {
+    position: relative;
+    transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+  }
+  .testimonial-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(108, 92, 231, 0.2);
+    box-shadow: 0 0 20px rgba(108, 92, 231, 0.08), 0 2px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Star gold glow */
+  .star-glow {
+    filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.25));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .testimonial-card {
+      transition: none;
+    }
+  }
+</style>

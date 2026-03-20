@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Nav from '../components/Nav.astro';
 import Hero from '../components/Hero.astro';
+import Stats from '../components/Stats.astro';
 import Features from '../components/Features.astro';
 import Channels from '../components/Channels.astro';
 import Pricing from '../components/Pricing.astro';
@@ -12,12 +13,13 @@ import Footer from '../components/Footer.astro';
 
 <Layout title="UNJYNX - Break the satisfactory. Unjynx your productivity.">
   <Nav />
-  <main>
+  <main id="main-content">
     <Hero />
+    <Stats />
     <Features />
     <Channels />
-    <Pricing />
     <Testimonials />
+    <Pricing />
     <FAQ />
   </main>
   <Footer />

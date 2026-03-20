@@ -1,0 +1,199 @@
+---
+const stats = [
+  { value: 2000, suffix: '+', label: 'Early access users' },
+  { value: 7, suffix: '', label: 'Notification channels' },
+  { value: 60, suffix: '+', label: 'Wisdom categories' },
+  { value: 99.9, suffix: '%', label: 'Uptime SLA' },
+];
+
+const logos = ['Notion', 'Linear', 'Figma', 'Slack', 'GitHub'];
+---
+
+<section class="relative py-16 sm:py-24 md:py-32 overflow-hidden">
+  <div class="absolute inset-0 bg-midnight"></div>
+  <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet/10 to-transparent"></div>
+  <div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet/10 to-transparent"></div>
+
+  <!-- Ambient glow -->
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet/[0.06] rounded-full blur-[150px]"></div>
+  <div class="absolute top-1/3 right-1/4 w-[300px] h-[300px] bg-gold/[0.03] rounded-full blur-[120px]"></div>
+
+  <!-- Scroll-shifting radial glow -->
+  <div class="stats-scroll-glow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full pointer-events-none" aria-hidden="true"></div>
+
+  <!-- Parallax floating orbs -->
+  <div
+    class="absolute top-[15%] left-[10%] w-16 h-16 rounded-full bg-violet/[0.08] blur-xl animate-float"
+    data-parallax
+    data-parallax-speed="0.04"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="absolute bottom-[20%] right-[12%] w-24 h-24 rounded-full bg-gold/[0.06] blur-2xl animate-float"
+    data-parallax
+    data-parallax-speed="0.06"
+    style="animation-delay: -2s;"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="absolute top-[60%] left-[65%] w-12 h-12 rounded-full bg-deep-violet/[0.1] blur-lg animate-float"
+    data-parallax
+    data-parallax-speed="0.03"
+    style="animation-delay: -4s;"
+    aria-hidden="true"
+  ></div>
+
+  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-8 sm:py-14 md:py-20">
+    <!-- Stats grid -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 lg:gap-6 reveal-children" style="perspective: 1000px;">
+      {stats.map((stat, i) => (
+        <div
+          class="tilt-card relative rounded-2xl glass-heavy p-5 sm:p-8 md:p-12 text-center group overflow-hidden"
+          style={`animation-delay: ${i * 100}ms;`}
+        >
+          <!-- Top gradient line -->
+          <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-gold/40 to-transparent"></div>
+
+          <!-- Subtle background accent -->
+          <div class="absolute inset-0 bg-gradient-to-br from-violet/[0.04] to-gold/[0.02] rounded-2xl"></div>
+
+          <!-- Hover glow ring -->
+          <div class="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
+            style="box-shadow: inset 0 0 30px rgba(108, 92, 231, 0.08);">
+          </div>
+
+          <p
+            class="relative font-heading font-black text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-purple-mist mb-2 sm:mb-3 stat-number group-hover:text-gold transition-colors duration-500"
+            data-target={stat.value}
+            data-suffix={stat.suffix}
+          >
+            0{stat.suffix}
+          </p>
+          <p class="relative font-body text-xs sm:text-sm text-purple-mist/60">{stat.label}</p>
+        </div>
+      ))}
+    </div>
+
+    <!-- Ticker bar -->
+    <div class="mt-10 sm:mt-16 overflow-hidden border-y border-white/[0.04] py-3">
+      <div class="flex gap-8 animate-marquee whitespace-nowrap">
+        {[
+          { label: 'Tasks Completed', value: '1.2M+' },
+          { label: 'Active Users', value: '2,000+' },
+          { label: 'Channels', value: '7' },
+          { label: 'Uptime', value: '99.9%' },
+          { label: 'Countries', value: '40+' },
+          { label: 'Daily Wisdom', value: '60+ categories' },
+          { label: 'Tasks Completed', value: '1.2M+' },
+          { label: 'Active Users', value: '2,000+' },
+          { label: 'Channels', value: '7' },
+          { label: 'Uptime', value: '99.9%' },
+          { label: 'Countries', value: '40+' },
+          { label: 'Daily Wisdom', value: '60+ categories' },
+        ].map((item) => (
+          <div class="flex items-center gap-3">
+            <span class="font-heading text-xs text-gold/70 uppercase tracking-wider">{item.label}</span>
+            <span class="font-heading font-bold text-sm text-purple-mist">{item.value}</span>
+            <span class="w-1 h-1 rounded-full bg-violet/30"></span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Integrations -->
+    <div class="mt-12 sm:mt-20 pt-8 sm:pt-12 border-t border-white/[0.03] reveal">
+      <p class="font-body text-xs text-purple-mist/20 text-center mb-8 uppercase tracking-[0.2em]">
+        Plays well with tools you already use
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-6 sm:gap-10 md:gap-16">
+        {logos.map((logo) => (
+          <span class="font-heading font-semibold text-sm sm:text-base text-purple-mist/[0.12] hover:text-purple-mist/30 transition-colors duration-500 cursor-default">
+            {logo}
+          </span>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .stats-scroll-glow {
+    background: radial-gradient(circle, rgba(108, 92, 231, 0.06) 0%, transparent 70%);
+    transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stats-scroll-glow {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  // Count-up animation
+  const statObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target as HTMLElement;
+        const target = parseFloat(el.dataset.target || '0');
+        const suffix = el.dataset.suffix || '';
+        const isDecimal = target % 1 !== 0;
+        const duration = 2000;
+        const startTime = performance.now();
+
+        function update(currentTime: number) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const current = eased * target;
+          el.textContent = (isDecimal ? current.toFixed(1) : Math.round(current).toLocaleString()) + suffix;
+          if (progress < 1) requestAnimationFrame(update);
+        }
+        requestAnimationFrame(update);
+        statObserver.unobserve(el);
+      });
+    },
+    { threshold: 0.5 }
+  );
+
+  document.querySelectorAll('.stat-number').forEach((el) => statObserver.observe(el));
+
+  // Scroll-shifting radial glow
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!prefersReducedMotion) {
+    const glowEl = document.querySelector('.stats-scroll-glow') as HTMLElement | null;
+    if (glowEl) {
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => {
+            const rect = glowEl.parentElement?.getBoundingClientRect();
+            if (rect) {
+              const scrollProgress = Math.max(0, Math.min(1, -rect.top / (rect.height || 1) + 0.5));
+              const offsetY = (scrollProgress - 0.5) * 80;
+              glowEl.style.transform = `translate(-50%, calc(-50% + ${offsetY}px))`;
+              glowEl.style.opacity = `${0.6 + scrollProgress * 0.4}`;
+            }
+            ticking = false;
+          });
+          ticking = true;
+        }
+      }, { passive: true });
+    }
+
+    // Parallax orbs mouse tracking
+    const parallaxOrbs = document.querySelectorAll('[data-parallax]');
+    document.addEventListener('mousemove', (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2;
+      const y = (e.clientY / window.innerHeight - 0.5) * 2;
+      parallaxOrbs.forEach((orb) => {
+        const el = orb as HTMLElement;
+        const speed = parseFloat(el.dataset.parallaxSpeed || '0.04');
+        const moveX = x * speed * 100;
+        const moveY = y * speed * 100;
+        el.style.transform = `translate(${moveX}px, ${moveY}px)`;
+      });
+    });
+  }
+</script>

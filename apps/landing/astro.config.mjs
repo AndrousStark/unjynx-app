@@ -3,7 +3,8 @@ import tailwind from '@astrojs/tailwind';
 import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  site: 'https://unjynx.com',
+  site: 'https://unjynx.me',
+  base: '/',
   integrations: [tailwind(), sitemap()],
   output: 'static',
 });

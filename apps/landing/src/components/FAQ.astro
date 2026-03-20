@@ -1,89 +1,161 @@
 ---
 const faqs = [
-  {
-    question: 'What is UNJYNX?',
-    answer: 'UNJYNX is a next-generation productivity app that goes beyond traditional TODO lists. It sends you reminders through the channels you already use -- WhatsApp, Telegram, Instagram, SMS, Discord, Slack, and Email. Combined with AI-powered scheduling, Ghost Mode for deep focus, and daily wisdom content, it is designed to break the satisfactory and unjynx your productivity.',
-  },
-  {
-    question: 'How do multi-channel reminders work?',
-    answer: 'When you create a task in UNJYNX, you can set up an escalation chain. For example: first try a push notification, then WhatsApp after 5 minutes, then SMS after 15 minutes. You choose which channels to use and in what order. UNJYNX handles the rest, ensuring you never miss what matters.',
-  },
-  {
-    question: 'Is my data secure?',
-    answer: 'Absolutely. UNJYNX is built with security-first architecture. Your data is encrypted at rest and in transit. We comply with India\'s DPDP Act 2023 and global privacy standards. We use self-hosted infrastructure where possible and never sell your data. You can export or delete your data at any time.',
-  },
-  {
-    question: 'What channels are supported?',
-    answer: 'UNJYNX supports seven notification channels: WhatsApp (via official Business API), Telegram (Bot API), Instagram (Messenger API with our Friend First approach), SMS, Discord, Slack, and Email. Push notifications are always included. Each channel can be configured independently with quiet hours and preferences.',
-  },
-  {
-    question: 'How much does UNJYNX cost?',
-    answer: 'UNJYNX offers a generous free tier with push notifications, up to 25 tasks, and basic features. Pro is $6.99/month ($4.99/month billed annually -- save 40%). Team plans start at $8.99/user/month ($6.99/user/month annually). Indian pricing: Pro at Rs 149/month or Rs 99/month annual. No lifetime plans -- we are committed to continuous improvement.',
-  },
-  {
-    question: 'Is there a free trial?',
-    answer: 'Yes! The free tier is available forever with no credit card required. For Pro features, we offer a 14-day free trial so you can experience multi-channel reminders, Ghost Mode, AI scheduling, and full analytics before committing. No strings attached.',
-  },
-  {
-    question: 'Can I use UNJYNX with my team?',
-    answer: 'Yes. Our Team plan includes shared workspaces, collaborative projects, team analytics, admin controls, SSO integration, custom escalation chains, and API access. It is designed for teams of any size -- from small startups to enterprise organizations.',
-  },
-  {
-    question: 'Does UNJYNX work offline?',
-    answer: 'Yes. UNJYNX is built offline-first. You can create, edit, and complete tasks without an internet connection. When you reconnect, your changes sync automatically using field-level conflict resolution -- no data loss, no duplicate entries.',
-  },
-  {
-    question: 'What makes UNJYNX different from Todoist or TickTick?',
-    answer: 'Three things no other app offers: (1) Multi-channel reminders on WhatsApp, Telegram, Instagram, and more -- not just push notifications. (2) Ghost Mode with app blocking and team status sync. (3) Daily wisdom content from 60+ categories including Mahabharata, Stoic philosophy, and personality development. Plus industry-specific modes for legal, healthcare, dev teams, and more.',
-  },
-  {
-    question: 'How do I get started?',
-    answer: 'Download UNJYNX from the App Store or Google Play. Create an account in under 30 seconds. Add your first task, connect your preferred channels (WhatsApp, Telegram, etc.), and experience reminders that actually reach you. The onboarding takes less than 2 minutes.',
-  },
+  { question: 'What is UNJYNX?', answer: 'UNJYNX is a next-generation productivity app that goes beyond traditional TODO lists. It sends you reminders through the channels you already use -- WhatsApp, Telegram, Instagram, SMS, Discord, Slack, and Email. Combined with AI-powered scheduling, Ghost Mode for deep focus, and daily wisdom content, it is designed to break the satisfactory and unjynx your productivity.' },
+  { question: 'How do multi-channel reminders work?', answer: 'When you create a task in UNJYNX, you can set up an escalation chain. For example: first try a push notification, then WhatsApp after 5 minutes, then SMS after 15 minutes. You choose which channels to use and in what order. UNJYNX handles the rest, ensuring you never miss what matters.' },
+  { question: 'Is my data secure?', answer: 'Absolutely. UNJYNX is built with security-first architecture. Your data is encrypted at rest and in transit. We comply with India\'s DPDP Act 2023 and global privacy standards. We use self-hosted infrastructure where possible and never sell your data. You can export or delete your data at any time.' },
+  { question: 'What channels are supported?', answer: 'UNJYNX supports seven notification channels: WhatsApp (via official Business API), Telegram (Bot API), Instagram (Messenger API with our Friend First approach), SMS, Discord, Slack, and Email. Push notifications are always included. Each channel can be configured independently with quiet hours and preferences.' },
+  { question: 'How much does UNJYNX cost?', answer: 'UNJYNX offers a generous free tier with push notifications, up to 25 tasks, and basic features. Pro is $6.99/month ($4.99/month billed annually -- save 40%). Team plans start at $8.99/user/month ($6.99/user/month annually). No lifetime plans -- we are committed to continuous improvement.' },
+  { question: 'Is there a free trial?', answer: 'Yes! The free tier is available forever with no credit card required. For Pro features, we offer a 14-day free trial so you can experience multi-channel reminders, Ghost Mode, AI scheduling, and full analytics before committing. No strings attached.' },
+  { question: 'Can I use UNJYNX with my team?', answer: 'Yes. Our Team plan includes shared workspaces, collaborative projects, team analytics, admin controls, SSO integration, custom escalation chains, and API access. It is designed for teams of any size -- from small startups to enterprise organizations.' },
+  { question: 'Does UNJYNX work offline?', answer: 'Yes. UNJYNX is built offline-first. You can create, edit, and complete tasks without an internet connection. When you reconnect, your changes sync automatically using field-level conflict resolution -- no data loss, no duplicate entries.' },
+  { question: 'What makes UNJYNX different from Todoist or TickTick?', answer: 'Three things no other app offers: (1) Multi-channel reminders on WhatsApp, Telegram, Instagram, and more -- not just push notifications. (2) Ghost Mode with app blocking and team status sync. (3) Daily wisdom content from 60+ categories including Mahabharata, Stoic philosophy, and personality development.' },
+  { question: 'How do I get started?', answer: 'Download UNJYNX from the App Store or Google Play. Create an account in under 30 seconds. Add your first task, connect your preferred channels (WhatsApp, Telegram, etc.), and experience reminders that actually reach you. The onboarding takes less than 2 minutes.' },
 ];
+
+const leftCol = faqs.filter((_, i) => i % 2 === 0);
+const rightCol = faqs.filter((_, i) => i % 2 !== 0);
 ---
 
-<section id="faq" class="relative py-24 sm:py-32">
-  <!-- Background -->
-  <div class="absolute inset-0 bg-gradient-to-b from-midnight-light/30 via-midnight to-midnight"></div>
+<section id="faq" class="relative py-16 sm:py-28 md:py-36">
+  <div class="absolute inset-0 faq-bg-gradient"></div>
+  <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet/10 to-transparent"></div>
 
-  <div class="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-    <!-- Section header -->
-    <div class="text-center mb-16 sm:mb-20 reveal">
-      <p class="font-body text-sm font-semibold text-gold uppercase tracking-widest mb-4">
-        FAQ
-      </p>
-      <h2 class="font-heading font-bold text-3xl sm:text-4xl md:text-5xl text-purple-mist mb-6">
+  <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div class="text-center mb-16 reveal">
+      <div class="inline-flex items-center gap-3 mb-6">
+        <div class="w-8 h-px bg-gold"></div>
+        <span class="font-body text-xs font-semibold text-gold uppercase tracking-[0.2em]">FAQ</span>
+        <div class="w-8 h-px bg-gold"></div>
+      </div>
+      <h2 class="font-heading font-bold text-3xl sm:text-4xl md:text-5xl lg:text-[3.5rem] text-purple-mist leading-[1.1] mb-4 sm:mb-6">
         Got questions?
       </h2>
-      <p class="font-body text-lg text-purple-mist/50">
-        We have answers. If you don't find yours here, reach out to support.
+      <p class="font-body text-lg text-purple-mist/50 max-w-md mx-auto">
+        We have answers. Can't find yours? <a href="#" class="text-violet hover:text-gold transition-colors duration-300 underline underline-offset-4 decoration-violet/30">Reach out</a>.
       </p>
     </div>
 
-    <!-- FAQ accordion -->
-    <div class="space-y-4 reveal-children">
-      {faqs.map((faq) => (
-        <details class="group faq-item rounded-xl border border-violet/10 bg-midnight-light/20 hover:border-violet/20 transition-colors duration-300">
-          <summary class="flex items-center justify-between gap-4 p-6 cursor-pointer list-none font-heading font-semibold text-base sm:text-lg text-purple-mist group-hover:text-gold transition-colors duration-300 select-none">
-            <span>{faq.question}</span>
-            <svg class="w-5 h-5 flex-shrink-0 text-violet group-open:rotate-45 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-          </summary>
-          <div class="px-6 pb-6 pt-0">
-            <p class="font-body text-sm leading-relaxed text-purple-mist/60">
-              {faq.answer}
-            </p>
-          </div>
-        </details>
-      ))}
+    <!-- Two-column FAQ -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
+      <div class="space-y-4 reveal-children">
+        {leftCol.map((faq) => (
+          <details class="faq-item group rounded-xl border border-white/[0.04] hover:border-violet/15 transition-all duration-500">
+            <summary class="flex items-center justify-between gap-4 p-4 sm:p-5 md:p-6 cursor-pointer list-none font-heading font-semibold text-sm sm:text-[15px] text-purple-mist/75 group-hover:text-purple-mist transition-colors duration-300 select-none min-h-[44px]">
+              <span>{faq.question}</span>
+              <div class="w-8 h-8 sm:w-6 sm:h-6 rounded-md bg-white/[0.03] flex items-center justify-center flex-shrink-0 group-open:bg-violet/10 transition-colors duration-300">
+                <svg class="w-3.5 h-3.5 text-purple-mist/30 group-open:text-violet faq-icon transition-all duration-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+            </summary>
+            <div class="faq-content">
+              <div class="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6 pt-0">
+                <div class="w-full h-px bg-white/[0.03] mb-4"></div>
+                <p class="font-body text-sm leading-relaxed text-purple-mist/55 max-w-prose">{faq.answer}</p>
+              </div>
+            </div>
+          </details>
+        ))}
+      </div>
+      <div class="space-y-4 reveal-children">
+        {rightCol.map((faq) => (
+          <details class="faq-item group rounded-xl border border-white/[0.04] hover:border-violet/15 transition-all duration-500">
+            <summary class="flex items-center justify-between gap-4 p-4 sm:p-5 md:p-6 cursor-pointer list-none font-heading font-semibold text-sm sm:text-[15px] text-purple-mist/75 group-hover:text-purple-mist transition-colors duration-300 select-none min-h-[44px]">
+              <span>{faq.question}</span>
+              <div class="w-8 h-8 sm:w-6 sm:h-6 rounded-md bg-white/[0.03] flex items-center justify-center flex-shrink-0 group-open:bg-violet/10 transition-colors duration-300">
+                <svg class="w-3.5 h-3.5 text-purple-mist/30 group-open:text-violet faq-icon transition-all duration-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+            </summary>
+            <div class="faq-content">
+              <div class="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6 pt-0">
+                <div class="w-full h-px bg-white/[0.03] mb-4"></div>
+                <p class="font-body text-sm leading-relaxed text-purple-mist/55 max-w-prose">{faq.answer}</p>
+              </div>
+            </div>
+          </details>
+        ))}
+      </div>
     </div>
   </div>
 </section>
 
 <style>
-  details summary::-webkit-details-marker {
-    display: none;
+  details summary::-webkit-details-marker { display: none; }
+
+  /* Background gradient transition from midnight-light to midnight */
+  .faq-bg-gradient {
+    background: linear-gradient(180deg,
+      rgba(26, 16, 41, 0.2) 0%,
+      #0F0A1A 40%,
+      #0F0A1A 100%
+    );
+  }
+
+  /* FAQ item background + left violet glow when open */
+  .faq-item {
+    background: rgba(26, 16, 41, 0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .faq-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(180deg, #6C5CE7, rgba(108, 92, 231, 0.3));
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .faq-item[open]::before {
+    opacity: 1;
+  }
+
+  .faq-item[open] {
+    background: rgba(26, 16, 41, 0.5);
+    border-color: rgba(108, 92, 231, 0.12);
+    box-shadow: -4px 0 20px rgba(108, 92, 231, 0.05);
+  }
+
+  /* Smooth icon rotation */
+  .faq-icon {
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+  }
+
+  .faq-item[open] .faq-icon {
+    transform: rotate(45deg);
+  }
+
+  /* Smooth expand/collapse using grid-template-rows trick */
+  .faq-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .faq-item[open] .faq-content {
+    grid-template-rows: 1fr;
+  }
+
+  .faq-content > div {
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .faq-content {
+      transition: none;
+    }
+    .faq-icon {
+      transition: none;
+    }
+    .faq-item::before {
+      transition: none;
+    }
   }
 </style>

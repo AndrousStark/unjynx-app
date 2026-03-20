@@ -7,85 +7,171 @@ const navLinks = [
 ];
 ---
 
-<nav class="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-midnight/80 border-b border-white/5">
+<nav id="main-nav" class="fixed top-0 left-0 right-0 z-50 transition-all duration-500" style="transform: translateY(0);">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between h-16 sm:h-20">
+    <div class="flex items-center justify-between h-16 lg:h-20">
       <!-- Logo -->
-      <a href="/" class="flex items-center gap-2 group">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-violet to-deep-violet flex items-center justify-center">
-          <span class="font-heading font-extrabold text-gold text-lg leading-none">U</span>
+      <a href="/unjynx-web/" class="flex items-center gap-2 sm:gap-3 group relative" style="perspective: 600px;">
+        <div class="relative transition-transform duration-300 group-hover:scale-105">
+          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-violet via-deep-violet to-violet flex items-center justify-center shadow-lg shadow-violet/20 group-hover:shadow-violet/40 transition-shadow duration-500">
+            <span class="font-heading font-black text-gold text-base sm:text-lg leading-none tracking-tighter">U</span>
+          </div>
         </div>
-        <span class="font-heading font-bold text-xl text-purple-mist group-hover:text-gold transition-colors duration-300">
+        <span class="font-heading font-bold text-lg sm:text-[22px] tracking-tight text-purple-mist group-hover:text-gold transition-colors duration-500">
           UNJYNX
         </span>
       </a>
 
       <!-- Desktop Links -->
-      <div class="hidden md:flex items-center gap-8">
+      <div class="hidden md:flex items-center gap-1" style="perspective: 800px;">
         {navLinks.map((link) => (
           <a
             href={link.href}
-            class="font-body text-sm text-purple-mist/70 hover:text-gold transition-colors duration-300"
+            class="nav-link-3d relative px-4 py-3 font-body text-[13px] font-medium text-purple-mist/70 hover:text-purple-mist transition-all duration-300 uppercase tracking-widest"
           >
             {link.label}
           </a>
         ))}
-        <a
-          href="#hero"
-          data-ph-capture="true"
-          data-ph-capture-attribute-button="nav-get-started"
-          class="px-5 py-2.5 bg-gold text-midnight font-heading font-semibold text-sm rounded-full hover:bg-rich-gold transition-colors duration-300"
-        >
-          Get Started
-        </a>
+        <div class="ml-6 pl-6 border-l border-white/5">
+          <a
+            href="#hero"
+            class="group relative inline-flex items-center gap-2 px-6 py-2.5 font-heading font-semibold text-sm overflow-hidden rounded-full glass-heavy hover:bg-white/[0.12] transition-all duration-500"
+          >
+            <span class="relative text-gold">Get Started</span>
+            <svg class="relative w-4 h-4 text-gold transition-transform duration-300 group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </a>
+        </div>
       </div>
 
       <!-- Mobile Menu Button -->
-      <button
-        id="mobile-menu-btn"
-        class="md:hidden p-2 text-purple-mist/70 hover:text-gold transition-colors"
-        aria-label="Toggle menu"
-      >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path id="menu-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+      <button id="mobile-menu-btn" class="md:hidden relative w-11 h-11 flex items-center justify-center rounded-lg" aria-label="Toggle menu">
+        <div class="hamburger-lines">
+          <span class="block w-5 h-[1.5px] bg-purple-mist/70 transition-all duration-300 origin-center"></span>
+          <span class="block w-5 h-[1.5px] bg-purple-mist/70 transition-all duration-300 mt-1.5 origin-center"></span>
+        </div>
       </button>
     </div>
 
     <!-- Mobile Menu -->
-    <div id="mobile-menu" class="md:hidden hidden pb-6">
-      <div class="flex flex-col gap-4">
-        {navLinks.map((link) => (
-          <a
-            href={link.href}
-            class="mobile-link font-body text-purple-mist/70 hover:text-gold transition-colors duration-300 py-2"
-          >
-            {link.label}
+    <div id="mobile-menu" class="md:hidden mobile-menu-closed overflow-hidden transition-all duration-500 ease-out">
+      <div class="pb-8 pt-2 border-t border-white/5 mobile-menu-glass rounded-b-2xl">
+        <div class="flex flex-col gap-1 mt-4">
+          {navLinks.map((link, i) => (
+            <a
+              href={link.href}
+              class="mobile-link font-body text-lg text-purple-mist/70 hover:text-gold transition-all duration-300 py-3.5 px-4 rounded-xl hover:bg-white/[0.03] min-h-[44px] flex items-center"
+              style={`transition-delay: ${i * 50}ms;`}
+            >
+              {link.label}
+            </a>
+          ))}
+          <a href="#hero" class="mobile-link mt-4 px-6 py-3.5 glass-heavy text-gold font-heading font-semibold text-base rounded-xl text-center hover:bg-white/[0.12] transition-colors duration-300 min-h-[48px] flex items-center justify-center">
+            Get Started
           </a>
-        ))}
-        <a
-          href="#hero"
-          class="mobile-link mt-2 px-5 py-2.5 bg-gold text-midnight font-heading font-semibold text-sm rounded-full text-center hover:bg-rich-gold transition-colors duration-300"
-        >
-          Get Started
-        </a>
+        </div>
       </div>
     </div>
   </div>
 </nav>
 
+<style>
+  .mobile-menu-closed { max-height: 0; opacity: 0; }
+  .mobile-menu-open { max-height: 400px; opacity: 1; }
+
+  .nav-scrolled {
+    background: rgba(15, 10, 26, 0.8);
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .nav-hidden { transform: translateY(-100%) !important; }
+
+  .nav-link-3d {
+    transition: transform 0.3s, color 0.3s;
+  }
+  .nav-link-3d:hover {
+    transform: translateZ(10px) translateY(-1px);
+    color: #FFD700;
+  }
+  .nav-link-3d::after {
+    content: '';
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: 60%;
+    height: 1px;
+    background: #FFD700;
+    transition: transform 0.3s;
+  }
+  .nav-link-3d:hover::after { transform: translateX(-50%) scaleX(1); }
+
+  .mobile-menu-glass {
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    background: rgba(15, 10, 26, 0.85);
+  }
+
+  .hamburger-open span:first-child { transform: rotate(45deg) translate(2px, 2px); }
+  .hamburger-open span:last-child { transform: rotate(-45deg) translate(2px, -2px); }
+</style>
+
 <script>
+  const nav = document.getElementById('main-nav');
   const btn = document.getElementById('mobile-menu-btn');
   const menu = document.getElementById('mobile-menu');
+  const hamburger = btn?.querySelector('.hamburger-lines');
   const links = menu?.querySelectorAll('.mobile-link');
 
+  // Smart hide nav
+  let lastScroll = 0;
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const currentScroll = window.scrollY;
+      if (currentScroll > 50) {
+        nav?.classList.add('nav-scrolled');
+      } else {
+        nav?.classList.remove('nav-scrolled');
+      }
+      // Hide on scroll down, show on scroll up
+      if (currentScroll > lastScroll && currentScroll > 100) {
+        nav?.classList.add('nav-hidden');
+      } else {
+        nav?.classList.remove('nav-hidden');
+      }
+      lastScroll = currentScroll;
+      ticking = false;
+    });
+  });
+
+  // Mobile toggle
+  let isOpen = false;
   btn?.addEventListener('click', () => {
-    menu?.classList.toggle('hidden');
+    isOpen = !isOpen;
+    if (isOpen) {
+      menu?.classList.remove('mobile-menu-closed');
+      menu?.classList.add('mobile-menu-open');
+      hamburger?.classList.add('hamburger-open');
+    } else {
+      menu?.classList.add('mobile-menu-closed');
+      menu?.classList.remove('mobile-menu-open');
+      hamburger?.classList.remove('hamburger-open');
+    }
   });
 
   links?.forEach((link) => {
     link.addEventListener('click', () => {
-      menu?.classList.add('hidden');
+      isOpen = false;
+      menu?.classList.add('mobile-menu-closed');
+      menu?.classList.remove('mobile-menu-open');
+      hamburger?.classList.remove('hamburger-open');
     });
   });
 </script>
