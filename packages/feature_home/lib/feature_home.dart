@@ -27,6 +27,7 @@ export 'src/presentation/pages/time_blocking_page.dart';
 export 'src/presentation/providers/home_providers.dart';
 export 'src/presentation/widgets/activity_heatmap.dart';
 export 'src/presentation/widgets/breathing_text.dart';
+export 'src/presentation/widgets/calendar_connect_card.dart';
 export 'src/presentation/widgets/calendar_grid.dart';
 export 'src/presentation/widgets/content_category_card.dart';
 export 'src/presentation/widgets/daily_content_card.dart';

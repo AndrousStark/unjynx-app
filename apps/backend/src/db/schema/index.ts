@@ -199,6 +199,27 @@ export {
   type NewCouponRedemption,
 } from "./billing.js";
 
+// ── API Keys ─────────────────────────────────────────────────────────
+export {
+  apiKeys,
+  type ApiKey,
+  type NewApiKey,
+} from "./api-keys.js";
+
+// ── AI Model Configs ─────────────────────────────────────────────────
+export {
+  aiModelConfigs,
+  type AiModelConfig as AiModelConfigRow,
+  type NewAiModelConfig,
+} from "./ai-model-configs.js";
+
+// ── Pipeline Runs ────────────────────────────────────────────────────
+export {
+  pipelineRuns,
+  type PipelineRun,
+  type NewPipelineRun,
+} from "./pipeline-runs.js";
+
 // ── Notifications (Phase 3) ──────────────────────────────────────────
 export {
   notifications,
@@ -220,3 +241,10 @@ export {
   type TeamNotificationSetting,
   type NewTeamNotificationSetting,
 } from "./team-notification-settings.js";
+
+// ── Calendar Integration ─────────────────────────────────────────────
+export {
+  calendarTokens,
+  type CalendarToken,
+  type NewCalendarToken,
+} from "./calendar-tokens.js";

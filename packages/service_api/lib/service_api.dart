@@ -10,6 +10,7 @@ export 'src/services/accountability_api_service.dart';
 export 'src/services/admin_api_service.dart';
 export 'src/services/auth_api_service.dart';
 export 'src/services/billing_api_service.dart';
+export 'src/services/calendar_api_service.dart';
 export 'src/services/channel_api_service.dart';
 export 'src/services/content_api_service.dart';
 export 'src/services/gamification_api_service.dart';

@@ -1,24 +1,51 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// ── Mock Helpers ──────────────────────────────────────────────────────
+// Build a fluent query chain that supports all Drizzle methods used by
+// the service. Each method returns `chain` so calls can be chained in
+// any order, and the final awaitable resolves via `.then()`.
+
+function createChain(resolvedValue: unknown = []) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> & {
+    then: (fn: (v: unknown) => unknown) => unknown;
+  } = {} as never;
+
+  const self = () => chain;
+  chain.from = vi.fn(self);
+  chain.where = vi.fn(self);
+  chain.groupBy = vi.fn(self);
+  chain.orderBy = vi.fn(self);
+  chain.limit = vi.fn(self);
+  chain.set = vi.fn(self);
+  chain.values = vi.fn(self);
+  chain.returning = vi.fn().mockResolvedValue(resolvedValue);
+  chain.then = (fn: (v: unknown) => unknown) =>
+    Promise.resolve(resolvedValue).then(fn);
+  return chain;
+}
+
 // Mock database
-vi.mock("../../../db/index.js", () => ({
-  db: {
-    execute: vi.fn().mockResolvedValue([]),
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          groupBy: vi.fn().mockResolvedValue([]),
-        }),
-      }),
-    }),
-  },
-}));
+vi.mock("../../../db/index.js", () => {
+  const selectChain = createChain([]);
+  const insertChain = createChain([{ id: "mock-id" }]);
+  const updateChain = createChain([]);
+
+  return {
+    db: {
+      execute: vi.fn().mockResolvedValue([]),
+      select: vi.fn().mockReturnValue(selectChain),
+      insert: vi.fn().mockReturnValue(insertChain),
+      update: vi.fn().mockReturnValue(updateChain),
+    },
+  };
+});
 
 // Mock queue factory
 vi.mock("../../../queue/queue-factory.js", () => ({
   getAllQueues: vi.fn().mockReturnValue(new Map()),
 }));
 
+import { db } from "../../../db/index.js";
 import {
   getSystemHealth,
   listApiKeys,
@@ -41,6 +68,10 @@ import {
 } from "../dev-portal.service.js";
 
 describe("dev-portal.service", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   // ── System Health ─────────────────────────────────────────────
   describe("getSystemHealth", () => {
     it("returns services array with overall status", async () => {
@@ -74,7 +105,6 @@ describe("dev-portal.service", () => {
 
     it("calculates overall status correctly", async () => {
       const result = await getSystemHealth();
-      // Without Redis configured, expect degraded
       expect(["healthy", "degraded", "down"]).toContain(result.overallStatus);
     });
   });
@@ -89,7 +119,6 @@ describe("dev-portal.service", () => {
 
   describe("getSlowQueries", () => {
     it("returns empty array when pg_stat_statements not available", async () => {
-      const { db } = await import("../../../db/index.js");
       (db.execute as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error("relation pg_stat_statements does not exist"),
       );
@@ -101,7 +130,6 @@ describe("dev-portal.service", () => {
 
   describe("getMigrationHistory", () => {
     it("returns empty array when no migrations table", async () => {
-      const { db } = await import("../../../db/index.js");
       (db.execute as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error("relation drizzle.__drizzle_migrations does not exist"),
       );
@@ -113,16 +141,12 @@ describe("dev-portal.service", () => {
 
   // ── API Key Management ────────────────────────────────────────
   describe("API Key Management", () => {
-    beforeEach(() => {
-      // Clear existing keys by revoking all
-      const existing = listApiKeys();
-      for (const key of existing) {
-        revokeApiKey(key.id);
-      }
-    });
+    it("creates an API key and returns id, key, expiresAt", async () => {
+      // Mock the insert chain to return an id
+      const insertChain = createChain([{ id: "new-key-id" }]);
+      (db.insert as ReturnType<typeof vi.fn>).mockReturnValueOnce(insertChain);
 
-    it("creates an API key", () => {
-      const result = createApiKey({
+      const result = await createApiKey({
         name: "Test Key",
         scopes: ["read:tasks"],
         expiresInDays: 30,
@@ -133,33 +157,42 @@ describe("dev-portal.service", () => {
       expect(result).toHaveProperty("expiresAt");
     });
 
-    it("lists created keys without exposing full key", () => {
-      createApiKey({ name: "Key 1", scopes: ["read:all"], expiresInDays: 90 });
-      createApiKey({ name: "Key 2", scopes: ["write:all"], expiresInDays: 30 });
+    it("lists active keys from database", async () => {
+      const mockRows = [
+        {
+          id: "k1",
+          name: "Key 1",
+          keyPrefix: "unjx_abc123",
+          scopes: ["read:all"],
+          createdAt: new Date(),
+          expiresAt: new Date(),
+          lastUsedAt: null,
+          isActive: true,
+        },
+      ];
+      const selectChain = createChain(mockRows);
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce(selectChain);
 
-      const keys = listApiKeys();
-      expect(keys.length).toBe(2);
-      expect(keys[0]).not.toHaveProperty("keyHash");
+      const keys = await listApiKeys();
+      expect(keys.length).toBe(1);
       expect(keys[0]).toHaveProperty("name");
       expect(keys[0]).toHaveProperty("scopes");
+      expect(keys[0]).toHaveProperty("keyPrefix");
     });
 
-    it("revokes an API key", () => {
-      const created = createApiKey({
-        name: "Revokable",
-        scopes: ["read:all"],
-        expiresInDays: 90,
-      });
+    it("revokes an API key via soft-delete", async () => {
+      const updateChain = createChain([{ id: "k1" }]);
+      (db.update as ReturnType<typeof vi.fn>).mockReturnValueOnce(updateChain);
 
-      const revoked = revokeApiKey(created.id);
+      const revoked = await revokeApiKey("k1");
       expect(revoked).toBe(true);
-
-      const keys = listApiKeys();
-      expect(keys.find((k) => k.id === created.id)).toBeUndefined();
     });
 
-    it("returns false for non-existent key revocation", () => {
-      const revoked = revokeApiKey("non-existent-id");
+    it("returns false for non-existent key revocation", async () => {
+      const updateChain = createChain([]);
+      (db.update as ReturnType<typeof vi.fn>).mockReturnValueOnce(updateChain);
+
+      const revoked = await revokeApiKey("non-existent-id");
       expect(revoked).toBe(false);
     });
   });
@@ -179,14 +212,17 @@ describe("dev-portal.service", () => {
 
   // ── Deployment ────────────────────────────────────────────────
   describe("getDeployHistory", () => {
-    it("returns deployment entries", () => {
-      const history = getDeployHistory();
+    it("returns empty array when no GITHUB_PAT configured", async () => {
+      // Without GITHUB_PAT in env, should return empty
+      const original = process.env.GITHUB_PAT;
+      delete process.env.GITHUB_PAT;
+
+      const history = await getDeployHistory();
       expect(Array.isArray(history)).toBe(true);
-      expect(history.length).toBeGreaterThan(0);
-      expect(history[0]).toHaveProperty("id");
-      expect(history[0]).toHaveProperty("service");
-      expect(history[0]).toHaveProperty("commit");
-      expect(history[0]).toHaveProperty("status");
+      expect(history.length).toBe(0);
+
+      // Restore
+      if (original) process.env.GITHUB_PAT = original;
     });
   });
 
@@ -247,18 +283,42 @@ describe("dev-portal.service", () => {
 
   // ── AI Model Management ───────────────────────────────────────
   describe("AI Model Management", () => {
-    it("lists pre-configured models", () => {
-      const models = listAiModels();
-      expect(models.length).toBeGreaterThanOrEqual(3);
+    it("lists models from database", async () => {
+      const mockRows = [
+        {
+          key: "haiku-4-5",
+          modelId: "claude-haiku-4-5-20251001",
+          provider: "anthropic",
+          maxTokens: 4096,
+          temperature: 0.7,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+        {
+          key: "sonnet-4-6",
+          modelId: "claude-sonnet-4-6",
+          provider: "anthropic",
+          maxTokens: 8192,
+          temperature: 0.5,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      ];
+      const selectChain = createChain(mockRows);
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce(selectChain);
 
+      const models = await listAiModels();
+      expect(models.length).toBe(2);
       const keys = models.map((m) => m.key);
       expect(keys).toContain("haiku-4-5");
       expect(keys).toContain("sonnet-4-6");
-      expect(keys).toContain("llama-local");
     });
 
-    it("updates existing model config", () => {
-      const updated = updateAiModel("haiku-4-5", {
+    it("updates existing model config", async () => {
+      const updateChain = createChain([{ key: "haiku-4-5" }]);
+      (db.update as ReturnType<typeof vi.fn>).mockReturnValueOnce(updateChain);
+
+      const updated = await updateAiModel("haiku-4-5", {
         modelId: "claude-haiku-4-5-20251001",
         provider: "anthropic",
         maxTokens: 8192,
@@ -266,15 +326,13 @@ describe("dev-portal.service", () => {
         isActive: true,
       });
       expect(updated).toBe(true);
-
-      const models = listAiModels();
-      const haiku = models.find((m) => m.key === "haiku-4-5");
-      expect(haiku!.maxTokens).toBe(8192);
-      expect(haiku!.temperature).toBe(0.3);
     });
 
-    it("returns false for non-existent model", () => {
-      const updated = updateAiModel("gpt-4", {
+    it("returns false for non-existent model", async () => {
+      const updateChain = createChain([]);
+      (db.update as ReturnType<typeof vi.fn>).mockReturnValueOnce(updateChain);
+
+      const updated = await updateAiModel("gpt-4", {
         modelId: "gpt-4",
         provider: "anthropic",
         maxTokens: 4096,
@@ -286,19 +344,20 @@ describe("dev-portal.service", () => {
   });
 
   describe("getAiUsageMetrics", () => {
-    it("returns usage metrics for each model", () => {
-      const metrics = getAiUsageMetrics();
-      expect(metrics.length).toBeGreaterThan(0);
+    it("returns zero-usage metrics from active models", async () => {
+      const mockModels = [
+        { key: "haiku-4-5" },
+        { key: "sonnet-4-6" },
+      ];
+      const selectChain = createChain(mockModels);
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce(selectChain);
+
+      const metrics = await getAiUsageMetrics();
+      expect(metrics.length).toBe(2);
       expect(metrics[0]).toHaveProperty("modelKey");
       expect(metrics[0]).toHaveProperty("totalRequests");
-      expect(metrics[0]).toHaveProperty("totalTokens");
-      expect(metrics[0]).toHaveProperty("costUsd");
-    });
-
-    it("ollama model has zero cost", () => {
-      const metrics = getAiUsageMetrics();
-      const llama = metrics.find((m) => m.modelKey === "llama-local");
-      expect(llama!.costUsd).toBe(0);
+      expect(metrics[0].totalRequests).toBe(0);
+      expect(metrics[0].costUsd).toBe(0);
     });
   });
 
@@ -331,17 +390,22 @@ describe("dev-portal.service", () => {
 
   // ── Data Pipeline ─────────────────────────────────────────────
   describe("getDataPipelineStatuses", () => {
-    it("returns pipeline statuses", () => {
-      const pipelines = getDataPipelineStatuses();
+    it("returns all pipeline definitions even when table is empty", async () => {
+      const selectChain = createChain([]);
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce(selectChain);
+
+      const pipelines = await getDataPipelineStatuses();
       expect(pipelines.length).toBeGreaterThan(0);
       expect(pipelines[0]).toHaveProperty("name");
       expect(pipelines[0]).toHaveProperty("schedule");
       expect(pipelines[0]).toHaveProperty("status");
-      expect(pipelines[0]).toHaveProperty("durationMs");
     });
 
-    it("includes critical pipelines", () => {
-      const pipelines = getDataPipelineStatuses();
+    it("includes critical pipelines", async () => {
+      const selectChain = createChain([]);
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce(selectChain);
+
+      const pipelines = await getDataPipelineStatuses();
       const names = pipelines.map((p) => p.name);
       expect(names).toContain("content-ingestion");
       expect(names).toContain("database-backup");
@@ -350,13 +414,38 @@ describe("dev-portal.service", () => {
   });
 
   describe("getBackups", () => {
-    it("returns backup list", () => {
-      const backups = getBackups();
-      expect(backups.length).toBeGreaterThan(0);
+    it("returns empty array when no backup runs exist", async () => {
+      const selectChain = createChain([]);
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce(selectChain);
+
+      const backups = await getBackups();
+      expect(Array.isArray(backups)).toBe(true);
+      expect(backups.length).toBe(0);
+    });
+
+    it("maps pipeline_runs rows to backup entries", async () => {
+      const mockRows = [
+        {
+          id: "bak-1",
+          status: "completed",
+          startedAt: new Date("2026-03-20T03:00:00Z"),
+          completedAt: new Date("2026-03-20T03:02:00Z"),
+          itemsProcessed: 52_428_800,
+          errorMessage: null,
+        },
+      ];
+      const selectChain = createChain(mockRows);
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce(selectChain);
+
+      const backups = await getBackups();
+      expect(backups.length).toBe(1);
       expect(backups[0]).toHaveProperty("id");
       expect(backups[0]).toHaveProperty("sizeBytes");
       expect(backups[0]).toHaveProperty("status");
       expect(backups[0]).toHaveProperty("verified");
+      expect(backups[0].status).toBe("completed");
+      expect(backups[0].verified).toBe(true);
+      expect(backups[0].sizeBytes).toBe(52_428_800);
     });
   });
 });

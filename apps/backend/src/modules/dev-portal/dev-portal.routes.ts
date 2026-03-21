@@ -64,7 +64,7 @@ devPortalRoutes.get("/database/backups", async (c) => {
 
 // GET /dev/api-keys - List API keys
 devPortalRoutes.get("/api-keys", async (c) => {
-  const keys = devService.listApiKeys();
+  const keys = await devService.listApiKeys();
   return c.json(ok(keys));
 });
 
@@ -74,7 +74,7 @@ devPortalRoutes.post(
   zValidator("json", createApiKeySchema),
   async (c) => {
     const input = c.req.valid("json");
-    const result = devService.createApiKey(input);
+    const result = await devService.createApiKey(input);
     return c.json(ok(result), 201);
   },
 );
@@ -82,7 +82,7 @@ devPortalRoutes.post(
 // DELETE /dev/api-keys/:id - Revoke API key
 devPortalRoutes.delete("/api-keys/:id", async (c) => {
   const keyId = c.req.param("id");
-  const revoked = devService.revokeApiKey(keyId);
+  const revoked = await devService.revokeApiKey(keyId);
 
   if (!revoked) {
     return c.json(err("API key not found"), 404);
@@ -101,7 +101,7 @@ devPortalRoutes.get("/api-usage", async (c) => {
 
 // GET /dev/deployments - Deploy history
 devPortalRoutes.get("/deployments", async (c) => {
-  const history = devService.getDeployHistory();
+  const history = await devService.getDeployHistory();
   return c.json(ok(history));
 });
 
@@ -129,7 +129,7 @@ devPortalRoutes.get("/notifications/queues", async (c) => {
 
 // GET /dev/ai-models - List AI models
 devPortalRoutes.get("/ai-models", async (c) => {
-  const models = devService.listAiModels();
+  const models = await devService.listAiModels();
   return c.json(ok(models));
 });
 
@@ -140,7 +140,7 @@ devPortalRoutes.patch(
   async (c) => {
     const key = c.req.param("key");
     const config = c.req.valid("json");
-    const updated = devService.updateAiModel(key, config);
+    const updated = await devService.updateAiModel(key, config);
 
     if (!updated) {
       return c.json(err("Model not found"), 404);
@@ -152,7 +152,7 @@ devPortalRoutes.patch(
 
 // GET /dev/ai-usage - AI usage metrics
 devPortalRoutes.get("/ai-usage", async (c) => {
-  const metrics = devService.getAiUsageMetrics();
+  const metrics = await devService.getAiUsageMetrics();
   return c.json(ok(metrics));
 });
 
@@ -168,12 +168,12 @@ devPortalRoutes.get("/channel-providers", async (c) => {
 
 // GET /dev/pipelines - Pipeline statuses
 devPortalRoutes.get("/pipelines", async (c) => {
-  const pipelines = devService.getDataPipelineStatuses();
+  const pipelines = await devService.getDataPipelineStatuses();
   return c.json(ok(pipelines));
 });
 
 // GET /dev/pipelines/backups - Backup info
 devPortalRoutes.get("/pipelines/backups", async (c) => {
-  const backups = devService.getBackups();
+  const backups = await devService.getBackups();
   return c.json(ok(backups));
 });

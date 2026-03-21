@@ -34,6 +34,10 @@ const envSchema = z.object({
   // Billing (RevenueCat)
   REVENUECAT_WEBHOOK_SECRET: z.string().default("rc_webhook_secret_dev"),
 
+  // Google Calendar Integration
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+
   // Monitoring (Sentry)
   SENTRY_DSN: z.string().optional(),
   SENTRY_ENVIRONMENT: z.string().default("development"),

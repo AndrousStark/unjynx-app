@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:feature_home/feature_home.dart';
 import 'package:feature_todos/todo_plugin.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:service_api/service_api.dart';
+import 'package:service_auth/service_auth.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -150,6 +152,19 @@ List<Override> homeApiOverrides() {
 
     // Calendar tasks (family provider)
     calendarTasksProvider.overrideWith(_calendarTasksFromRepo),
+
+    // Google Calendar ghost events (family provider)
+    calendarGhostEventsProvider.overrideWith(_ghostEventsFromApi),
+
+    // Google Calendar connection status
+    calendarConnectedProvider.overrideWith(_calendarConnectedFromApi),
+
+    // Connect calendar callback
+    connectCalendarCallbackProvider.overrideWith(_connectCalendarCallback),
+
+    // Disconnect calendar callback
+    disconnectCalendarCallbackProvider
+        .overrideWith(_disconnectCalendarCallback),
   ];
 }
 
@@ -536,4 +551,121 @@ Future<List<CalendarTask>> _calendarTasksFromRepo(
   } catch (_) {
     return const <CalendarTask>[];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Google Calendar ghost events — fetched from backend
+// ---------------------------------------------------------------------------
+
+Future<List<CalendarGhostEvent>> _ghostEventsFromApi(
+  Ref ref,
+  DateTime month,
+) async {
+  final api = _tryRead(ref, calendarApiProvider);
+  if (api == null) return const <CalendarGhostEvent>[];
+
+  try {
+    final monthStart = DateTime(month.year, month.month);
+    final monthEnd = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+
+    final response = await api.getCalendarEvents(
+      start: monthStart,
+      end: monthEnd,
+    );
+    if (response.success && response.data != null) {
+      final items = response.data!.cast<Map<String, dynamic>>();
+      final events = items.map((d) {
+        return CalendarGhostEvent(
+          id: (d['id'] as String?) ?? '',
+          title: (d['title'] as String?) ?? '',
+          start: d['start'] != null
+              ? (DateTime.tryParse(d['start'] as String) ?? DateTime.now())
+              : DateTime.now(),
+          end: d['end'] != null
+              ? (DateTime.tryParse(d['end'] as String) ?? DateTime.now())
+              : DateTime.now(),
+          allDay: (d['allDay'] as bool?) ?? false,
+          source: (d['source'] as String?) ?? 'google',
+        );
+      }).toList();
+      return List.unmodifiable(events);
+    }
+    return const <CalendarGhostEvent>[];
+  } on DioException {
+    return const <CalendarGhostEvent>[];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Google Calendar connection status
+// ---------------------------------------------------------------------------
+
+Future<bool> _calendarConnectedFromApi(Ref ref) async {
+  final api = _tryRead(ref, calendarApiProvider);
+  if (api == null) return false;
+
+  try {
+    final response = await api.getCalendarStatus();
+    if (response.success && response.data != null) {
+      return (response.data!['connected'] as bool?) ?? false;
+    }
+    return false;
+  } on DioException {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Connect / disconnect calendar callbacks
+// ---------------------------------------------------------------------------
+
+/// Google Web Client ID — imported from AppConfig pattern.
+/// In a real wiring this would come from a config provider; here we
+/// use the same compile-time constant.
+const _googleWebClientId =
+    '763197051286-if56o7s0d7g7k9vt7r26dh6ehfgp3kc1.apps.googleusercontent.com';
+
+Future<bool> Function() _connectCalendarCallback(Ref ref) {
+  return () async {
+    try {
+      // 1. Get server auth code from Google Sign-In with calendar scope.
+      final authCode = await GoogleSignInHelper.getCalendarAuthCode(
+        webClientId: _googleWebClientId,
+      );
+      if (authCode == null) return false;
+
+      // 2. Send auth code to backend for token exchange.
+      final api = _tryReadSync(ref, calendarApiProvider);
+      if (api == null) return false;
+
+      final response = await api.connectCalendar(authCode);
+      if (response.success) {
+        // Invalidate to refresh connection status and ghost events.
+        ref.invalidate(calendarConnectedProvider);
+        return true;
+      }
+      return false;
+    } on DioException catch (e) {
+      debugPrint('Calendar connect failed: $e');
+      return false;
+    } on Exception catch (e) {
+      debugPrint('Calendar connect failed: $e');
+      return false;
+    }
+  };
+}
+
+Future<void> Function() _disconnectCalendarCallback(Ref ref) {
+  return () async {
+    final api = _tryReadSync(ref, calendarApiProvider);
+    if (api == null) return;
+
+    try {
+      await api.disconnectCalendar();
+      // Invalidate to refresh connection status and clear ghost events.
+      ref.invalidate(calendarConnectedProvider);
+    } on DioException catch (e) {
+      debugPrint('Calendar disconnect failed: $e');
+    }
+  };
 }

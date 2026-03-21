@@ -7,6 +7,7 @@ import '../services/accountability_api_service.dart';
 import '../services/admin_api_service.dart';
 import '../services/auth_api_service.dart';
 import '../services/billing_api_service.dart';
+import '../services/calendar_api_service.dart';
 import '../services/channel_api_service.dart';
 import '../services/content_api_service.dart';
 import '../services/gamification_api_service.dart';
@@ -88,4 +89,8 @@ final importExportApiProvider = Provider<ImportExportApiService>(
 
 final adminApiProvider = Provider<AdminApiService>(
   (ref) => AdminApiService(ref.watch(apiClientProvider)),
+);
+
+final calendarApiProvider = Provider<CalendarApiService>(
+  (ref) => CalendarApiService(ref.watch(apiClientProvider)),
 );

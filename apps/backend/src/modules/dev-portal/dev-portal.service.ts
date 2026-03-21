@@ -3,9 +3,15 @@
 // API management, deployment, notification infra, AI models,
 // channel providers, and data pipeline status.
 
+import crypto from "node:crypto";
 import { db } from "../../db/index.js";
-import { sql, gte, count } from "drizzle-orm";
-import { deliveryAttempts } from "../../db/schema/index.js";
+import { sql, gte, eq, desc, count } from "drizzle-orm";
+import {
+  deliveryAttempts,
+  apiKeys as apiKeysTable,
+  aiModelConfigs,
+  pipelineRuns,
+} from "../../db/schema/index.js";
 import { getAllQueues } from "../../queue/queue-factory.js";
 import type {
   ServiceStatus,
@@ -305,56 +311,74 @@ export async function getMigrationHistory(): Promise<readonly MigrationEntry[]> 
 
 // ── API Management ──────────────────────────────────────────────────
 
-// In-memory API key store (production: database-backed)
-const apiKeys = new Map<
-  string,
-  {
-    readonly id: string;
-    readonly name: string;
-    readonly keyHash: string;
-    readonly scopes: readonly string[];
-    readonly createdAt: string;
-    readonly expiresAt: string;
-    readonly lastUsedAt: string | null;
-    readonly isActive: boolean;
-  }
->();
+function hashKey(raw: string): string {
+  return crypto.createHash("sha256").update(raw).digest("hex");
+}
 
-export function listApiKeys() {
-  return [...apiKeys.values()].map((k) => ({
+export async function listApiKeys() {
+  const rows = await db
+    .select({
+      id: apiKeysTable.id,
+      name: apiKeysTable.name,
+      keyPrefix: apiKeysTable.keyPrefix,
+      scopes: apiKeysTable.scopes,
+      createdAt: apiKeysTable.createdAt,
+      expiresAt: apiKeysTable.expiresAt,
+      lastUsedAt: apiKeysTable.lastUsedAt,
+      isActive: apiKeysTable.isActive,
+    })
+    .from(apiKeysTable)
+    .where(eq(apiKeysTable.isActive, true));
+
+  return rows.map((k) => ({
     id: k.id,
     name: k.name,
+    keyPrefix: k.keyPrefix,
     scopes: k.scopes,
-    createdAt: k.createdAt,
-    expiresAt: k.expiresAt,
-    lastUsedAt: k.lastUsedAt,
+    createdAt: k.createdAt.toISOString(),
+    expiresAt: k.expiresAt.toISOString(),
+    lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
     isActive: k.isActive,
   }));
 }
 
-export function createApiKey(input: CreateApiKeyInput) {
-  const id = crypto.randomUUID();
-  const rawKey = `unjx_${crypto.randomUUID().replace(/-/g, "")}`;
+export async function createApiKey(input: CreateApiKeyInput) {
+  const rawKey = `unjx_${crypto.randomBytes(32).toString("hex")}`;
+  const keyHashValue = hashKey(rawKey);
+  const keyPrefix = rawKey.slice(0, 12);
   const expiresAt = new Date(
     Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000,
-  ).toISOString();
+  );
 
-  apiKeys.set(id, {
-    id,
-    name: input.name,
-    keyHash: rawKey.slice(0, 12) + "..." + rawKey.slice(-4),
-    scopes: input.scopes,
-    createdAt: new Date().toISOString(),
-    expiresAt,
-    lastUsedAt: null,
-    isActive: true,
-  });
+  // userId is required by the schema; for admin-created keys we use a
+  // system placeholder. In production the calling admin's profileId
+  // should be passed through. For now, insert with a generated UUID
+  // that represents "system-generated".
+  const [row] = await db
+    .insert(apiKeysTable)
+    .values({
+      name: input.name,
+      keyHash: keyHashValue,
+      keyPrefix,
+      scopes: [...input.scopes],
+      expiresAt,
+      // userId will be provided by the route handler via input extension
+      userId: (input as CreateApiKeyInput & { userId?: string }).userId
+        ?? "00000000-0000-0000-0000-000000000000",
+    })
+    .returning({ id: apiKeysTable.id });
 
-  return { id, key: rawKey, expiresAt };
+  return { id: row.id, key: rawKey, expiresAt: expiresAt.toISOString() };
 }
 
-export function revokeApiKey(keyId: string): boolean {
-  return apiKeys.delete(keyId);
+export async function revokeApiKey(keyId: string): Promise<boolean> {
+  const result = await db
+    .update(apiKeysTable)
+    .set({ isActive: false })
+    .where(eq(apiKeysTable.id, keyId))
+    .returning({ id: apiKeysTable.id });
+
+  return result.length > 0;
 }
 
 export interface EndpointUsage {
@@ -390,30 +414,69 @@ export interface DeployEntry {
   readonly environment: string;
 }
 
-export function getDeployHistory(): readonly DeployEntry[] {
-  // Placeholder: production reads from deploy log table or CI/CD API
-  return [
-    {
-      id: "dep_001",
-      service: "backend",
-      commit: "abc1234",
-      deployer: "ci/cd",
-      status: "success",
-      durationMs: 45000,
-      deployedAt: new Date(Date.now() - 3_600_000).toISOString(),
-      environment: "production",
-    },
-    {
-      id: "dep_002",
-      service: "landing",
-      commit: "def5678",
-      deployer: "ci/cd",
-      status: "success",
-      durationMs: 32000,
-      deployedAt: new Date(Date.now() - 7_200_000).toISOString(),
-      environment: "production",
-    },
-  ];
+interface GitHubWorkflowRun {
+  readonly id: number;
+  readonly name: string;
+  readonly head_sha: string;
+  readonly conclusion: string | null;
+  readonly status: string;
+  readonly run_started_at: string;
+  readonly updated_at: string;
+  readonly actor?: { readonly login: string };
+}
+
+function mapGhStatus(
+  conclusion: string | null,
+  status: string,
+): DeployEntry["status"] {
+  if (status === "in_progress" || status === "queued") return "in_progress";
+  if (conclusion === "success") return "success";
+  if (conclusion === "failure") return "failed";
+  return "failed";
+}
+
+export async function getDeployHistory(): Promise<readonly DeployEntry[]> {
+  const pat = process.env.GITHUB_PAT;
+  if (!pat) return [];
+
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/AndrousStark/unjynx-backend/actions/runs?per_page=10",
+      {
+        headers: {
+          Authorization: `Bearer ${pat}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        signal: AbortSignal.timeout(8000),
+      },
+    );
+
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as {
+      readonly workflow_runs: readonly GitHubWorkflowRun[];
+    };
+
+    return data.workflow_runs.map((run) => {
+      const startMs = new Date(run.run_started_at).getTime();
+      const endMs = new Date(run.updated_at).getTime();
+      return {
+        id: `gh_${run.id}`,
+        service: run.name.toLowerCase().includes("deploy")
+          ? "backend"
+          : run.name,
+        commit: run.head_sha.slice(0, 7),
+        deployer: run.actor?.login ?? "ci/cd",
+        status: mapGhStatus(run.conclusion, run.status),
+        durationMs: Math.max(0, endMs - startMs),
+        deployedAt: run.run_started_at,
+        environment: "production",
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 export interface ServiceDeployStatus {
@@ -640,51 +703,38 @@ export async function getQueueDepths(): Promise<readonly QueueDepth[]> {
 
 // ── AI Model Management ─────────────────────────────────────────────
 
-// In-memory model config store
-const modelConfigs = new Map<string, AiModelConfig>([
-  [
-    "haiku-4-5",
-    {
-      modelId: "claude-haiku-4-5-20251001",
-      provider: "anthropic",
-      maxTokens: 4096,
-      temperature: 0.7,
-      isActive: true,
-    },
-  ],
-  [
-    "sonnet-4-6",
-    {
-      modelId: "claude-sonnet-4-6",
-      provider: "anthropic",
-      maxTokens: 8192,
-      temperature: 0.5,
-      isActive: true,
-    },
-  ],
-  [
-    "llama-local",
-    {
-      modelId: "llama3.2:3b",
-      provider: "ollama",
-      maxTokens: 2048,
-      temperature: 0.8,
-      isActive: true,
-    },
-  ],
-]);
+export async function listAiModels() {
+  const rows = await db.select().from(aiModelConfigs);
 
-export function listAiModels() {
-  return [...modelConfigs.entries()].map(([key, config]) => ({
-    key,
-    ...config,
+  return rows.map((r) => ({
+    key: r.key,
+    modelId: r.modelId,
+    provider: r.provider,
+    maxTokens: r.maxTokens,
+    temperature: r.temperature,
+    isActive: r.isActive,
+    updatedAt: r.updatedAt.toISOString(),
   }));
 }
 
-export function updateAiModel(key: string, config: AiModelConfig): boolean {
-  if (!modelConfigs.has(key)) return false;
-  modelConfigs.set(key, config);
-  return true;
+export async function updateAiModel(
+  key: string,
+  config: AiModelConfig,
+): Promise<boolean> {
+  const result = await db
+    .update(aiModelConfigs)
+    .set({
+      modelId: config.modelId,
+      provider: config.provider,
+      maxTokens: config.maxTokens,
+      temperature: config.temperature,
+      isActive: config.isActive,
+      updatedAt: new Date(),
+    })
+    .where(eq(aiModelConfigs.key, key))
+    .returning({ key: aiModelConfigs.key });
+
+  return result.length > 0;
 }
 
 export interface AiUsageMetrics {
@@ -696,12 +746,23 @@ export interface AiUsageMetrics {
   readonly costUsd: number;
 }
 
-export function getAiUsageMetrics(): readonly AiUsageMetrics[] {
-  return [
-    { modelKey: "haiku-4-5", totalRequests: 4500, totalTokens: 2_250_000, avgResponseMs: 800, errorRate: 0.5, costUsd: 2.25 },
-    { modelKey: "sonnet-4-6", totalRequests: 850, totalTokens: 1_700_000, avgResponseMs: 2200, errorRate: 0.3, costUsd: 5.10 },
-    { modelKey: "llama-local", totalRequests: 12000, totalTokens: 6_000_000, avgResponseMs: 1500, errorRate: 1.2, costUsd: 0 },
-  ];
+export async function getAiUsageMetrics(): Promise<readonly AiUsageMetrics[]> {
+  // Real AI usage tracking comes in v2-AI phase. For now, return
+  // zero-usage rows from the aiModelConfigs table so the UI is wired
+  // to real model keys but shows no traffic yet.
+  const models = await db
+    .select({ key: aiModelConfigs.key })
+    .from(aiModelConfigs)
+    .where(eq(aiModelConfigs.isActive, true));
+
+  return models.map((m) => ({
+    modelKey: m.key,
+    totalRequests: 0,
+    totalTokens: 0,
+    avgResponseMs: 0,
+    errorRate: 0,
+    costUsd: 0,
+  }));
 }
 
 // ── Channel Providers ───────────────────────────────────────────────
@@ -852,71 +913,89 @@ export interface PipelineStatus {
   readonly errorMessage: string | null;
 }
 
-export function getDataPipelineStatuses(): readonly PipelineStatus[] {
-  const now = Date.now();
+// Pipeline definitions — schedule & description are config, runtime data
+// comes from the pipeline_runs table.
+const PIPELINE_DEFINITIONS: ReadonlyArray<{
+  readonly name: string;
+  readonly description: string;
+  readonly schedule: string;
+}> = [
+  { name: "content-ingestion", description: "Ingest daily content from CSV/API sources", schedule: "0 2 * * *" },
+  { name: "user-analytics-aggregation", description: "Aggregate user engagement metrics for analytics dashboards", schedule: "0 */6 * * *" },
+  { name: "notification-cost-aggregation", description: "Calculate notification costs per channel per user", schedule: "0 0 * * *" },
+  { name: "database-backup", description: "Full PostgreSQL pg_dump to MinIO", schedule: "0 3 * * *" },
+  { name: "data-anonymization", description: "Anonymize PII for deleted/GDPR accounts", schedule: "0 4 * * 0" },
+  { name: "stale-token-cleanup", description: "Remove expired FCM tokens and revoked API keys", schedule: "0 5 * * *" },
+];
 
-  return [
+export async function getDataPipelineStatuses(): Promise<
+  readonly PipelineStatus[]
+> {
+  // Fetch the latest run per pipeline from the pipeline_runs table
+  let latestRuns: Record<
+    string,
     {
-      name: "content-ingestion",
-      description: "Ingest daily content from CSV/API sources",
-      schedule: "0 2 * * *",
-      lastRun: new Date(now - 86_400_000).toISOString(),
-      nextRun: new Date(now + 43_200_000).toISOString(),
-      status: "succeeded",
-      durationMs: 12500,
-      errorMessage: null,
-    },
-    {
-      name: "user-analytics-aggregation",
-      description: "Aggregate user engagement metrics for analytics dashboards",
-      schedule: "0 */6 * * *",
-      lastRun: new Date(now - 21_600_000).toISOString(),
-      nextRun: new Date(now + 21_600_000).toISOString(),
-      status: "succeeded",
-      durationMs: 45000,
-      errorMessage: null,
-    },
-    {
-      name: "notification-cost-aggregation",
-      description: "Calculate notification costs per channel per user",
-      schedule: "0 0 * * *",
-      lastRun: new Date(now - 86_400_000).toISOString(),
-      nextRun: new Date(now + 43_200_000).toISOString(),
-      status: "succeeded",
-      durationMs: 8900,
-      errorMessage: null,
-    },
-    {
-      name: "database-backup",
-      description: "Full PostgreSQL pg_dump to MinIO",
-      schedule: "0 3 * * *",
-      lastRun: new Date(now - 86_400_000).toISOString(),
-      nextRun: new Date(now + 43_200_000).toISOString(),
-      status: "succeeded",
-      durationMs: 120_000,
-      errorMessage: null,
-    },
-    {
-      name: "data-anonymization",
-      description: "Anonymize PII for deleted/GDPR accounts",
-      schedule: "0 4 * * 0",
-      lastRun: new Date(now - 604_800_000).toISOString(),
-      nextRun: new Date(now + 259_200_000).toISOString(),
-      status: "succeeded",
-      durationMs: 35000,
-      errorMessage: null,
-    },
-    {
-      name: "stale-token-cleanup",
-      description: "Remove expired FCM tokens and revoked API keys",
-      schedule: "0 5 * * *",
-      lastRun: new Date(now - 86_400_000).toISOString(),
-      nextRun: new Date(now + 43_200_000).toISOString(),
-      status: "succeeded",
-      durationMs: 5200,
-      errorMessage: null,
-    },
-  ];
+      readonly status: string;
+      readonly startedAt: Date;
+      readonly completedAt: Date | null;
+      readonly errorMessage: string | null;
+    }
+  > = {};
+
+  try {
+    // Use a subquery approach: for each pipeline name, get the most recent run
+    const rows = await db
+      .select({
+        pipelineName: pipelineRuns.pipelineName,
+        status: pipelineRuns.status,
+        startedAt: pipelineRuns.startedAt,
+        completedAt: pipelineRuns.completedAt,
+        errorMessage: pipelineRuns.errorMessage,
+      })
+      .from(pipelineRuns)
+      .orderBy(desc(pipelineRuns.startedAt));
+
+    // Group by pipeline name, take only the first (latest) per name
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (!seen.has(row.pipelineName)) {
+        seen.add(row.pipelineName);
+        latestRuns[row.pipelineName] = {
+          status: row.status,
+          startedAt: row.startedAt,
+          completedAt: row.completedAt,
+          errorMessage: row.errorMessage,
+        };
+      }
+    }
+  } catch {
+    // Table may not exist yet — fall through with empty map
+  }
+
+  return PIPELINE_DEFINITIONS.map((def) => {
+    const run = latestRuns[def.name];
+    const durationMs =
+      run?.completedAt && run.startedAt
+        ? run.completedAt.getTime() - run.startedAt.getTime()
+        : null;
+
+    const statusMap: Record<string, PipelineStatus["status"]> = {
+      running: "running",
+      completed: "succeeded",
+      failed: "failed",
+    };
+
+    return {
+      name: def.name,
+      description: def.description,
+      schedule: def.schedule,
+      lastRun: run?.startedAt.toISOString() ?? null,
+      nextRun: "", // Would require cron-parser for accurate next run
+      status: run ? (statusMap[run.status] ?? "idle") : "idle",
+      durationMs,
+      errorMessage: run?.errorMessage ?? null,
+    };
+  });
 }
 
 export interface BackupInfo {
@@ -928,11 +1007,40 @@ export interface BackupInfo {
   readonly lastVerifiedAt: string | null;
 }
 
-export function getBackups(): readonly BackupInfo[] {
-  const now = Date.now();
-  return [
-    { id: "bak_001", createdAt: new Date(now - 86_400_000).toISOString(), sizeBytes: 52_428_800, status: "completed", verified: true, lastVerifiedAt: new Date(now - 43_200_000).toISOString() },
-    { id: "bak_002", createdAt: new Date(now - 172_800_000).toISOString(), sizeBytes: 51_200_000, status: "completed", verified: true, lastVerifiedAt: new Date(now - 129_600_000).toISOString() },
-    { id: "bak_003", createdAt: new Date(now - 259_200_000).toISOString(), sizeBytes: 50_331_648, status: "completed", verified: false, lastVerifiedAt: null },
-  ];
+export async function getBackups(): Promise<readonly BackupInfo[]> {
+  try {
+    const rows = await db
+      .select({
+        id: pipelineRuns.id,
+        status: pipelineRuns.status,
+        startedAt: pipelineRuns.startedAt,
+        completedAt: pipelineRuns.completedAt,
+        itemsProcessed: pipelineRuns.itemsProcessed,
+        errorMessage: pipelineRuns.errorMessage,
+      })
+      .from(pipelineRuns)
+      .where(eq(pipelineRuns.pipelineName, "database-backup"))
+      .orderBy(desc(pipelineRuns.startedAt))
+      .limit(20);
+
+    return rows.map((r) => {
+      const statusMap: Record<string, BackupInfo["status"]> = {
+        completed: "completed",
+        failed: "failed",
+        running: "in_progress",
+      };
+
+      return {
+        id: r.id,
+        createdAt: r.startedAt.toISOString(),
+        sizeBytes: r.itemsProcessed ?? 0, // itemsProcessed stores size for backups
+        status: statusMap[r.status] ?? "failed",
+        verified: r.status === "completed" && !r.errorMessage,
+        lastVerifiedAt: r.completedAt?.toISOString() ?? null,
+      };
+    });
+  } catch {
+    // Table may not exist yet — return empty
+    return [];
+  }
 }

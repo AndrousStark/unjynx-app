@@ -588,6 +588,100 @@ final calendarTasksProvider =
 );
 
 // ---------------------------------------------------------------------------
+// Google Calendar ghost events
+// ---------------------------------------------------------------------------
+
+/// Lightweight representation of a Google Calendar event shown as a
+/// "ghost" overlay on the UNJYNX calendar grid.
+///
+/// Ghost events are visually distinct (greyed out, different icon) to
+/// differentiate them from UNJYNX tasks.
+@immutable
+class CalendarGhostEvent {
+  const CalendarGhostEvent({
+    required this.id,
+    required this.title,
+    required this.start,
+    required this.end,
+    this.allDay = false,
+    this.source = 'google',
+  });
+
+  /// Unique event identifier from the external calendar.
+  final String id;
+
+  /// Event title / summary.
+  final String title;
+
+  /// Event start time.
+  final DateTime start;
+
+  /// Event end time.
+  final DateTime end;
+
+  /// Whether this is an all-day event.
+  final bool allDay;
+
+  /// Source calendar: 'google', 'outlook', etc.
+  final String source;
+
+  /// Returns a copy with the given fields replaced.
+  CalendarGhostEvent copyWith({
+    String? id,
+    String? title,
+    DateTime? start,
+    DateTime? end,
+    bool? allDay,
+    String? source,
+  }) {
+    return CalendarGhostEvent(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      start: start ?? this.start,
+      end: end ?? this.end,
+      allDay: allDay ?? this.allDay,
+      source: source ?? this.source,
+    );
+  }
+}
+
+/// Ghost events for a given month from the connected Google Calendar.
+///
+/// The [DateTime] parameter represents the month (only year and month
+/// are used). Override in app bootstrap with real CalendarApiService data.
+final calendarGhostEventsProvider =
+    FutureProvider.family<List<CalendarGhostEvent>, DateTime>(
+  (ref, month) async {
+    // Placeholder -- returns empty until wired to real data source.
+    return const <CalendarGhostEvent>[];
+  },
+);
+
+/// Whether the user's Google Calendar is connected.
+///
+/// Override in app bootstrap with real CalendarApiService.getCalendarStatus().
+final calendarConnectedProvider = FutureProvider<bool>(
+  (ref) async => false,
+);
+
+/// Callback to connect Google Calendar.
+///
+/// Override in app bootstrap with real implementation that calls
+/// GoogleSignInHelper.getCalendarAuthCode() then CalendarApiService.connectCalendar().
+final connectCalendarCallbackProvider =
+    Provider<Future<bool> Function()>(
+  (ref) => () async => false,
+);
+
+/// Callback to disconnect Google Calendar.
+///
+/// Override in app bootstrap with real implementation.
+final disconnectCalendarCallbackProvider =
+    Provider<Future<void> Function()>(
+  (ref) => () async {},
+);
+
+// ---------------------------------------------------------------------------
 // Ambient sound (Pomodoro)
 // ---------------------------------------------------------------------------
 
