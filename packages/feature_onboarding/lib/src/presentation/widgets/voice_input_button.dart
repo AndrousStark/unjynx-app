@@ -6,19 +6,18 @@ import 'package:unjynx_core/core.dart';
 
 /// Microphone button with a pulsing animation when active.
 ///
-/// Does NOT import `speech_to_text` — the actual speech recognition is
-/// wired externally via [onVoiceResult]. The button only controls its
-/// visual pulse state.
+/// Uses [SpeechService] from core to perform actual speech recognition.
+/// The recognized text is delivered via the [onResult] callback.
 class VoiceInputButton extends StatefulWidget {
   const VoiceInputButton({
-    this.onVoiceResult,
+    this.onResult,
     this.size = 40,
     super.key,
   });
 
-  /// Callback that will eventually deliver transcribed text.
-  /// Currently a placeholder — no STT dependency is pulled in.
-  final VoidCallback? onVoiceResult;
+  /// Called with the recognized text each time the speech engine produces
+  /// a result (both partial and final).
+  final ValueChanged<String>? onResult;
 
   /// Diameter of the circular button.
   final double size;
@@ -29,13 +28,15 @@ class VoiceInputButton extends StatefulWidget {
 
 class _VoiceInputButtonState extends State<VoiceInputButton>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _pulseController;
+  final SpeechService _speechService = SpeechService();
   bool _isListening = false;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
@@ -43,23 +44,57 @@ class _VoiceInputButtonState extends State<VoiceInputButton>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _pulseController.dispose();
+    _speechService.dispose();
     super.dispose();
   }
 
-  void _toggle() {
+  Future<void> _toggle() async {
     HapticFeedback.mediumImpact();
-    setState(() {
-      _isListening = !_isListening;
-    });
 
     if (_isListening) {
-      _controller.repeat();
-      widget.onVoiceResult?.call();
-    } else {
-      _controller.stop();
-      _controller.reset();
+      // Stop listening
+      await _speechService.stopListening();
+      _pulseController.stop();
+      _pulseController.reset();
+      setState(() => _isListening = false);
+      return;
     }
+
+    // Initialize on first use
+    if (!_initialized) {
+      final available = await _speechService.initialize();
+      _initialized = true;
+      if (!available) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Speech recognition is not available on this device'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    if (!_speechService.isAvailable) return;
+
+    // Start listening
+    setState(() => _isListening = true);
+    _pulseController.repeat();
+
+    await _speechService.startListening(
+      onResult: (text) {
+        widget.onResult?.call(text);
+        // If the engine has stopped (final result), update UI state
+        if (!_speechService.isListening && mounted) {
+          _pulseController.stop();
+          _pulseController.reset();
+          setState(() => _isListening = false);
+        }
+      },
+    );
   }
 
   @override
@@ -76,11 +111,11 @@ class _VoiceInputButtonState extends State<VoiceInputButton>
     return GestureDetector(
       onTap: _toggle,
       child: AnimatedBuilder(
-        animation: _controller,
+        animation: _pulseController,
         builder: (context, child) {
           // Sine-based pulse: scale oscillates 1.0 -> 1.15 -> 1.0
           final pulse = _isListening
-              ? 1.0 + 0.15 * math.sin(_controller.value * 2 * math.pi)
+              ? 1.0 + 0.15 * math.sin(_pulseController.value * 2 * math.pi)
               : 1.0;
 
           return Transform.scale(

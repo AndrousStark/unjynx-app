@@ -1,5 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
+import 'package:unjynx_core/core.dart';
 
 // ---------------------------------------------------------------------------
 // State providers for the first-task onboarding screen
@@ -32,13 +34,17 @@ final firstTaskCreatedProvider =
     NotifierProvider<_BoolNotifier, bool>(_BoolNotifier.new);
 
 // ---------------------------------------------------------------------------
-// Self-contained NLP parser (no dependency on feature_todos)
+// Adapter: wraps core NlpParser for the onboarding UI
 // ---------------------------------------------------------------------------
 
 /// Lightweight result of parsing a natural-language task string.
 ///
 /// All fields except [title] are nullable and only populated when the
 /// parser successfully extracts them from the input.
+///
+/// Unlike [ParsedTask] from core (which returns [DateTime] / [TimeOfDay]),
+/// this adapter returns human-readable display strings so the onboarding
+/// UI can render them directly without formatting logic.
 @immutable
 class ParsedTaskResult {
   const ParsedTaskResult({
@@ -57,7 +63,7 @@ class ParsedTaskResult {
   /// Human-readable time string (e.g. "9:00 AM", "3:30 PM").
   final String? time;
 
-  /// Priority label: "P1", "P2", "P4".
+  /// Priority label: "P1", "P2", "P3", "P4".
   final String? priority;
 
   /// True when nothing meaningful has been parsed yet.
@@ -84,187 +90,82 @@ class ParsedTaskResult {
 
 /// Parse a natural-language task string into structured fields.
 ///
-/// Extraction order: priority -> time -> date -> remaining = title.
-/// Each step removes matched tokens so later patterns see cleaner input.
+/// Delegates to [NlpParser.parse] from core and converts the result
+/// into a [ParsedTaskResult] with human-readable display strings.
 ParsedTaskResult parseTaskInput(String text) {
-  if (text.trim().isEmpty) {
-    return const ParsedTaskResult(title: '');
-  }
-
-  var working = text;
-
-  // 1. Priority
-  final priorityResult = _extractPriority(working);
-  working = priorityResult.remaining;
-  final priority = priorityResult.value;
-
-  // 2. Time (before date so "at 3pm" is consumed first)
-  final timeResult = _extractTime(working);
-  working = timeResult.remaining;
-  final time = timeResult.value;
-
-  // 3. Date
-  final dateResult = _extractDate(working);
-  working = dateResult.remaining;
-  final date = dateResult.value;
-
-  // 4. Clean up title
-  final title = _cleanTitle(working);
+  final parsed = NlpParser.parse(text);
 
   return ParsedTaskResult(
-    title: title,
-    date: date,
-    time: time,
-    priority: priority,
+    title: parsed.title,
+    date: _formatDate(parsed.dueDate),
+    time: _formatTime(parsed.dueTime),
+    priority: _formatPriority(parsed.priority),
   );
 }
 
 // ---------------------------------------------------------------------------
-// Priority extraction
+// Formatting helpers
 // ---------------------------------------------------------------------------
 
-_Extracted<String?> _extractPriority(String input) {
-  final patterns = <RegExp, String>{
-    RegExp(r'\burgent\b', caseSensitive: false): 'P1',
-    RegExp(r'\bimportant\b', caseSensitive: false): 'P1',
-    RegExp(r'\bhigh\b', caseSensitive: false): 'P2',
-    RegExp(r'\blow\b', caseSensitive: false): 'P4',
-  };
+/// Convert a [DateTime] to a human-readable date label.
+String? _formatDate(DateTime? date) {
+  if (date == null) return null;
 
-  for (final entry in patterns.entries) {
-    final match = entry.key.firstMatch(input);
-    if (match != null) {
-      return _Extracted(_removeMatch(input, match), entry.value);
-    }
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final dateOnly = DateTime(date.year, date.month, date.day);
+
+  if (dateOnly == today) return 'Today';
+  if (dateOnly == today.add(const Duration(days: 1))) return 'Tomorrow';
+
+  // Check if within the next 7 days — show weekday name
+  final diff = dateOnly.difference(today).inDays;
+  if (diff > 0 && diff <= 7) {
+    const weekdays = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+      'Friday', 'Saturday', 'Sunday',
+    ];
+    return weekdays[date.weekday - 1];
   }
 
-  return _Extracted(input, null);
-}
-
-// ---------------------------------------------------------------------------
-// Time extraction
-// ---------------------------------------------------------------------------
-
-_Extracted<String?> _extractTime(String input) {
-  // "at 3pm", "3pm", "at 3:30pm", "3:30 PM", "at 15:00", "15:00"
-  final timeRegex = RegExp(
-    r'(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b'
-    '|'
-    r'(?:at\s+)?(\d{1,2}):(\d{2})\b(?!\s*(am|pm))',
-    caseSensitive: false,
-  );
-  final match = timeRegex.firstMatch(input);
-  if (match == null) return _Extracted(input, null);
-
-  if (match.group(1) != null) {
-    // 12-hour format
-    var hour = int.parse(match.group(1)!);
-    final minute = match.group(2) != null ? int.parse(match.group(2)!) : 0;
-    final period = match.group(3)!.toLowerCase();
-
-    if (period == 'pm' && hour != 12) hour += 12;
-    if (period == 'am' && hour == 12) hour = 0;
-
-    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-      final label = _formatTime(hour, minute);
-      return _Extracted(_removeMatch(input, match), label);
-    }
-  } else if (match.group(4) != null) {
-    // 24-hour format
-    final hour = int.parse(match.group(4)!);
-    final minute = int.parse(match.group(5)!);
-
-    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-      final label = _formatTime(hour, minute);
-      return _Extracted(_removeMatch(input, match), label);
-    }
+  // Check for "next week" range (8-14 days)
+  if (diff > 7 && diff <= 14) {
+    const weekdays = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+      'Friday', 'Saturday', 'Sunday',
+    ];
+    return 'Next ${weekdays[date.weekday - 1]}';
   }
 
-  return _Extracted(input, null);
+  // Fall back to "Mon DD" format
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${months[date.month - 1]} ${date.day}';
 }
 
-String _formatTime(int hour, int minute) {
-  final period = hour >= 12 ? 'PM' : 'AM';
-  final displayHour = hour == 0
+/// Convert a [TimeOfDay] to a human-readable time label.
+String? _formatTime(TimeOfDay? time) {
+  if (time == null) return null;
+
+  final period = time.hour >= 12 ? 'PM' : 'AM';
+  final displayHour = time.hour == 0
       ? 12
-      : hour > 12
-          ? hour - 12
-          : hour;
-  final min = minute.toString().padLeft(2, '0');
+      : time.hour > 12
+          ? time.hour - 12
+          : time.hour;
+  final min = time.minute.toString().padLeft(2, '0');
   return '$displayHour:$min $period';
 }
 
-// ---------------------------------------------------------------------------
-// Date extraction
-// ---------------------------------------------------------------------------
-
-_Extracted<String?> _extractDate(String input) {
-  // "today"
-  var regex = RegExp(r'\btoday\b', caseSensitive: false);
-  var match = regex.firstMatch(input);
-  if (match != null) {
-    return _Extracted(_removeMatch(input, match), 'Today');
-  }
-
-  // "tomorrow"
-  regex = RegExp(r'\btomorrow\b', caseSensitive: false);
-  match = regex.firstMatch(input);
-  if (match != null) {
-    return _Extracted(_removeMatch(input, match), 'Tomorrow');
-  }
-
-  // "next week"
-  regex = RegExp(r'\bnext\s+week\b', caseSensitive: false);
-  match = regex.firstMatch(input);
-  if (match != null) {
-    return _Extracted(_removeMatch(input, match), 'Next week');
-  }
-
-  // Day names: "monday", "tuesday", etc.
-  regex = RegExp(
-    r'(?:\bby\s+|\bnext\s+)?'
-    r'(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
-    caseSensitive: false,
-  );
-  match = regex.firstMatch(input);
-  if (match != null) {
-    final rawDay = match.group(1)!;
-    final capitalized = rawDay[0].toUpperCase() + rawDay.substring(1).toLowerCase();
-    final prefix = match.group(0)!.toLowerCase().startsWith('next')
-        ? 'Next '
-        : '';
-    return _Extracted(_removeMatch(input, match), '$prefix$capitalized');
-  }
-
-  return _Extracted(input, null);
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-String _removeMatch(String input, Match match) {
-  return input
-      .replaceRange(match.start, match.end, ' ')
-      .replaceAll(RegExp(r'\s{2,}'), ' ')
-      .trim();
-}
-
-String _cleanTitle(String input) {
-  var result = input.trim();
-  // Remove dangling "by" at the end (from "report by Friday")
-  result = result.replaceAll(RegExp(r'\s+by\s*$', caseSensitive: false), '');
-  // Remove dangling "at" at the end (from "meeting at 3pm")
-  result = result.replaceAll(RegExp(r'\s+at\s*$', caseSensitive: false), '');
-  // Collapse multiple spaces
-  result = result.replaceAll(RegExp(r'\s{2,}'), ' ');
-  return result.trim();
-}
-
-/// Internal helper for returning both the remaining text and extracted value.
-class _Extracted<T> {
-  const _Extracted(this.remaining, this.value);
-
-  final String remaining;
-  final T value;
+/// Convert a core priority string to a compact UI label.
+String? _formatPriority(String? priority) {
+  return switch (priority?.toLowerCase()) {
+    'urgent' => 'P1',
+    'high' => 'P2',
+    'medium' => 'P3',
+    'low' => 'P4',
+    _ => null,
+  };
 }

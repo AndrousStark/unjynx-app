@@ -4,7 +4,9 @@
 // channel providers, and data pipeline status.
 
 import { db } from "../../db/index.js";
-import { sql } from "drizzle-orm";
+import { sql, gte, count } from "drizzle-orm";
+import { deliveryAttempts } from "../../db/schema/index.js";
+import { getAllQueues } from "../../queue/queue-factory.js";
 import type {
   ServiceStatus,
   SlowQueryInput,
@@ -422,14 +424,59 @@ export interface ServiceDeployStatus {
   readonly environment: string;
 }
 
-export function getServiceStatuses(): readonly ServiceDeployStatus[] {
-  return [
-    { service: "backend-api", status: "running", version: "0.1.0", lastDeployedAt: new Date().toISOString(), environment: "development" },
-    { service: "landing-page", status: "running", version: "1.0.0", lastDeployedAt: new Date().toISOString(), environment: "development" },
-    { service: "admin-portal", status: "stopped", version: "0.0.0", lastDeployedAt: "", environment: "development" },
-    { service: "dev-portal", status: "stopped", version: "0.0.0", lastDeployedAt: "", environment: "development" },
-    { service: "queue-workers", status: "running", version: "0.1.0", lastDeployedAt: new Date().toISOString(), environment: "development" },
+export async function getServiceStatuses(): Promise<readonly ServiceDeployStatus[]> {
+  const services = [
+    {
+      service: "backend-api",
+      url: "http://127.0.0.1:3000/health",
+      version: process.env.npm_package_version ?? "0.1.0",
+    },
+    {
+      service: "logto-auth",
+      url: process.env.LOGTO_ENDPOINT
+        ? `${process.env.LOGTO_ENDPOINT}/.well-known/openid-configuration`
+        : null,
+      version: "latest",
+    },
   ];
+
+  const results = await Promise.all(
+    services.map(async (svc): Promise<ServiceDeployStatus> => {
+      if (!svc.url) {
+        return {
+          service: svc.service,
+          status: "stopped",
+          version: svc.version,
+          lastDeployedAt: "",
+          environment: process.env.NODE_ENV ?? "development",
+        };
+      }
+
+      try {
+        const res = await fetch(svc.url, {
+          signal: AbortSignal.timeout(5000),
+        });
+
+        return {
+          service: svc.service,
+          status: res.ok ? "running" : "deploying",
+          version: svc.version,
+          lastDeployedAt: new Date().toISOString(),
+          environment: process.env.NODE_ENV ?? "development",
+        };
+      } catch {
+        return {
+          service: svc.service,
+          status: "stopped",
+          version: svc.version,
+          lastDeployedAt: "",
+          environment: process.env.NODE_ENV ?? "development",
+        };
+      }
+    }),
+  );
+
+  return results;
 }
 
 // ── Notification Infrastructure ─────────────────────────────────────
@@ -445,17 +492,88 @@ export interface ChannelHealth {
   readonly details: Record<string, unknown>;
 }
 
-export function getNotificationInfraHealth(): readonly ChannelHealth[] {
-  return [
-    { channel: "push", provider: "FCM", status: "healthy", deliveryRate: 98.5, messagesSentToday: 1250, costToday: 0, lastCheckedAt: new Date().toISOString(), details: { tokenValidityRate: 95.2 } },
-    { channel: "telegram", provider: "Bot API", status: "healthy", deliveryRate: 99.1, messagesSentToday: 340, costToday: 0, lastCheckedAt: new Date().toISOString(), details: { botOnline: true } },
-    { channel: "email", provider: "SendGrid", status: "healthy", deliveryRate: 97.3, messagesSentToday: 890, costToday: 0.89, lastCheckedAt: new Date().toISOString(), details: { bounceRate: 1.2, spamComplaintRate: 0.01 } },
-    { channel: "whatsapp", provider: "Gupshup", status: "healthy", deliveryRate: 96.8, messagesSentToday: 560, costToday: 11.2, lastCheckedAt: new Date().toISOString(), details: { templateApproved: 12 } },
-    { channel: "sms", provider: "MSG91", status: "healthy", deliveryRate: 94.5, messagesSentToday: 120, costToday: 2.4, lastCheckedAt: new Date().toISOString(), details: { dndFilterRate: 5.5, dltRegistered: true } },
-    { channel: "instagram", provider: "Messenger API", status: "degraded", deliveryRate: 89.0, messagesSentToday: 45, costToday: 0, lastCheckedAt: new Date().toISOString(), details: { activeWindows: 23, pendingFriendRequests: 8 } },
-    { channel: "slack", provider: "Slack Web API", status: "healthy", deliveryRate: 99.5, messagesSentToday: 78, costToday: 0, lastCheckedAt: new Date().toISOString(), details: { workspaceConnections: 5 } },
-    { channel: "discord", provider: "Discord Bot API", status: "healthy", deliveryRate: 99.2, messagesSentToday: 32, costToday: 0, lastCheckedAt: new Date().toISOString(), details: { serverConnections: 3 } },
-  ];
+// Provider mapping for display purposes
+const CHANNEL_PROVIDER_MAP: Readonly<Record<string, string>> = {
+  push: "FCM",
+  telegram: "Bot API",
+  email: "SendGrid",
+  whatsapp: "Gupshup",
+  sms: "MSG91",
+  instagram: "Messenger API",
+  slack: "Slack Web API",
+  discord: "Discord Bot API",
+};
+
+export async function getNotificationInfraHealth(): Promise<readonly ChannelHealth[]> {
+  const dayAgo = new Date(Date.now() - 86_400_000);
+
+  try {
+    // Aggregate delivery stats by channel for last 24h
+    const stats = await db
+      .select({
+        channel: deliveryAttempts.channel,
+        total: count(),
+        delivered: sql<number>`count(*) filter (where ${deliveryAttempts.status} = 'delivered')`,
+        sent: sql<number>`count(*) filter (where ${deliveryAttempts.status} = 'sent')`,
+        failed: sql<number>`count(*) filter (where ${deliveryAttempts.status} = 'failed')`,
+      })
+      .from(deliveryAttempts)
+      .where(gte(deliveryAttempts.createdAt, dayAgo))
+      .groupBy(deliveryAttempts.channel);
+
+    if (stats.length === 0) {
+      // No delivery attempts in last 24h — return all channels with N/A
+      return Object.entries(CHANNEL_PROVIDER_MAP).map(([channel, provider]) => ({
+        channel,
+        provider,
+        status: "healthy" as const,
+        deliveryRate: 0,
+        messagesSentToday: 0,
+        costToday: 0,
+        lastCheckedAt: new Date().toISOString(),
+        details: { note: "No delivery attempts in the last 24 hours" },
+      }));
+    }
+
+    return stats.map((s) => {
+      const total = Number(s.total);
+      const delivered = Number(s.delivered);
+      const sent = Number(s.sent);
+      const failed = Number(s.failed);
+      const successCount = delivered + sent;
+      const deliveryRate = total > 0 ? (successCount / total) * 100 : 0;
+      const channelStatus: "healthy" | "degraded" | "down" =
+        failed > total * 0.25 ? "down" : failed > total * 0.1 ? "degraded" : "healthy";
+
+      return {
+        channel: s.channel,
+        provider: CHANNEL_PROVIDER_MAP[s.channel] ?? "Unknown",
+        status: channelStatus,
+        deliveryRate: Math.round(deliveryRate * 10) / 10,
+        messagesSentToday: total,
+        costToday: 0, // Cost aggregation requires separate query on cost_amount
+        lastCheckedAt: new Date().toISOString(),
+        details: {
+          delivered,
+          sent,
+          failed,
+          pending: total - delivered - sent - failed,
+        },
+      };
+    });
+  } catch {
+    // Fallback if DB query fails
+    return Object.entries(CHANNEL_PROVIDER_MAP).map(([channel, provider]) => ({
+      channel,
+      provider,
+      status: "degraded" as const,
+      deliveryRate: 0,
+      messagesSentToday: 0,
+      costToday: 0,
+      lastCheckedAt: new Date().toISOString(),
+      details: { error: "Failed to query delivery_attempts table" },
+    }));
+  }
 }
 
 export interface QueueDepth {
@@ -468,22 +586,56 @@ export interface QueueDepth {
   readonly processingRate: number;
 }
 
-export function getQueueDepths(): readonly QueueDepth[] {
-  const queues = [
-    "push", "telegram", "email", "whatsapp",
-    "sms", "instagram", "slack", "discord",
-    "digest", "escalation",
-  ];
+export async function getQueueDepths(): Promise<readonly QueueDepth[]> {
+  const allQueues = getAllQueues();
+  const results: QueueDepth[] = [];
 
-  return queues.map((q) => ({
-    queue: q,
-    active: Math.floor(Math.random() * 5),
-    waiting: Math.floor(Math.random() * 20),
-    delayed: Math.floor(Math.random() * 3),
-    failed: Math.floor(Math.random() * 2),
-    completed: Math.floor(Math.random() * 500) + 100,
-    processingRate: Math.random() * 10 + 1,
-  }));
+  for (const [name, queue] of allQueues) {
+    try {
+      const counts = await queue.getJobCounts(
+        "waiting",
+        "active",
+        "delayed",
+        "failed",
+        "completed",
+      );
+      results.push({
+        queue: name.replace("notification:", ""),
+        active: counts.active ?? 0,
+        waiting: counts.waiting ?? 0,
+        delayed: counts.delayed ?? 0,
+        failed: counts.failed ?? 0,
+        completed: counts.completed ?? 0,
+        processingRate: 0, // Real rate requires time-series tracking
+      });
+    } catch {
+      // Queue may be unreachable; report zeroes
+      results.push({
+        queue: name.replace("notification:", ""),
+        active: 0,
+        waiting: 0,
+        delayed: 0,
+        failed: 0,
+        completed: 0,
+        processingRate: 0,
+      });
+    }
+  }
+
+  // If no queues initialized yet, return a placeholder
+  if (results.length === 0) {
+    return [{
+      queue: "none",
+      active: 0,
+      waiting: 0,
+      delayed: 0,
+      failed: 0,
+      completed: 0,
+      processingRate: 0,
+    }];
+  }
+
+  return results;
 }
 
 // ── AI Model Management ─────────────────────────────────────────────
@@ -563,102 +715,125 @@ export interface ProviderStatus {
   readonly details: Record<string, unknown>;
 }
 
-export function getChannelProviderStatuses(): readonly ProviderStatus[] {
+export async function getChannelProviderStatuses(): Promise<readonly ProviderStatus[]> {
   const env = process.env;
+  const dayAgo = new Date(Date.now() - 86_400_000);
+
+  // Fetch real 24h message counts per channel from delivery_attempts
+  let channelCounts: Record<string, { total: number; failed: number }> = {};
+  try {
+    const stats = await db
+      .select({
+        channel: deliveryAttempts.channel,
+        total: count(),
+        failed: sql<number>`count(*) filter (where ${deliveryAttempts.status} = 'failed')`,
+      })
+      .from(deliveryAttempts)
+      .where(gte(deliveryAttempts.createdAt, dayAgo))
+      .groupBy(deliveryAttempts.channel);
+
+    channelCounts = Object.fromEntries(
+      stats.map((s) => [
+        s.channel,
+        { total: Number(s.total), failed: Number(s.failed) },
+      ]),
+    );
+  } catch {
+    // DB unavailable — all counts stay at 0
+  }
+
+  const getStats = (ch: string) =>
+    channelCounts[ch] ?? { total: 0, failed: 0 };
 
   return [
     {
       channel: "telegram",
       provider: "Bot API",
-      apiHealthy: true,
+      apiHealthy: !!env.TELEGRAM_BOT_TOKEN,
       lastHealthCheck: new Date().toISOString(),
       credentials: env.TELEGRAM_BOT_TOKEN ? "configured" : "missing",
       details: {
         botUsername: env.TELEGRAM_BOT_USERNAME ?? "(not set)",
         webhookUrl: env.TELEGRAM_WEBHOOK_URL ?? "(not set)",
-        messagesSent24h: 340,
+        messagesSent24h: getStats("telegram").total,
+        failedCount24h: getStats("telegram").failed,
       },
     },
     {
       channel: "whatsapp",
       provider: "Gupshup",
-      apiHealthy: true,
+      apiHealthy: !!env.GUPSHUP_API_KEY,
       lastHealthCheck: new Date().toISOString(),
       credentials: env.GUPSHUP_API_KEY ? "configured" : "missing",
       details: {
-        templatesApproved: 12,
-        messageQuota: 10000,
-        messagesUsed24h: 560,
+        messagesSent24h: getStats("whatsapp").total,
+        failedCount24h: getStats("whatsapp").failed,
       },
     },
     {
       channel: "instagram",
       provider: "Messenger API",
-      apiHealthy: true,
+      apiHealthy: !!env.INSTAGRAM_PAGE_TOKEN,
       lastHealthCheck: new Date().toISOString(),
       credentials: env.INSTAGRAM_PAGE_TOKEN ? "configured" : "missing",
       details: {
-        activeWindows: 23,
-        pendingFriendRequests: 8,
-        windowExpiringIn1h: 3,
+        messagesSent24h: getStats("instagram").total,
+        failedCount24h: getStats("instagram").failed,
       },
     },
     {
       channel: "sms",
       provider: "MSG91",
-      apiHealthy: true,
+      apiHealthy: !!env.MSG91_AUTH_KEY,
       lastHealthCheck: new Date().toISOString(),
       credentials: env.MSG91_AUTH_KEY ? "configured" : "missing",
       details: {
-        dltRegistered: true,
-        dndFilterRate: 5.5,
-        balance: 1250,
+        messagesSent24h: getStats("sms").total,
+        failedCount24h: getStats("sms").failed,
       },
     },
     {
       channel: "email",
       provider: "SendGrid",
-      apiHealthy: true,
+      apiHealthy: !!env.SENDGRID_API_KEY,
       lastHealthCheck: new Date().toISOString(),
       credentials: env.SENDGRID_API_KEY ? "configured" : "missing",
       details: {
-        domainReputation: 95,
-        bounceRate: 1.2,
-        spamComplaintRate: 0.01,
-        senderScore: 92,
+        messagesSent24h: getStats("email").total,
+        failedCount24h: getStats("email").failed,
       },
     },
     {
       channel: "push",
       provider: "FCM",
-      apiHealthy: true,
+      apiHealthy: !!env.FCM_SERVER_KEY,
       lastHealthCheck: new Date().toISOString(),
       credentials: env.FCM_SERVER_KEY ? "configured" : "missing",
       details: {
-        tokenValidityRate: 95.2,
-        silentPushSuccessRate: 98.1,
+        messagesSent24h: getStats("push").total,
+        failedCount24h: getStats("push").failed,
       },
     },
     {
       channel: "slack",
       provider: "Slack Web API",
-      apiHealthy: true,
+      apiHealthy: !!env.SLACK_BOT_TOKEN,
       lastHealthCheck: new Date().toISOString(),
       credentials: env.SLACK_BOT_TOKEN ? "configured" : "missing",
       details: {
-        workspaceConnections: 5,
-        botStatus: "active",
+        messagesSent24h: getStats("slack").total,
+        failedCount24h: getStats("slack").failed,
       },
     },
     {
       channel: "discord",
       provider: "Discord Bot API",
-      apiHealthy: true,
+      apiHealthy: !!env.DISCORD_BOT_TOKEN,
       lastHealthCheck: new Date().toISOString(),
       credentials: env.DISCORD_BOT_TOKEN ? "configured" : "missing",
       details: {
-        serverConnections: 3,
-        botStatus: "active",
+        messagesSent24h: getStats("discord").total,
+        failedCount24h: getStats("discord").failed,
       },
     },
   ];

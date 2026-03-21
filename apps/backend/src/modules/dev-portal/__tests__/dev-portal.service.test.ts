@@ -4,7 +4,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../../db/index.js", () => ({
   db: {
     execute: vi.fn().mockResolvedValue([]),
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
+        }),
+      }),
+    }),
   },
+}));
+
+// Mock queue factory
+vi.mock("../../../queue/queue-factory.js", () => ({
+  getAllQueues: vi.fn().mockReturnValue(new Map()),
 }));
 
 import {
@@ -179,20 +191,23 @@ describe("dev-portal.service", () => {
   });
 
   describe("getServiceStatuses", () => {
-    it("returns service statuses", () => {
-      const statuses = getServiceStatuses();
+    it("returns service statuses with real health checks", async () => {
+      const statuses = await getServiceStatuses();
       expect(Array.isArray(statuses)).toBe(true);
+      expect(statuses.length).toBeGreaterThan(0);
       const serviceNames = statuses.map((s) => s.service);
       expect(serviceNames).toContain("backend-api");
-      expect(serviceNames).toContain("landing-page");
-      expect(serviceNames).toContain("queue-workers");
+      expect(serviceNames).toContain("logto-auth");
+      for (const status of statuses) {
+        expect(["running", "stopped", "deploying"]).toContain(status.status);
+      }
     });
   });
 
   // ── Notification Infrastructure ───────────────────────────────
   describe("getNotificationInfraHealth", () => {
-    it("returns health for all 8 channels", () => {
-      const health = getNotificationInfraHealth();
+    it("returns health for all 8 channels when no data", async () => {
+      const health = await getNotificationInfraHealth();
       expect(health.length).toBe(8);
 
       const channels = health.map((h) => h.channel);
@@ -206,8 +221,8 @@ describe("dev-portal.service", () => {
       expect(channels).toContain("discord");
     });
 
-    it("includes provider info and delivery rate", () => {
-      const health = getNotificationInfraHealth();
+    it("includes provider info and delivery rate", async () => {
+      const health = await getNotificationInfraHealth();
       for (const channel of health) {
         expect(channel).toHaveProperty("provider");
         expect(channel).toHaveProperty("deliveryRate");
@@ -219,10 +234,10 @@ describe("dev-portal.service", () => {
   });
 
   describe("getQueueDepths", () => {
-    it("returns depths for all 10 queues", () => {
-      const queues = getQueueDepths();
-      expect(queues.length).toBe(10);
-      expect(queues[0]).toHaveProperty("queue");
+    it("returns placeholder when no queues initialized", async () => {
+      const queues = await getQueueDepths();
+      expect(queues.length).toBe(1);
+      expect(queues[0].queue).toBe("none");
       expect(queues[0]).toHaveProperty("active");
       expect(queues[0]).toHaveProperty("waiting");
       expect(queues[0]).toHaveProperty("failed");
@@ -289,8 +304,8 @@ describe("dev-portal.service", () => {
 
   // ── Channel Providers ─────────────────────────────────────────
   describe("getChannelProviderStatuses", () => {
-    it("returns all 8 channel providers", () => {
-      const statuses = getChannelProviderStatuses();
+    it("returns all 8 channel providers", async () => {
+      const statuses = await getChannelProviderStatuses();
       expect(statuses.length).toBe(8);
 
       const channels = statuses.map((s) => s.channel);
@@ -304,8 +319,8 @@ describe("dev-portal.service", () => {
       expect(channels).toContain("discord");
     });
 
-    it("includes credential status", () => {
-      const statuses = getChannelProviderStatuses();
+    it("includes credential status", async () => {
+      const statuses = await getChannelProviderStatuses();
       for (const status of statuses) {
         expect(["configured", "missing", "expired"]).toContain(
           status.credentials,

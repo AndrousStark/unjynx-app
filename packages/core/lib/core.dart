@@ -38,5 +38,9 @@ export 'utils/color_utils.dart';
 export 'utils/priority_utils.dart';
 export 'utils/result.dart';
 
+// Services
+export 'services/nlp_parser.dart';
+export 'services/speech_service.dart';
+
 // Widgets
 export 'widgets/widgets.dart';

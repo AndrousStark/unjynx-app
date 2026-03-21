@@ -127,4 +127,15 @@ class TaskApiService {
   Future<ApiResponse<Map<String, dynamic>>> bulkDelete(List<String> ids) {
     return _client.delete('/tasks/bulk', data: {'ids': ids});
   }
+
+  /// Get tasks within a date range for the calendar view.
+  Future<ApiResponse<List<dynamic>>> getCalendarTasks({
+    required DateTime start,
+    required DateTime end,
+  }) {
+    return _client.get('/tasks/calendar', queryParameters: {
+      'start': start.toUtc().toIso8601String(),
+      'end': end.toUtc().toIso8601String(),
+    });
+  }
 }

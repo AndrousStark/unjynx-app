@@ -481,26 +481,55 @@ Future<void> Function(String) _rescheduleTaskCallback(Ref ref) {
 }
 
 // ---------------------------------------------------------------------------
-// Calendar tasks (family provider)
+// Calendar tasks (family provider) — API-first with local Drift fallback
 // ---------------------------------------------------------------------------
 
 Future<List<CalendarTask>> _calendarTasksFromRepo(
   Ref ref,
   DateTime month,
 ) async {
+  final monthStart = DateTime(month.year, month.month);
+  final monthEnd = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+
+  // 1. Try the backend API first.
+  final api = _tryRead(ref, taskApiProvider);
+  if (api != null) {
+    try {
+      final response = await api.getCalendarTasks(
+        start: monthStart,
+        end: monthEnd,
+      );
+      if (response.success && response.data != null) {
+        final items = response.data!.cast<Map<String, dynamic>>();
+        final tasks = items.map((d) {
+          return CalendarTask(
+            id: (d['id'] as String?) ?? '',
+            title: (d['title'] as String?) ?? '',
+            dueDate: d['dueDate'] != null
+                ? DateTime.tryParse(d['dueDate'] as String)
+                : null,
+            priority: (d['priority'] as String?) ?? 'none',
+            status: (d['status'] as String?) ?? 'pending',
+            projectColor: null,
+          );
+        }).toList();
+        return List.unmodifiable(tasks);
+      }
+    } on DioException {
+      // Fall through to local Drift data.
+    }
+  }
+
+  // 2. Fallback: read from local Drift repository.
   try {
     final repo = ref.watch(todoRepositoryProvider);
     final result = await repo.getAll();
     final todos = result.unwrapOr(<Todo>[]);
 
-    // Filter to tasks whose due date falls within the requested month.
-    final monthStart = DateTime(month.year, month.month);
-    final monthEnd = DateTime(month.year, month.month + 1);
-
     final monthTodos = todos.where((t) {
       if (t.dueDate == null) return false;
       return !t.dueDate!.isBefore(monthStart) &&
-          t.dueDate!.isBefore(monthEnd);
+          t.dueDate!.isBefore(DateTime(month.year, month.month + 1));
     }).toList();
 
     return List.unmodifiable(monthTodos.map(_todoToCalendarTask));

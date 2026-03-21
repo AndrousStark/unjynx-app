@@ -12,6 +12,7 @@ import {
   snoozeTaskSchema,
   moveTaskSchema,
   cursorQuerySchema,
+  calendarQuerySchema,
 } from "./tasks.schema.js";
 import * as taskService from "./tasks.service.js";
 
@@ -76,6 +77,23 @@ taskRoutes.get(
     );
 
     return c.json(ok(result));
+  },
+);
+
+// GET /api/v1/tasks/calendar - Calendar view (tasks by date range)
+taskRoutes.get(
+  "/calendar",
+  zValidator("query", calendarQuerySchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const { start, end } = c.req.valid("query");
+    const tasks = await taskService.getTasksForCalendar(
+      auth.profileId,
+      start,
+      end,
+    );
+
+    return c.json(ok(tasks));
   },
 );
 

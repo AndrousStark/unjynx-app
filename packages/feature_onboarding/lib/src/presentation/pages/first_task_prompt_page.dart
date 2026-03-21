@@ -205,8 +205,11 @@ class _FirstTaskPromptPageState extends ConsumerState<FirstTaskPromptPage>
             suffixIcon: Padding(
               padding: const EdgeInsets.only(right: 4),
               child: VoiceInputButton(
-                onVoiceResult: () {
-                  // Placeholder — STT will be wired in a later phase.
+                onResult: (text) {
+                  _textController.text = text;
+                  _textController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: text.length),
+                  );
                 },
               ),
             ),

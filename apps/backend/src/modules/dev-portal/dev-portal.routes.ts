@@ -107,7 +107,7 @@ devPortalRoutes.get("/deployments", async (c) => {
 
 // GET /dev/services - Service statuses
 devPortalRoutes.get("/services", async (c) => {
-  const statuses = devService.getServiceStatuses();
+  const statuses = await devService.getServiceStatuses();
   return c.json(ok(statuses));
 });
 
@@ -115,13 +115,13 @@ devPortalRoutes.get("/services", async (c) => {
 
 // GET /dev/notifications/health - Channel health
 devPortalRoutes.get("/notifications/health", async (c) => {
-  const health = devService.getNotificationInfraHealth();
+  const health = await devService.getNotificationInfraHealth();
   return c.json(ok(health));
 });
 
 // GET /dev/notifications/queues - Queue depths
 devPortalRoutes.get("/notifications/queues", async (c) => {
-  const queues = devService.getQueueDepths();
+  const queues = await devService.getQueueDepths();
   return c.json(ok(queues));
 });
 
@@ -160,7 +160,7 @@ devPortalRoutes.get("/ai-usage", async (c) => {
 
 // GET /dev/channel-providers - Provider statuses
 devPortalRoutes.get("/channel-providers", async (c) => {
-  const statuses = devService.getChannelProviderStatuses();
+  const statuses = await devService.getChannelProviderStatuses();
   return c.json(ok(statuses));
 });
 

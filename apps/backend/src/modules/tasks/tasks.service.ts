@@ -138,6 +138,16 @@ export async function duplicateTask(
   return taskRepo.duplicateTask(userId, taskId);
 }
 
+// ── Calendar View ─────────────────────────────────────────────────────
+
+export async function getTasksForCalendar(
+  userId: string,
+  start: Date,
+  end: Date,
+): Promise<taskRepo.CalendarTask[]> {
+  return taskRepo.findTasksForCalendar(userId, start, end);
+}
+
 // ── Bulk Operations ────────────────────────────────────────────────────
 
 export async function bulkCreateTasks(

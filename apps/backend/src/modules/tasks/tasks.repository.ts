@@ -328,6 +328,42 @@ export async function findTasksWithCursor(
   return { items: resultItems, nextCursor, hasMore };
 }
 
+// ── Calendar View ─────────────────────────────────────────────────────
+
+export interface CalendarTask {
+  readonly id: string;
+  readonly title: string;
+  readonly dueDate: Date | null;
+  readonly priority: string;
+  readonly status: string;
+  readonly projectId: string | null;
+}
+
+export async function findTasksForCalendar(
+  userId: string,
+  start: Date,
+  end: Date,
+): Promise<CalendarTask[]> {
+  return db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      dueDate: tasks.dueDate,
+      priority: tasks.priority,
+      status: tasks.status,
+      projectId: tasks.projectId,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        gte(tasks.dueDate, start),
+        lte(tasks.dueDate, end),
+      ),
+    )
+    .orderBy(asc(tasks.dueDate));
+}
+
 function getSortValue(
   task: Task,
   sortKey: string,

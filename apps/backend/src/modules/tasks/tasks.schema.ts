@@ -102,6 +102,13 @@ export const cursorQuerySchema = z.object({
   dueAfter: z.coerce.date().optional(),
 });
 
+// ── Calendar View ─────────────────────────────────────────────────────
+
+export const calendarQuerySchema = z.object({
+  start: z.coerce.date(),
+  end: z.coerce.date(),
+});
+
 // ── Type Exports ───────────────────────────────────────────────────────
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
@@ -113,3 +120,4 @@ export type BulkDeleteTasksInput = z.infer<typeof bulkDeleteTasksSchema>;
 export type SnoozeTaskInput = z.infer<typeof snoozeTaskSchema>;
 export type MoveTaskInput = z.infer<typeof moveTaskSchema>;
 export type CursorQuery = z.infer<typeof cursorQuerySchema>;
+export type CalendarQuery = z.infer<typeof calendarQuerySchema>;

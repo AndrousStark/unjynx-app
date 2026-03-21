@@ -80,6 +80,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>UNJYNX uses speech recognition to let you create tasks by voice.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>UNJYNX needs microphone access for voice input when creating tasks.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
