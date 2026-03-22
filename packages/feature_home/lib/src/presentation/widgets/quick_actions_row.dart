@@ -102,31 +102,35 @@ class _QuickActionChip extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isLight = context.isLightMode;
 
-    return PressableScale(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: isLight
-                ? colorScheme.primary.withValues(alpha: 0.08)
-                : colorScheme.surfaceContainerHigh,
-            child: Icon(
-              icon,
-              color: colorScheme.primary,
-              size: 24,
+    return Semantics(
+      label: label,
+      button: true,
+      child: PressableScale(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: isLight
+                  ? colorScheme.primary.withValues(alpha: 0.08)
+                  : colorScheme.surfaceContainerHigh,
+              child: Icon(
+                icon,
+                color: colorScheme.primary,
+                size: 24,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

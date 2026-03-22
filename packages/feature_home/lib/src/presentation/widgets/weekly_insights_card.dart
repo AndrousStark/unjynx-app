@@ -20,7 +20,9 @@ class WeeklyInsightsCard extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isLight ? Colors.white : colorScheme.surface,
+        color: isLight
+            ? colorScheme.surfaceContainerLowest
+            : colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border(
           left: BorderSide(

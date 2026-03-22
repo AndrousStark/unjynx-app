@@ -87,41 +87,44 @@ class _StreakChip extends StatelessWidget {
 
     final isLight = context.isLightMode;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: isLight ? ux.goldWash : colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: ux.gold.withValues(alpha: isLight ? 0.4 : 0.3),
-        ),
-        // Light: gold shadow pulse; Dark: gold glow
-        boxShadow: [
-          BoxShadow(
-            color: ux.gold.withValues(alpha: isLight ? 0.2 : 0.3),
-            blurRadius: isLight ? 6 : 10,
-            spreadRadius: isLight ? 0 : 1,
+    return Semantics(
+      label: '$count day streak',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isLight ? ux.goldWash : colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: ux.gold.withValues(alpha: isLight ? 0.4 : 0.3),
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.local_fire_department_rounded,
-            color: ux.gold,
-            size: 18,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '$count',
-            style: TextStyle(
-              color: ux.gold,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+          // Light: gold shadow pulse; Dark: gold glow
+          boxShadow: [
+            BoxShadow(
+              color: ux.gold.withValues(alpha: isLight ? 0.2 : 0.3),
+              blurRadius: isLight ? 6 : 10,
+              spreadRadius: isLight ? 0 : 1,
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.local_fire_department_rounded,
+              color: ux.gold,
+              size: 18,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$count',
+              style: TextStyle(
+                color: ux.gold,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -140,7 +143,12 @@ class _NotificationBell extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Stack(
+    return Semantics(
+      label: count > 0
+          ? '$count unread notifications'
+          : 'Notifications',
+      button: true,
+      child: Stack(
       clipBehavior: Clip.none,
       children: [
         IconButton(
@@ -150,8 +158,9 @@ class _NotificationBell extends StatelessWidget {
             size: 26,
           ),
           onPressed: () => context.push('/notifications'),
+          tooltip: 'Notifications',
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
         ),
         if (count > 0)
           Positioned(
@@ -177,6 +186,7 @@ class _NotificationBell extends StatelessWidget {
             ),
           ),
       ],
+    ),
     );
   }
 }

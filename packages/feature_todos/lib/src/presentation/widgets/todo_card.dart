@@ -4,6 +4,8 @@ import 'package:unjynx_core/core.dart';
 
 import '../../domain/entities/todo.dart';
 
+// Re-use accessibility utilities from core.
+
 /// Card widget displaying a single TODO item.
 ///
 /// Supports tap, long-press (for bulk mode), and completion toggle.
@@ -33,7 +35,19 @@ class TodoCard extends StatelessWidget {
     // Light mode: gold fill + purple strikethrough; Dark mode: gold glow
     final completedCheckColor = isLight ? ux.gold : ux.success;
 
-    return GestureDetector(
+    // Build accessible description for screen readers.
+    final semanticDesc = taskSemanticLabel(
+      title: todo.title,
+      priority: todo.priority != TodoPriority.none ? todo.priority.name : null,
+      dueDescription: todo.dueDate != null
+          ? _formatDueDateForA11y(todo.dueDate!)
+          : null,
+      isCompleted: isCompleted,
+    );
+
+    return Semantics(
+      label: semanticDesc,
+      child: GestureDetector(
       onLongPress: onLongPress == null
           ? null
           : () {
@@ -52,37 +66,48 @@ class TodoCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Completion checkbox
-              GestureDetector(
-                onTap: onComplete == null
-                    ? null
-                    : () {
-                        HapticFeedback.selectionClick();
-                        onComplete!();
-                      },
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isCompleted
-                          ? completedCheckColor
-                          : unjynxPriorityColor(context, todo.priority.name),
-                      width: 2,
+              // Completion checkbox (48x48dp touch target wrapping 28x28dp visual)
+              Semantics(
+                label: isCompleted ? 'Mark task incomplete' : 'Mark task complete',
+                button: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onComplete == null
+                      ? null
+                      : () {
+                          HapticFeedback.selectionClick();
+                          onComplete!();
+                        },
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Center(
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isCompleted
+                                ? completedCheckColor
+                                : unjynxPriorityColor(context, todo.priority.name),
+                            width: 2,
+                          ),
+                          color: isCompleted
+                              ? completedCheckColor
+                                  .withValues(alpha: isLight ? 0.15 : 0.2)
+                              : Colors.transparent,
+                        ),
+                        child: isCompleted
+                            ? Icon(
+                                Icons.check,
+                                size: 16,
+                                color: completedCheckColor,
+                              )
+                            : null,
+                      ),
                     ),
-                    color: isCompleted
-                        ? completedCheckColor
-                            .withValues(alpha: isLight ? 0.15 : 0.2)
-                        : Colors.transparent,
                   ),
-                  child: isCompleted
-                      ? Icon(
-                          Icons.check,
-                          size: 16,
-                          color: completedCheckColor,
-                        )
-                      : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -142,9 +167,23 @@ class TodoCard extends StatelessWidget {
         ),
         ),
       ),
+    ),
     );
   }
 
+  static String _formatDueDateForA11y(DateTime dueDate) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateOnly = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    if (dateOnly.isBefore(today)) return 'overdue';
+    if (dateOnly == today) return 'today';
+    if (dateOnly == today.add(const Duration(days: 1))) return 'tomorrow';
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return '${months[dueDate.month - 1]} ${dueDate.day}';
+  }
 }
 
 class _DueDateChip extends StatelessWidget {

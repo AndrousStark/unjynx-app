@@ -1,10 +1,13 @@
 import { Hono } from "hono";
 import { db } from "../../db/index.js";
 import { sql } from "drizzle-orm";
-import { ok } from "../../types/api.js";
+import { ok, err } from "../../types/api.js";
+import { authMiddleware } from "../../middleware/auth.js";
+import { adminGuard } from "../../middleware/admin-guard.js";
 
 export const healthRoutes = new Hono();
 
+// Health check: public (load balancers, uptime monitors)
 healthRoutes.get("/health", async (c) => {
   const checks = {
     status: "ok" as const,
@@ -25,7 +28,8 @@ healthRoutes.get("/health", async (c) => {
   return c.json(ok(checks), isHealthy ? 200 : 503);
 });
 
-healthRoutes.get("/metrics", (c) => {
+// Metrics: admin-only (exposes internal process info)
+healthRoutes.get("/metrics", authMiddleware, adminGuard("super_admin", "dev_admin"), (c) => {
   const metrics = {
     uptime: process.uptime(),
     memory: process.memoryUsage(),

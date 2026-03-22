@@ -11,6 +11,19 @@ import {
 } from "./billing.schema.js";
 import * as billingService from "./billing.service.js";
 
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ * Always compares the full length regardless of mismatch position.
+ */
+function timingSafeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
 export const billingRoutes = new Hono();
 
 // ── Public: Available plans ───────────────────────────────────────────
@@ -31,10 +44,11 @@ billingRoutes.post(
   "/webhook",
   zValidator("json", webhookEventSchema),
   async (c) => {
-    const signature = c.req.header("Authorization");
+    const signature = c.req.header("Authorization") ?? "";
     const expected = `Bearer ${env.REVENUECAT_WEBHOOK_SECRET}`;
 
-    if (signature !== expected) {
+    // Constant-time comparison to prevent timing attacks on webhook secrets
+    if (!timingSafeCompare(signature, expected)) {
       return c.json(err("Invalid webhook signature"), 401);
     }
 

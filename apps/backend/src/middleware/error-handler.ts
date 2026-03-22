@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import { ZodError } from "zod";
 import { err } from "../types/api.js";
 import { logger } from "./logger.js";
+import { env } from "../env.js";
 
 export const errorHandler: ErrorHandler = (error, c) => {
   if (error instanceof HTTPException) {
@@ -17,13 +18,15 @@ export const errorHandler: ErrorHandler = (error, c) => {
     return c.json(err(`Validation failed: ${messages.join("; ")}`), 400);
   }
 
-  // Log full error details server-side, return generic message to client
+  // Log full error details server-side only — NEVER send to client
   logger.error({ err: error, stack: error.stack }, "Unhandled error");
 
   // Report to Sentry
   Sentry.captureException(error);
 
-  const isProduction = process.env.NODE_ENV === "production";
+  // In production: generic message only. No stack traces, no file paths,
+  // no DB schema details, no raw SQL errors — just "Internal server error".
+  const isProduction = env.NODE_ENV === "production";
   const message = isProduction
     ? "Internal server error"
     : `Internal server error: ${error.message}`;

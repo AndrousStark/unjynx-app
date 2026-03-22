@@ -742,8 +742,8 @@ class _ActionButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 44,
-          height: 44,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             color: color.withValues(alpha: isLight ? 0.08 : 0.1),
             borderRadius: BorderRadius.circular(10),
@@ -805,8 +805,8 @@ class _VoiceActionButton extends StatelessWidget {
             return Transform.scale(
               scale: pulse,
               child: Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   color: isListening
                       ? activeColor.withValues(

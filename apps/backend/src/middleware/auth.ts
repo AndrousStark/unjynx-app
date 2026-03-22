@@ -70,12 +70,19 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   try {
     const { payload } = await jose.jwtVerify(token, getJwks(), {
       issuer: `${env.LOGTO_ENDPOINT}/oidc`,
+      // Audience validation: Logto tokens include the app ID as audience.
+      // If LOGTO_APP_ID is configured, enforce it; otherwise skip
+      // (backward compat for dev environments without the env var).
+      audience: env.LOGTO_APP_ID || undefined,
     });
     sub = payload.sub!;
     email = payload.email as string | undefined;
     name = payload.name as string | undefined;
   } catch (err) {
-    console.error("[auth] JWT verify failed:", (err as Error).message, "| code:", (err as { code?: string }).code);
+    const errorMessage = (err as Error).message;
+    const errorCode = (err as { code?: string }).code;
+    // Log minimal info — never log the token itself
+    console.error("[auth] JWT verify failed:", errorMessage, "| code:", errorCode);
     throw new HTTPException(401, { message: "Invalid or expired token" });
   }
 

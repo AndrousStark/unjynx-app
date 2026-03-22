@@ -101,7 +101,9 @@ class _CalendarConnectCardState extends ConsumerState<CalendarConnectCard> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: isLight ? Colors.white : colorScheme.surfaceContainer,
+                color: isLight
+                    ? colorScheme.surfaceContainerLowest
+                    : colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -183,7 +185,9 @@ class _CalendarConnectCardState extends ConsumerState<CalendarConnectCard> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: isLight ? Colors.white : colorScheme.surfaceContainer,
+              color: isLight
+                    ? colorScheme.surfaceContainerLowest
+                    : colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(

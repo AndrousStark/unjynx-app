@@ -38,18 +38,7 @@ class ChallengeCard extends StatelessWidget {
             color: colorScheme.primary.withValues(alpha: isLight ? 0.15 : 0.2),
           ),
           boxShadow: isLight
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF1A0533).withValues(alpha: 0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                  BoxShadow(
-                    color: const Color(0xFF1A0533).withValues(alpha: 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
+              ? UnjynxShadows.lightMd
               : null,
         ),
         child: Column(

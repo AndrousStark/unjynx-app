@@ -34,6 +34,8 @@ const REMINDER_CHECK_INTERVAL_MS = 60_000; // 1 minute
 const CONTENT_DELIVERY_INTERVAL_MS = 30 * 60_000; // 30 minutes
 const INSTAGRAM_REENGAGEMENT_INTERVAL_MS = 15 * 60_000; // 15 minutes
 const INSTAGRAM_WINDOW_HOURS = 24;
+const INACTIVITY_CHECK_INTERVAL_MS = 6 * 60 * 60_000; // 6 hours
+const INACTIVITY_THRESHOLD_HOURS = 48;
 
 // ── Active interval handles (for graceful shutdown) ─────────────────
 
@@ -394,6 +396,84 @@ export async function checkInstagramWindows(): Promise<number> {
   }
 }
 
+// ── Job: Gentle Re-Engagement ──────────────────────────────────────
+// Retention Hook #6. Runs every 6 hours. Finds users with no task
+// activity (no task created, completed, or updated) in the last 48h.
+// Sends a gentle push notification: "Your tasks are waiting for you."
+// Respects quiet hours and notification preferences.
+
+export async function checkInactiveUsers(): Promise<number> {
+  const cutoff = new Date(
+    Date.now() - INACTIVITY_THRESHOLD_HOURS * 60 * 60 * 1000,
+  );
+
+  try {
+    // Find users who have tasks but none updated/completed since cutoff.
+    // We check profiles that have at least one task but whose most recent
+    // task updatedAt is older than the threshold.
+    const allProfiles = await db.select().from(profiles);
+
+    let dispatched = 0;
+
+    for (const profile of allProfiles) {
+      // Find the most recently updated task for this user.
+      const userTasks = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.userId, profile.id));
+
+      if (userTasks.length === 0) continue;
+
+      // Check if any task was updated within the threshold.
+      const hasRecentActivity = userTasks.some((t) => {
+        const updatedAt = t.updatedAt ?? t.createdAt;
+        return updatedAt != null && updatedAt > cutoff;
+      });
+
+      if (hasRecentActivity) continue;
+
+      // Check if the user has notification preferences (respect opt-out).
+      const [prefs] = await db
+        .select()
+        .from(notificationPreferences)
+        .where(eq(notificationPreferences.userId, profile.id));
+
+      if (!prefs) continue;
+
+      // Build a gentle push notification.
+      const job = {
+        userId: profile.id,
+        notificationId: crypto.randomUUID(),
+        channel: "push" as const,
+        messageType: "re_engagement" as const,
+        templateVars: {
+          _recipient: "",
+          task_title: `Hey ${profile.name ?? "there"}, your tasks miss you! Pick up where you left off.`,
+        },
+        priority: 3, // Low priority — gentle nudge.
+        attemptNumber: 1,
+      };
+
+      const enrichedJobs = await enrichJobsWithRecipients(profile.id, [job]);
+      const result = await dispatchBatch(enrichedJobs, toUserPrefs(prefs));
+      dispatched += result.dispatched;
+    }
+
+    log.info(
+      { dispatched },
+      "Inactivity re-engagement check complete",
+    );
+
+    return dispatched;
+  } catch (error) {
+    log.error(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      "Inactivity re-engagement check failed",
+    );
+    return 0;
+  }
+}
+
 // ── Enrich Jobs with Recipient Identifiers ──────────────────────────
 // Looks up the user's connected channel identifiers and injects them
 // into the job's templateVars._recipient field.
@@ -493,6 +573,14 @@ export function startCronJobs(): void {
   }, INSTAGRAM_REENGAGEMENT_INTERVAL_MS);
   activeIntervals.push(instagramInterval);
 
+  // Every 6 hours: gentle re-engagement for inactive users (48h threshold)
+  const inactivityInterval = setInterval(() => {
+    checkInactiveUsers().catch((error) => {
+      log.error({ error }, "Unhandled error in inactivity check");
+    });
+  }, INACTIVITY_CHECK_INTERVAL_MS);
+  activeIntervals.push(inactivityInterval);
+
   log.info(
     {
       reminderIntervalMs: REMINDER_CHECK_INTERVAL_MS,
@@ -500,6 +588,7 @@ export function startCronJobs(): void {
       digestCheckIntervalMs: DIGEST_CHECK_INTERVAL_MS,
       contentDeliveryIntervalMs: CONTENT_DELIVERY_INTERVAL_MS,
       instagramIntervalMs: INSTAGRAM_REENGAGEMENT_INTERVAL_MS,
+      inactivityIntervalMs: INACTIVITY_CHECK_INTERVAL_MS,
     },
     "All cron jobs started",
   );

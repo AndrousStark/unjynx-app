@@ -68,7 +68,17 @@ class _RingsContent extends StatelessWidget {
     final isLight = context.isLightMode;
     final percentage = (data.overallProgress * 100).round();
 
-    return Column(
+    return Semantics(
+      label: progressRingsSemanticLabel(
+        percentage: percentage,
+        tasksCompleted: data.tasksCompleted,
+        tasksTotal: data.tasksTotal,
+        focusMinutes: data.focusMinutes,
+        focusGoalMinutes: data.focusGoalMinutes,
+        habitsCompleted: data.habitsCompleted,
+        habitsTotal: data.habitsTotal,
+      ),
+      child: Column(
       children: [
         // --- Concentric rings with center text + draw animation ---
         SizedBox(
@@ -145,6 +155,7 @@ class _RingsContent extends StatelessWidget {
           value: '${data.habitsCompleted} of ${data.habitsTotal}',
         ),
       ],
+    ),
     );
   }
 

@@ -246,8 +246,10 @@ class _TaskRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          // Light: white bg with subtle purple border; Dark: surfaceContainer
-          color: isLight ? Colors.white : colorScheme.surfaceContainer,
+          // Light: surfaceContainerLowest with subtle purple border; Dark: surfaceContainer
+          color: isLight
+              ? colorScheme.surfaceContainerLowest
+              : colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(12),
           border: isOverdue
               ? Border.all(
@@ -262,18 +264,31 @@ class _TaskRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // --- Circular checkbox ---
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                onToggle?.call();
-              },
-              child: _CircularCheckbox(
-                isCompleted: task.isCompleted,
-                priority: task.priority,
+            // --- Circular checkbox (48dp touch target) ---
+            Semantics(
+              label: task.isCompleted
+                  ? 'Mark task incomplete'
+                  : 'Mark task complete',
+              button: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onToggle?.call();
+                },
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Center(
+                    child: _CircularCheckbox(
+                      isCompleted: task.isCompleted,
+                      priority: task.priority,
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 4),
 
             // --- Title ---
             Expanded(
@@ -406,7 +421,9 @@ class _EmptyState extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isLight ? Colors.white : colorScheme.surfaceContainer,
+        color: isLight
+            ? colorScheme.surfaceContainerLowest
+            : colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
         border: isLight
             ? Border.all(
@@ -464,7 +481,9 @@ class _TasksShimmer extends StatelessWidget {
           Container(
             height: 48,
             decoration: BoxDecoration(
-              color: isLight ? Colors.white : colorScheme.surface,
+              color: isLight
+                  ? colorScheme.surfaceContainerLowest
+                  : colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
               border: isLight
                   ? Border.all(

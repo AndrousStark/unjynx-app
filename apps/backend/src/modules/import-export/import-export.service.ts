@@ -115,24 +115,75 @@ function escapeCsvField(field: string): string {
   return field;
 }
 
-// ── Export JSON (GDPR) ────────────────────────────────────────────────
+// ── Export JSON (GDPR/DPDP Compliant) ─────────────────────────────────
+// Returns ALL user data across every table for full GDPR Article 20 /
+// India DPDP Act 2023 compliance. Sensitive tokens and internal IDs
+// (RevenueCat, OAuth tokens) are excluded from the export.
 
 export interface GdprExportData {
-  readonly profile: Record<string, unknown>;
-  readonly tasks: readonly Task[];
+  readonly exportVersion: "2.0";
   readonly exportedAt: string;
+  readonly dataSubject: {
+    readonly userId: string;
+    readonly requestedAt: string;
+  };
+  readonly profile: Record<string, unknown>;
+  readonly settings: Record<string, unknown> | null;
+  readonly tasks: readonly Record<string, unknown>[];
+  readonly projects: readonly Record<string, unknown>[];
+  readonly sections: readonly Record<string, unknown>[];
+  readonly subtasks: readonly Record<string, unknown>[];
+  readonly comments: readonly Record<string, unknown>[];
+  readonly attachments: readonly Record<string, unknown>[];
+  readonly tags: readonly Record<string, unknown>[];
+  readonly taskTags: readonly Record<string, unknown>[];
+  readonly recurringRules: readonly Record<string, unknown>[];
+  readonly reminders: readonly Record<string, unknown>[];
+  readonly notificationPreferences: Record<string, unknown> | null;
+  readonly notificationChannels: readonly Record<string, unknown>[];
+  readonly notifications: readonly Record<string, unknown>[];
+  readonly notificationLog: readonly Record<string, unknown>[];
+  readonly contentPreferences: readonly Record<string, unknown>[];
+  readonly contentDeliveryLog: readonly Record<string, unknown>[];
+  readonly rituals: readonly Record<string, unknown>[];
+  readonly streaks: readonly Record<string, unknown>[];
+  readonly progressSnapshots: readonly Record<string, unknown>[];
+  readonly pomodoroSessions: readonly Record<string, unknown>[];
+  readonly gamification: {
+    readonly xpSummary: Record<string, unknown> | null;
+    readonly xpTransactions: readonly Record<string, unknown>[];
+    readonly achievements: readonly Record<string, unknown>[];
+    readonly challenges: readonly Record<string, unknown>[];
+  };
+  readonly teams: {
+    readonly memberships: readonly Record<string, unknown>[];
+    readonly standups: readonly Record<string, unknown>[];
+  };
+  readonly accountability: {
+    readonly partners: readonly Record<string, unknown>[];
+    readonly sharedGoalProgress: readonly Record<string, unknown>[];
+  };
+  readonly billing: {
+    readonly subscriptions: readonly Record<string, unknown>[];
+    readonly invoices: readonly Record<string, unknown>[];
+    readonly couponRedemptions: readonly Record<string, unknown>[];
+  };
+  readonly auditLog: readonly Record<string, unknown>[];
+  readonly syncMetadata: readonly Record<string, unknown>[];
 }
 
 export async function exportJson(userId: string): Promise<GdprExportData> {
-  const [profile, allTasks] = await Promise.all([
-    importExportRepo.findUserProfile(userId),
-    importExportRepo.findAllUserTasks(userId),
-  ]);
+  const allData = await importExportRepo.findAllUserDataForGdpr(userId);
+  const now = new Date().toISOString();
 
   return {
-    profile: profile ?? {},
-    tasks: allTasks,
-    exportedAt: new Date().toISOString(),
+    exportVersion: "2.0",
+    exportedAt: now,
+    dataSubject: {
+      userId,
+      requestedAt: now,
+    },
+    ...allData,
   };
 }
 
@@ -185,6 +236,8 @@ export interface AccountDeletionResult {
   readonly scheduled: boolean;
   readonly gracePeriodDays: number;
   readonly scheduledDeletionDate: string;
+  readonly immediateActions: readonly string[];
+  readonly message: string;
 }
 
 export async function scheduleAccountDeletion(
@@ -195,12 +248,27 @@ export async function scheduleAccountDeletion(
     Date.now() + gracePeriodDays * 24 * 60 * 60 * 1000,
   );
 
-  // Soft-delete the user (marks profile)
-  await importExportRepo.softDeleteUser(userId);
+  // Soft-delete: anonymize PII, cancel subscriptions, disable channels,
+  // delete OAuth tokens. Full data deletion after grace period.
+  const deleted = await importExportRepo.softDeleteUser(userId);
+
+  if (!deleted) {
+    throw new Error("Account not found");
+  }
 
   return {
     scheduled: true,
     gracePeriodDays,
     scheduledDeletionDate: deletionDate.toISOString(),
+    immediateActions: [
+      "Profile PII anonymized (name, email, avatar)",
+      "Active subscriptions cancelled",
+      "Notification channels disabled",
+      "Calendar OAuth tokens deleted",
+    ],
+    message:
+      `Your account is scheduled for permanent deletion on ${deletionDate.toISOString().split("T")[0]}. ` +
+      `You have ${gracePeriodDays} days to cancel this request by contacting support. ` +
+      `After this period, all data will be permanently removed and cannot be recovered.`,
   };
 }

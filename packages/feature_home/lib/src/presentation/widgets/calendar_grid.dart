@@ -205,7 +205,7 @@ class _DayCell extends StatelessWidget {
     if (isSelected || isToday) {
       // On colored circles, use high-contrast text
       textColor = isSelected
-          ? (isLight ? Colors.white : colorScheme.surfaceContainerLowest)
+          ? colorScheme.onPrimary
           : (isLight
               ? colorScheme.surfaceContainerLowest
               : const Color(0xFF1A0A2E));

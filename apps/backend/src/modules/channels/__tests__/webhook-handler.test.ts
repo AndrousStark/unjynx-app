@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hono } from "hono";
 
 // ── Mock dependencies ───────────────────────────────────────────────
@@ -37,10 +37,6 @@ vi.mock("../../../services/channels/adapter-registry.js", () => ({
   getAdapter: vi.fn().mockReturnValue({ send: (...args: unknown[]) => mockAdapterSend(...args) }),
 }));
 
-vi.mock("../../../services/templates/template-engine.js", () => ({
-  renderTemplate: vi.fn().mockReturnValue({ text: "rendered text" }),
-}));
-
 const mockCompleteTask = vi.fn();
 const mockSnoozeTask = vi.fn();
 vi.mock("../../tasks/tasks.service.js", () => ({
@@ -53,6 +49,26 @@ const mockUpdateDeliveryAttempt = vi.fn();
 vi.mock("../../notifications/notifications.repository.js", () => ({
   findPendingNotifications: (...args: unknown[]) => mockFindPendingNotifications(...args),
   updateDeliveryAttempt: (...args: unknown[]) => mockUpdateDeliveryAttempt(...args),
+}));
+
+// Mock inbound-handler — we test its integration, but also test it in isolation
+const mockHandleInboundMessage = vi.fn().mockResolvedValue({
+  action: "done",
+  success: true,
+  replyText: "Done!",
+});
+vi.mock("../inbound-handler.js", () => ({
+  handleInboundMessage: (...args: unknown[]) => mockHandleInboundMessage(...args),
+}));
+
+// Mock webhook-verify — verify separately, here we test routing
+const mockVerifyTelegram = vi.fn().mockReturnValue(true);
+const mockVerifyWhatsApp = vi.fn().mockReturnValue(true);
+const mockVerifySms = vi.fn().mockReturnValue(true);
+vi.mock("../webhook-verify.js", () => ({
+  verifyTelegramWebhook: (...args: unknown[]) => mockVerifyTelegram(...args),
+  verifyWhatsAppSignature: (...args: unknown[]) => mockVerifyWhatsApp(...args),
+  verifySmsWebhook: (...args: unknown[]) => mockVerifySms(...args),
 }));
 
 vi.mock("../../../middleware/logger.js", () => ({
@@ -85,7 +101,6 @@ function postJson(path: string, body: unknown) {
 }
 
 function setupUserLookup(userId: string | null) {
-  // resolveUserByChannel returns the channel row or empty
   const selectMock = vi.mocked(db.select);
   if (userId) {
     selectMock.mockReturnValue({
@@ -118,6 +133,10 @@ describe("Webhook Handler Routes", () => {
         where: vi.fn().mockResolvedValue(undefined),
       }),
     } as any);
+    // Default: all verification passes
+    mockVerifyTelegram.mockReturnValue(true);
+    mockVerifyWhatsApp.mockReturnValue(true);
+    mockVerifySms.mockReturnValue(true);
   });
 
   // ── Telegram Webhook ─────────────────────────────────────────────
@@ -217,7 +236,6 @@ describe("Webhook Handler Routes", () => {
     });
 
     it("returns success false when user not found for Telegram chat ID", async () => {
-      // Default mock returns empty array (no user)
       const res = await postJson("/telegram", {
         update_id: 6,
         callback_query: {
@@ -232,15 +250,91 @@ describe("Webhook Handler Routes", () => {
       expect(mockCompleteTask).not.toHaveBeenCalled();
     });
 
-    it("acknowledges non-callback_query updates with ok: true", async () => {
+    it("delegates plain text messages to inbound handler", async () => {
+      mockHandleInboundMessage.mockResolvedValue({
+        action: "done",
+        success: true,
+        replyText: "Done! 'Task' marked as complete.",
+      });
+
       const res = await postJson("/telegram", {
         update_id: 7,
-        message: { message_id: 1, from: { id: 123 }, text: "hello" },
+        message: {
+          message_id: 1,
+          from: { id: 12345 },
+          chat: { id: 12345 },
+          text: "DONE",
+        },
       });
       const body = await res.json();
 
       expect(res.status).toBe(200);
       expect(body.ok).toBe(true);
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "telegram",
+        "12345",
+        "DONE",
+      );
+    });
+
+    it("uses chat.id over from.id for text messages", async () => {
+      await postJson("/telegram", {
+        update_id: 8,
+        message: {
+          message_id: 2,
+          from: { id: 111 },
+          chat: { id: 222 },
+          text: "HELP",
+        },
+      });
+
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "telegram",
+        "222",
+        "HELP",
+      );
+    });
+
+    it("falls back to from.id when chat is not present", async () => {
+      await postJson("/telegram", {
+        update_id: 9,
+        message: {
+          message_id: 3,
+          from: { id: 333 },
+          text: "STOP",
+        },
+      });
+
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "telegram",
+        "333",
+        "STOP",
+      );
+    });
+
+    it("acknowledges non-callback, non-text updates with ok: true", async () => {
+      const res = await postJson("/telegram", {
+        update_id: 10,
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
+    });
+
+    it("returns ok when verification fails (no retries)", async () => {
+      mockVerifyTelegram.mockReturnValue(false);
+
+      const res = await postJson("/telegram", {
+        update_id: 11,
+        message: { message_id: 1, from: { id: 123 }, text: "DONE" },
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -248,7 +342,6 @@ describe("Webhook Handler Routes", () => {
 
   describe("POST /whatsapp", () => {
     it("handles DELIVERED delivery receipt", async () => {
-      // updateDeliveryByProviderId needs to find an attempt
       vi.mocked(db.select).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue([{
@@ -297,88 +390,75 @@ describe("Webhook Handler Routes", () => {
       );
     });
 
-    it("handles user reply DONE", async () => {
-      // First call: resolveUserByChannel
-      // Second call: findMostRecentNotifiedTask
-      let callCount = 0;
-      vi.mocked(db.select).mockImplementation(() => {
-        callCount += 1;
-        if (callCount === 1) {
-          return {
-            from: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue([{ userId: "user-1" }]),
-            }),
-          } as any;
-        }
-        return {
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-        } as any;
-      });
-
-      mockFindPendingNotifications.mockResolvedValue([{ taskId: "task-1" }]);
-      mockCompleteTask.mockResolvedValue({ id: "task-1", title: "Buy milk" });
-
+    it("delegates user reply to inbound handler", async () => {
       const res = await postJson("/whatsapp", {
         type: "message",
         payload: { sender: "+919876543210", text: "DONE" },
       });
 
       expect(res.status).toBe(200);
-      expect(mockCompleteTask).toHaveBeenCalledWith("user-1", "task-1");
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "whatsapp",
+        "+919876543210",
+        "DONE",
+      );
     });
 
-    it("handles user reply SNOOZE", async () => {
-      setupUserLookup("user-1");
-      mockFindPendingNotifications.mockResolvedValue([{ taskId: "task-1" }]);
-      mockSnoozeTask.mockResolvedValue({ id: "task-1", title: "Call Bob" });
-
-      const res = await postJson("/whatsapp", {
+    it("delegates SNOOZE with duration to inbound handler", async () => {
+      await postJson("/whatsapp", {
         type: "message",
-        payload: { sender: "+919876543210", text: "SNOOZE 30" },
+        payload: { sender: "+919876543210", text: "SNOOZE 1h" },
       });
 
-      expect(res.status).toBe(200);
-      expect(mockSnoozeTask).toHaveBeenCalledWith("user-1", "task-1", 30);
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "whatsapp",
+        "+919876543210",
+        "SNOOZE 1h",
+      );
     });
 
-    it("handles user reply STOP and disables channel", async () => {
-      setupUserLookup("user-1");
-
-      const res = await postJson("/whatsapp", {
+    it("delegates STOP to inbound handler", async () => {
+      await postJson("/whatsapp", {
         type: "message",
         payload: { sender: "+919876543210", text: "STOP" },
       });
 
-      expect(res.status).toBe(200);
-      expect(vi.mocked(db.update)).toHaveBeenCalled();
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "whatsapp",
+        "+919876543210",
+        "STOP",
+      );
     });
 
-    it("handles user reply HELP and sends help text", async () => {
-      setupUserLookup("user-1");
-
-      const res = await postJson("/whatsapp", {
+    it("delegates HELP to inbound handler", async () => {
+      await postJson("/whatsapp", {
         type: "message",
         payload: { sender: "+919876543210", text: "HELP" },
       });
 
-      expect(res.status).toBe(200);
-      // Adapter send should be called with help text
-      expect(mockAdapterSend).toHaveBeenCalled();
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "whatsapp",
+        "+919876543210",
+        "HELP",
+      );
     });
 
-    it("handles unknown command from user", async () => {
-      setupUserLookup("user-1");
-
-      const res = await postJson("/whatsapp", {
+    it("skips empty sender in user reply", async () => {
+      await postJson("/whatsapp", {
         type: "message",
-        payload: { sender: "+919876543210", text: "GIBBERISH" },
+        payload: { sender: "", text: "DONE" },
       });
 
-      expect(res.status).toBe(200);
-      // Should still respond with unknown command message
-      expect(mockAdapterSend).toHaveBeenCalled();
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
+    });
+
+    it("skips empty text in user reply", async () => {
+      await postJson("/whatsapp", {
+        type: "message",
+        payload: { sender: "+919876543210", text: "" },
+      });
+
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
     });
 
     it("returns ok when body has no type", async () => {
@@ -387,6 +467,20 @@ describe("Webhook Handler Routes", () => {
 
       expect(res.status).toBe(200);
       expect(body.ok).toBe(true);
+    });
+
+    it("returns ok when verification fails", async () => {
+      mockVerifyWhatsApp.mockReturnValue(false);
+
+      const res = await postJson("/whatsapp", {
+        type: "message",
+        payload: { sender: "+919876543210", text: "DONE" },
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -442,11 +536,7 @@ describe("Webhook Handler Routes", () => {
       );
     });
 
-    it("handles user reply DONE via SMS", async () => {
-      setupUserLookup("user-1");
-      mockFindPendingNotifications.mockResolvedValue([{ taskId: "task-5" }]);
-      mockCompleteTask.mockResolvedValue({ id: "task-5", title: "Send report" });
-
+    it("delegates user reply DONE to inbound handler", async () => {
       const res = await postJson("/sms", {
         type: "mo",
         sender: "+919876543210",
@@ -454,48 +544,88 @@ describe("Webhook Handler Routes", () => {
       });
 
       expect(res.status).toBe(200);
-      expect(mockCompleteTask).toHaveBeenCalledWith("user-1", "task-5");
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "sms",
+        "+919876543210",
+        "DONE",
+      );
     });
 
-    it("handles user reply SNOOZE via SMS", async () => {
-      setupUserLookup("user-1");
-      mockFindPendingNotifications.mockResolvedValue([{ taskId: "task-6" }]);
-      mockSnoozeTask.mockResolvedValue({ id: "task-6", title: "Review PR" });
-
-      const res = await postJson("/sms", {
+    it("delegates user reply SNOOZE to inbound handler", async () => {
+      await postJson("/sms", {
         type: "mo",
         sender: "+919876543210",
-        message: "SNOOZE",
+        message: "SNOOZE 30m",
       });
 
-      expect(res.status).toBe(200);
-      expect(mockSnoozeTask).toHaveBeenCalledWith("user-1", "task-6", 15);
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "sms",
+        "+919876543210",
+        "SNOOZE 30m",
+      );
     });
 
-    it("handles user reply STOP via SMS", async () => {
-      setupUserLookup("user-1");
-
-      const res = await postJson("/sms", {
+    it("delegates user reply STOP to inbound handler", async () => {
+      await postJson("/sms", {
         type: "mo",
         sender: "+919876543210",
         message: "STOP",
       });
 
-      expect(res.status).toBe(200);
-      expect(vi.mocked(db.update)).toHaveBeenCalled();
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "sms",
+        "+919876543210",
+        "STOP",
+      );
     });
 
-    it("handles user reply HELP via SMS", async () => {
-      setupUserLookup("user-1");
-
-      const res = await postJson("/sms", {
+    it("delegates user reply HELP to inbound handler", async () => {
+      await postJson("/sms", {
         type: "mo",
         sender: "+919876543210",
         message: "HELP",
       });
 
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "sms",
+        "+919876543210",
+        "HELP",
+      );
+    });
+
+    it("skips empty sender in user reply", async () => {
+      await postJson("/sms", {
+        type: "mo",
+        sender: "",
+        message: "DONE",
+      });
+
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
+    });
+
+    it("skips empty message in user reply", async () => {
+      await postJson("/sms", {
+        type: "mo",
+        sender: "+919876543210",
+        message: "",
+      });
+
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
+    });
+
+    it("returns ok when verification fails", async () => {
+      mockVerifySms.mockReturnValue(false);
+
+      const res = await postJson("/sms", {
+        type: "mo",
+        sender: "+919876543210",
+        message: "DONE",
+      });
+      const body = await res.json();
+
       expect(res.status).toBe(200);
-      expect(mockAdapterSend).toHaveBeenCalled();
+      expect(body.ok).toBe(true);
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -518,7 +648,7 @@ describe("Webhook Handler Routes", () => {
       });
 
       expect(res.status).toBe(200);
-      expect(mockCompleteTask).not.toHaveBeenCalled();
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
     });
 
     it("SMS: handles missing message in user reply gracefully", async () => {
@@ -529,18 +659,27 @@ describe("Webhook Handler Routes", () => {
       });
 
       expect(res.status).toBe(200);
-      expect(mockCompleteTask).not.toHaveBeenCalled();
+      expect(mockHandleInboundMessage).not.toHaveBeenCalled();
     });
 
     it("WhatsApp: no user found for sender phone returns ok without action", async () => {
-      // Default mock returns empty (no user)
+      mockHandleInboundMessage.mockResolvedValue({
+        action: "unlinked",
+        success: false,
+        replyText: null,
+      });
+
       const res = await postJson("/whatsapp", {
         type: "message",
         payload: { sender: "+910000000000", text: "DONE" },
       });
 
       expect(res.status).toBe(200);
-      expect(mockCompleteTask).not.toHaveBeenCalled();
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        "whatsapp",
+        "+910000000000",
+        "DONE",
+      );
     });
   });
 });

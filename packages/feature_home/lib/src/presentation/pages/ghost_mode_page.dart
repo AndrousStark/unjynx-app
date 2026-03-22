@@ -177,34 +177,48 @@ class _GhostModePageState extends ConsumerState<GhostModePage>
 
     return Stack(
       children: [
-        // Exit button -- top right, muted.
+        // Exit button -- top right, muted. 48dp touch target.
         Positioned(
           top: 16,
-          right: 20,
-          child: GestureDetector(
-            onTap: _exitGhostMode,
-            child: Text(
-              'Exit',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+          right: 12,
+          child: Semantics(
+            label: 'Exit Ghost Mode',
+            button: true,
+            child: GestureDetector(
+              onTap: _exitGhostMode,
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Center(
+                  child: Text(
+                    'Exit',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
 
-        // Progress indicator -- top left, very subtle.
+        // Progress indicator -- top left.
         Positioned(
           top: 20,
           left: 20,
-          child: Text(
-            '${_currentIndex + 1} / ${incompleteTasks.length}',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-              letterSpacing: 1,
+          child: Semantics(
+            label: 'Task ${_currentIndex + 1} of ${incompleteTasks.length}',
+            child: Text(
+              '${_currentIndex + 1} / ${incompleteTasks.length}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                letterSpacing: 1,
+              ),
             ),
           ),
         ),
@@ -484,18 +498,21 @@ class _CompletionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final ux = context.unjynx;
 
-    return GestureDetector(
-      onTap: isCompleting ? null : onTap,
-      child: AnimatedBuilder(
-        animation: shimmerAnimation,
-        builder: (context, child) {
-          final shimmerValue = shimmerAnimation.value;
-          final glowRadius = shimmerValue * 30;
-          final glowOpacity = (1.0 - shimmerValue) * 0.6;
+    return Semantics(
+      label: isCompleting ? 'Completing task' : 'Complete this task',
+      button: true,
+      child: GestureDetector(
+        onTap: isCompleting ? null : onTap,
+        child: AnimatedBuilder(
+          animation: shimmerAnimation,
+          builder: (context, child) {
+            final shimmerValue = shimmerAnimation.value;
+            final glowRadius = shimmerValue * 30;
+            final glowOpacity = (1.0 - shimmerValue) * 0.6;
 
-          return Container(
-            width: 80,
-            height: 80,
+            return Container(
+              width: 80,
+              height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -536,6 +553,7 @@ class _CompletionButton extends StatelessWidget {
           );
         },
       ),
+    ),
     );
   }
 }
@@ -556,18 +574,29 @@ class _ZenScreen extends StatelessWidget {
 
     return Stack(
       children: [
-        // Exit button.
+        // Exit button. 48dp touch target.
         Positioned(
           top: 16,
-          right: 20,
-          child: GestureDetector(
-            onTap: onExit,
-            child: Text(
-              'Done',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: ux.gold.withValues(alpha: 0.7),
+          right: 12,
+          child: Semantics(
+            label: 'Done, exit Ghost Mode',
+            button: true,
+            child: GestureDetector(
+              onTap: onExit,
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Center(
+                  child: Text(
+                    'Done',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: ux.gold.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -637,7 +666,7 @@ class _BreathingCircleState extends State<_BreathingCircle>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
+    );
 
     final curved = CurvedAnimation(
       parent: _controller,
@@ -646,6 +675,23 @@ class _BreathingCircleState extends State<_BreathingCircle>
 
     _scaleAnimation = Tween<double>(begin: 0.85, end: 1).animate(curved);
     _opacityAnimation = Tween<double>(begin: 0.3, end: 0.7).animate(curved);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Respect system reduce-motion preference.
+    final reduceMotion = accessibleDuration(
+      context,
+      const Duration(seconds: 1),
+    ) == Duration.zero;
+
+    if (reduceMotion) {
+      _controller.stop();
+      _controller.value = 1.0;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:feature_home/src/presentation/providers/home_providers.dart';
 import 'package:feature_home/src/presentation/widgets/activity_heatmap.dart';
+import 'package:feature_home/src/presentation/widgets/future_self_projection.dart';
 import 'package:feature_home/src/presentation/widgets/personal_bests_card.dart';
 import 'package:feature_home/src/presentation/widgets/progress_rings.dart';
 import 'package:feature_home/src/presentation/widgets/streak_counter.dart';
@@ -92,7 +93,11 @@ class ProgressHubPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 20),
 
-                      // 5. Personal Bests
+                      // 5. Future Self Projection (Retention Hook #8)
+                      const FutureSelfProjection(),
+                      const SizedBox(height: 20),
+
+                      // 6. Personal Bests
                       GestureDetector(
                         onTap: () => HapticFeedback.lightImpact(),
                         child: const PersonalBestsCard(),

@@ -39,18 +39,7 @@ class GameModePage extends ConsumerWidget {
               color: colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: isLight
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFF1A0533).withValues(alpha: 0.06),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                      BoxShadow(
-                        color: const Color(0xFF1A0533).withValues(alpha: 0.04),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
+                  ? context.unjynxShadow(UnjynxElevation.md)
                   : null,
             ),
             child: Padding(
@@ -126,20 +115,7 @@ class _ActiveChallengesSection extends ConsumerWidget {
                       color: colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: context.isLightMode
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFF1A0533)
-                                    .withValues(alpha: 0.06),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                              BoxShadow(
-                                color: const Color(0xFF1A0533)
-                                    .withValues(alpha: 0.04),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
+                          ? context.unjynxShadow(UnjynxElevation.md)
                           : null,
                     ),
                     child: Padding(

@@ -3,6 +3,8 @@ import { zValidator } from "@hono/zod-validator";
 import { authMiddleware } from "../../middleware/auth.js";
 import { ok, err } from "../../types/api.js";
 import {
+  connectPushSchema,
+  connectEmailSchema,
   connectTelegramSchema,
   connectPhoneSchema,
   connectInstagramSchema,
@@ -23,28 +25,28 @@ channelRoutes.get("/", async (c) => {
 });
 
 // ── POST /:type/connect — Connect a channel ─────────────────────────
-channelRoutes.post("/push/connect", async (c) => {
-  const auth = c.get("auth");
-  const body = (await c.req.json()) as { token?: string };
+channelRoutes.post(
+  "/push/connect",
+  zValidator("json", connectPushSchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const { token } = c.req.valid("json");
 
-  if (!body.token) {
-    return c.json(err("Push token is required"), 400);
-  }
-
-  try {
-    const channel = await channelService.connectChannel(
-      auth.profileId,
-      "push",
-      body.token,
-    );
-    return c.json(ok(channel), 201);
-  } catch (error) {
-    if (error instanceof ChannelError) {
-      return c.json(err(error.message), 400);
+    try {
+      const channel = await channelService.connectChannel(
+        auth.profileId,
+        "push",
+        token,
+      );
+      return c.json(ok(channel), 201);
+    } catch (error) {
+      if (error instanceof ChannelError) {
+        return c.json(err(error.message), 400);
+      }
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);
 
 channelRoutes.post(
   "/telegram/connect",
@@ -69,28 +71,28 @@ channelRoutes.post(
   },
 );
 
-channelRoutes.post("/email/connect", async (c) => {
-  const auth = c.get("auth");
-  const body = (await c.req.json()) as { email?: string };
+channelRoutes.post(
+  "/email/connect",
+  zValidator("json", connectEmailSchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const { email } = c.req.valid("json");
 
-  if (!body.email) {
-    return c.json(err("Email address is required"), 400);
-  }
-
-  try {
-    const channel = await channelService.connectChannel(
-      auth.profileId,
-      "email",
-      body.email,
-    );
-    return c.json(ok(channel), 201);
-  } catch (error) {
-    if (error instanceof ChannelError) {
-      return c.json(err(error.message), 400);
+    try {
+      const channel = await channelService.connectChannel(
+        auth.profileId,
+        "email",
+        email,
+      );
+      return c.json(ok(channel), 201);
+    } catch (error) {
+      if (error instanceof ChannelError) {
+        return c.json(err(error.message), 400);
+      }
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);
 
 channelRoutes.post(
   "/whatsapp/connect",
@@ -140,10 +142,23 @@ channelRoutes.post(
   },
 );
 
+// ── Valid Channel Types ──────────────────────────────────────────────
+const VALID_CHANNEL_TYPES = new Set([
+  "push", "telegram", "email", "whatsapp", "sms", "instagram", "slack", "discord",
+]);
+
+function validateChannelType(type: string): boolean {
+  return VALID_CHANNEL_TYPES.has(type);
+}
+
 // ── POST /:type/test — Send test message ─────────────────────────────
 channelRoutes.post("/:type/test", async (c) => {
   const auth = c.get("auth");
   const channelType = c.req.param("type");
+
+  if (!validateChannelType(channelType)) {
+    return c.json(err("Invalid channel type"), 400);
+  }
 
   try {
     const result = await channelService.testChannel(
@@ -163,6 +178,11 @@ channelRoutes.post("/:type/test", async (c) => {
 channelRoutes.delete("/:type", async (c) => {
   const auth = c.get("auth");
   const channelType = c.req.param("type");
+
+  if (!validateChannelType(channelType)) {
+    return c.json(err("Invalid channel type"), 400);
+  }
+
   const deleted = await channelService.disconnectChannel(
     auth.profileId,
     channelType,

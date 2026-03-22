@@ -4,9 +4,12 @@
 // SMS (MSG91). Each channel has its own POST endpoint.
 //
 // Routes:
-//   POST /api/v1/webhooks/telegram
-//   POST /api/v1/webhooks/whatsapp
-//   POST /api/v1/webhooks/sms
+//   POST /api/v1/webhooks/telegram  — callback queries + text messages
+//   POST /api/v1/webhooks/whatsapp  — Gupshup delivery + inbound
+//   POST /api/v1/webhooks/sms       — MSG91 delivery + inbound
+//
+// All endpoints are PUBLIC (no auth) but VERIFIED per provider.
+// Responses are always 200 OK (providers retry on non-2xx).
 
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
@@ -16,9 +19,14 @@ import {
   deliveryAttempts,
 } from "../../db/schema/index.js";
 import { getAdapter } from "../../services/channels/adapter-registry.js";
-import { renderTemplate } from "../../services/templates/template-engine.js";
 import * as taskService from "../tasks/tasks.service.js";
 import * as notificationRepo from "../notifications/notifications.repository.js";
+import { handleInboundMessage } from "./inbound-handler.js";
+import {
+  verifyTelegramWebhook,
+  verifyWhatsAppSignature,
+  verifySmsWebhook,
+} from "./webhook-verify.js";
 import { logger } from "../../middleware/logger.js";
 
 const log = logger.child({ module: "webhook-handler" });
@@ -31,32 +39,64 @@ const SNOOZE_DEFAULT_MINUTES = 15;
 const VALID_SNOOZE_MINUTES = [5, 10, 15, 30, 60, 120] as const;
 
 // ── Telegram Webhook ────────────────────────────────────────────────
-// Handles inline keyboard callback queries from Telegram.
-// Callback data format:
-//   DONE:{taskId}
-//   SNOOZE:{taskId}:{minutes}
+// Handles two update types:
+//   1. callback_query — inline button presses (DONE:{taskId}, SNOOZE:{taskId}:{min})
+//   2. message.text   — plain text replies (DONE, SNOOZE 1h, STOP, HELP)
 
 webhookRoutes.post("/telegram", async (c) => {
-  const body = await c.req.json() as TelegramWebhookPayload;
-
-  // Telegram sends different update types — we handle callback_query
-  if (body.callback_query) {
-    const result = await handleTelegramCallback(body.callback_query);
-    // Telegram expects 200 OK regardless of result
-    return c.json({ ok: true, result });
+  if (!verifyTelegramWebhook(c)) {
+    // Return 200 even on verification failure to avoid Telegram retries
+    log.warn("Telegram webhook rejected: verification failed");
+    return c.json({ ok: true });
   }
 
-  // Acknowledge other update types (messages, etc.) without processing
+  const body = (await c.req.json()) as TelegramWebhookPayload;
+
+  try {
+    // Priority 1: Inline keyboard callback
+    if (body.callback_query) {
+      const result = await handleTelegramCallback(body.callback_query);
+      return c.json({ ok: true, result });
+    }
+
+    // Priority 2: Plain text message reply
+    if (body.message?.text) {
+      const chatId = String(
+        body.message.chat?.id ?? body.message.from.id,
+      );
+      const result = await handleInboundMessage(
+        "telegram",
+        chatId,
+        body.message.text,
+      );
+      return c.json({ ok: true, result });
+    }
+  } catch (error) {
+    log.error(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      "Telegram webhook processing error",
+    );
+  }
+
+  // Acknowledge all other update types
   return c.json({ ok: true });
 });
 
 // ── WhatsApp Webhook (Gupshup) ──────────────────────────────────────
 // Handles delivery receipts and incoming user replies.
 // Gupshup sends events via POST with JSON body.
-// User replies: "DONE", "SNOOZE", "SNOOZE 30", "STOP"
+// User replies: "DONE", "COMPLETE", "SNOOZE 1h", "STOP", "HELP", "?"
 
 webhookRoutes.post("/whatsapp", async (c) => {
-  const body = await c.req.json() as GupshupWebhookPayload;
+  // Read raw body once for signature verification, then parse as JSON
+  const rawBody = await c.req.text();
+
+  if (!verifyWhatsAppSignature(c, rawBody)) {
+    log.warn("WhatsApp webhook rejected: verification failed");
+    return c.json({ ok: true });
+  }
+
+  const body = JSON.parse(rawBody) as GupshupWebhookPayload;
 
   if (!body.type) {
     return c.json({ ok: true });
@@ -67,8 +107,13 @@ webhookRoutes.post("/whatsapp", async (c) => {
       // Delivery receipt (delivered, read, failed)
       await handleWhatsAppDeliveryReceipt(body);
     } else if (body.type === "message") {
-      // Incoming user reply
-      await handleWhatsAppUserReply(body);
+      // Incoming user reply — delegate to inbound handler
+      const senderPhone = body.payload?.sender ?? "";
+      const messageText = (body.payload?.text ?? "").trim();
+
+      if (senderPhone && messageText) {
+        await handleInboundMessage("whatsapp", senderPhone, messageText);
+      }
     }
   } catch (error) {
     log.error(
@@ -83,18 +128,28 @@ webhookRoutes.post("/whatsapp", async (c) => {
 // ── SMS Webhook (MSG91) ─────────────────────────────────────────────
 // Handles delivery receipts and incoming SMS replies.
 // MSG91 delivery receipts come as POST with JSON body.
-// User replies: "DONE", "SNOOZE", "SNOOZE 30", "STOP", "HELP"
+// User replies: "DONE", "FINISHED", "SNOOZE 30m", "STOP", "HELP"
 
 webhookRoutes.post("/sms", async (c) => {
-  const body = await c.req.json() as Msg91WebhookPayload;
+  if (!verifySmsWebhook(c)) {
+    log.warn("SMS webhook rejected: verification failed");
+    return c.json({ ok: true });
+  }
+
+  const body = (await c.req.json()) as Msg91WebhookPayload;
 
   try {
     if (body.type === "dlr") {
       // Delivery receipt
       await handleSmsDeliveryReceipt(body);
     } else if (body.type === "mo") {
-      // Mobile Originated (incoming reply)
-      await handleSmsUserReply(body);
+      // Mobile Originated (incoming reply) — delegate to inbound handler
+      const senderPhone = body.sender ?? "";
+      const messageText = (body.message ?? "").trim();
+
+      if (senderPhone && messageText) {
+        await handleInboundMessage("sms", senderPhone, messageText);
+      }
     }
   } catch (error) {
     log.error(
@@ -107,20 +162,19 @@ webhookRoutes.post("/sms", async (c) => {
 });
 
 // ── Telegram Callback Handler ───────────────────────────────────────
+// Handles inline keyboard button presses (structured callback_data).
+// These have taskId embedded in the data, unlike text replies.
 
 async function handleTelegramCallback(
   callbackQuery: TelegramCallbackQuery,
 ): Promise<{ readonly action: string; readonly success: boolean }> {
-  const { data, from, message } = callbackQuery;
+  const { data, from } = callbackQuery;
 
   if (!data) {
     return { action: "unknown", success: false };
   }
 
-  log.info(
-    { chatId: from.id, data },
-    "Telegram callback received",
-  );
+  log.info({ chatId: from.id, data }, "Telegram callback received");
 
   // Parse callback data: "ACTION:taskId" or "ACTION:taskId:param"
   const parts = data.split(":");
@@ -132,12 +186,23 @@ async function handleTelegramCallback(
   }
 
   // Look up the user by their Telegram chat ID
-  const userId = await resolveUserByChannel("telegram", String(from.id));
+  const chatId = String(from.id);
+  const result = await resolveAndExecuteCallback(chatId, action, taskId, parts);
+  return result;
+}
+
+async function resolveAndExecuteCallback(
+  chatId: string,
+  action: string | undefined,
+  taskId: string,
+  parts: readonly string[],
+): Promise<{ readonly action: string; readonly success: boolean }> {
+  const userId = await resolveUserFromTelegram(chatId);
 
   if (!userId) {
-    log.warn({ chatId: from.id }, "No user found for Telegram chat ID");
-    await sendTelegramReply(
-      String(from.id),
+    log.warn({ chatId }, "No user found for Telegram chat ID");
+    await sendTelegramCallbackReply(
+      chatId,
       "Your Telegram account is not linked to UNJYNX. Connect it in the app first.",
     );
     return { action: action ?? "unknown", success: false };
@@ -147,31 +212,39 @@ async function handleTelegramCallback(
     case "DONE": {
       const task = await taskService.completeTask(userId, taskId);
       if (task) {
-        await sendTelegramReply(
-          String(from.id),
+        await sendTelegramCallbackReply(
+          chatId,
           `Done! '${task.title}' marked as complete. Keep it up!`,
         );
         return { action: "DONE", success: true };
       }
-      await sendTelegramReply(String(from.id), "Task not found or already completed.");
+      await sendTelegramCallbackReply(
+        chatId,
+        "Task not found or already completed.",
+      );
       return { action: "DONE", success: false };
     }
 
     case "SNOOZE": {
-      const minutes = parseInt(parts[2] ?? String(SNOOZE_DEFAULT_MINUTES), 10);
-      const safeMinutes = VALID_SNOOZE_MINUTES.includes(minutes as typeof VALID_SNOOZE_MINUTES[number])
+      const minutes = parseInt(
+        parts[2] ?? String(SNOOZE_DEFAULT_MINUTES),
+        10,
+      );
+      const safeMinutes = VALID_SNOOZE_MINUTES.includes(
+        minutes as (typeof VALID_SNOOZE_MINUTES)[number],
+      )
         ? minutes
         : SNOOZE_DEFAULT_MINUTES;
 
       const task = await taskService.snoozeTask(userId, taskId, safeMinutes);
       if (task) {
-        await sendTelegramReply(
-          String(from.id),
+        await sendTelegramCallbackReply(
+          chatId,
           `Snoozed '${task.title}' for ${safeMinutes} minutes.`,
         );
         return { action: "SNOOZE", success: true };
       }
-      await sendTelegramReply(String(from.id), "Task not found.");
+      await sendTelegramCallbackReply(chatId, "Task not found.");
       return { action: "SNOOZE", success: false };
     }
 
@@ -180,7 +253,7 @@ async function handleTelegramCallback(
   }
 }
 
-// ── WhatsApp Handlers ───────────────────────────────────────────────
+// ── WhatsApp Delivery Receipt Handler ───────────────────────────────
 
 async function handleWhatsAppDeliveryReceipt(
   payload: GupshupWebhookPayload,
@@ -191,7 +264,6 @@ async function handleWhatsAppDeliveryReceipt(
 
   log.debug({ gsId, eventType }, "WhatsApp delivery receipt");
 
-  // Map Gupshup event types to our delivery statuses
   const statusMap: Record<string, string> = {
     DELIVERED: "delivered",
     READ: "read",
@@ -202,34 +274,10 @@ async function handleWhatsAppDeliveryReceipt(
   const newStatus = statusMap[eventType ?? ""] ?? null;
   if (!newStatus) return;
 
-  // Update delivery attempt by provider message ID
   await updateDeliveryByProviderId(gsId, newStatus);
 }
 
-async function handleWhatsAppUserReply(
-  payload: GupshupWebhookPayload,
-): Promise<void> {
-  const messageText = (payload.payload?.text ?? "").trim().toUpperCase();
-  const senderPhone = payload.payload?.sender ?? "";
-
-  if (!senderPhone || !messageText) return;
-
-  log.info({ sender: senderPhone, message: messageText }, "WhatsApp reply received");
-
-  const userId = await resolveUserByChannel("whatsapp", senderPhone);
-  if (!userId) {
-    log.warn({ sender: senderPhone }, "No user found for WhatsApp number");
-    return;
-  }
-
-  const result = await processTextReply(userId, messageText, "whatsapp", senderPhone);
-
-  if (result.replyText) {
-    await sendChannelReply("whatsapp", senderPhone, result.replyText);
-  }
-}
-
-// ── SMS Handlers ────────────────────────────────────────────────────
+// ── SMS Delivery Receipt Handler ────────────────────────────────────
 
 async function handleSmsDeliveryReceipt(
   payload: Msg91WebhookPayload,
@@ -253,132 +301,9 @@ async function handleSmsDeliveryReceipt(
   await updateDeliveryByProviderId(requestId, newStatus);
 }
 
-async function handleSmsUserReply(
-  payload: Msg91WebhookPayload,
-): Promise<void> {
-  const messageText = (payload.message ?? "").trim().toUpperCase();
-  const senderPhone = payload.sender ?? "";
+// ── Helper: Resolve Telegram User ───────────────────────────────────
 
-  if (!senderPhone || !messageText) return;
-
-  log.info({ sender: senderPhone, message: messageText }, "SMS reply received");
-
-  const userId = await resolveUserByChannel("sms", senderPhone);
-  if (!userId) {
-    log.warn({ sender: senderPhone }, "No user found for SMS number");
-    return;
-  }
-
-  const result = await processTextReply(userId, messageText, "sms", senderPhone);
-
-  if (result.replyText) {
-    await sendChannelReply("sms", senderPhone, result.replyText);
-  }
-}
-
-// ── Generic Text Reply Processor ────────────────────────────────────
-// Handles DONE, SNOOZE, STOP, HELP commands from WhatsApp and SMS.
-
-interface TextReplyResult {
-  readonly action: string;
-  readonly success: boolean;
-  readonly replyText: string | null;
-}
-
-async function processTextReply(
-  userId: string,
-  messageText: string,
-  channel: string,
-  senderIdentifier: string,
-): Promise<TextReplyResult> {
-  const parts = messageText.split(/\s+/);
-  const command = parts[0];
-
-  switch (command) {
-    case "DONE": {
-      // Mark the most recent notified task as complete
-      const recentTask = await findMostRecentNotifiedTask(userId);
-      if (recentTask) {
-        const task = await taskService.completeTask(userId, recentTask.taskId);
-        if (task) {
-          return {
-            action: "DONE",
-            success: true,
-            replyText: `Done! '${task.title}' marked as complete.`,
-          };
-        }
-      }
-      return {
-        action: "DONE",
-        success: false,
-        replyText: "No recent task found to complete. Open the app to manage your tasks.",
-      };
-    }
-
-    case "SNOOZE": {
-      const minutes = parseInt(parts[1] ?? String(SNOOZE_DEFAULT_MINUTES), 10);
-      const safeMinutes = isNaN(minutes) || minutes < 1 || minutes > 1440
-        ? SNOOZE_DEFAULT_MINUTES
-        : minutes;
-
-      const recentTask = await findMostRecentNotifiedTask(userId);
-      if (recentTask) {
-        const task = await taskService.snoozeTask(userId, recentTask.taskId, safeMinutes);
-        if (task) {
-          return {
-            action: "SNOOZE",
-            success: true,
-            replyText: `Snoozed '${task.title}' for ${safeMinutes} minutes.`,
-          };
-        }
-      }
-      return {
-        action: "SNOOZE",
-        success: false,
-        replyText: "No recent task found to snooze.",
-      };
-    }
-
-    case "STOP": {
-      // Disable the channel for this user
-      await disableUserChannel(userId, channel);
-      return {
-        action: "STOP",
-        success: true,
-        replyText: `${channel.charAt(0).toUpperCase() + channel.slice(1)} notifications disabled. You can re-enable them in the UNJYNX app.`,
-      };
-    }
-
-    case "HELP": {
-      return {
-        action: "HELP",
-        success: true,
-        replyText: [
-          "UNJYNX Commands:",
-          "DONE - Complete your most recent task",
-          "SNOOZE - Snooze for 15 min (or SNOOZE 30)",
-          "STOP - Disable notifications on this channel",
-          "HELP - Show this message",
-        ].join("\n"),
-      };
-    }
-
-    default:
-      return {
-        action: "unknown",
-        success: false,
-        replyText: "Unknown command. Reply HELP for available commands.",
-      };
-  }
-}
-
-// ── Helper: Resolve User by Channel ─────────────────────────────────
-// Looks up which user owns a particular channel identifier.
-
-async function resolveUserByChannel(
-  channelType: string,
-  identifier: string,
-): Promise<string | null> {
+async function resolveUserFromTelegram(chatId: string): Promise<string | null> {
   const [channel] = await db
     .select()
     .from(notificationChannels)
@@ -386,9 +311,9 @@ async function resolveUserByChannel(
       and(
         eq(
           notificationChannels.channelType,
-          channelType as typeof notificationChannels.channelType.enumValues[number],
+          "telegram" as typeof notificationChannels.channelType.enumValues[number],
         ),
-        eq(notificationChannels.channelIdentifier, identifier),
+        eq(notificationChannels.channelIdentifier, chatId),
         eq(notificationChannels.isEnabled, true),
       ),
     );
@@ -396,44 +321,7 @@ async function resolveUserByChannel(
   return channel?.userId ?? null;
 }
 
-// ── Helper: Find Most Recent Notified Task ──────────────────────────
-// Returns the taskId from the most recent notification sent to this user.
-
-async function findMostRecentNotifiedTask(
-  userId: string,
-): Promise<{ readonly taskId: string } | null> {
-  const recent = await notificationRepo.findPendingNotifications(userId, 1);
-
-  if (recent.length === 0 || !recent[0].taskId) {
-    return null;
-  }
-
-  return { taskId: recent[0].taskId };
-}
-
-// ── Helper: Disable User Channel ────────────────────────────────────
-
-async function disableUserChannel(
-  userId: string,
-  channelType: string,
-): Promise<void> {
-  await db
-    .update(notificationChannels)
-    .set({ isEnabled: false, updatedAt: new Date() })
-    .where(
-      and(
-        eq(notificationChannels.userId, userId),
-        eq(
-          notificationChannels.channelType,
-          channelType as typeof notificationChannels.channelType.enumValues[number],
-        ),
-      ),
-    );
-
-  log.info({ userId, channelType }, "Channel disabled via STOP command");
-}
-
-// ── Helper: Update Delivery Attempt by Provider Message ID ──────────
+// ── Helper: Update Delivery Attempt ─────────────────────────────────
 
 async function updateDeliveryByProviderId(
   providerMessageId: string,
@@ -445,12 +333,21 @@ async function updateDeliveryByProviderId(
     .where(eq(deliveryAttempts.providerMessageId, providerMessageId));
 
   if (!attempt) {
-    log.debug({ providerMessageId }, "No delivery attempt found for provider message ID");
+    log.debug(
+      { providerMessageId },
+      "No delivery attempt found for provider message ID",
+    );
     return;
   }
 
   const updates: Record<string, unknown> = {
-    status: status as "pending" | "queued" | "sent" | "delivered" | "read" | "failed",
+    status: status as
+      | "pending"
+      | "queued"
+      | "sent"
+      | "delivered"
+      | "read"
+      | "failed",
     updatedAt: new Date(),
   };
 
@@ -468,9 +365,9 @@ async function updateDeliveryByProviderId(
   await notificationRepo.updateDeliveryAttempt(attempt.id, updates);
 }
 
-// ── Helper: Send Reply via Channel Adapter ──────────────────────────
+// ── Helper: Send Telegram Reply (for callback_query) ────────────────
 
-async function sendTelegramReply(
+async function sendTelegramCallbackReply(
   chatId: string,
   text: string,
 ): Promise<void> {
@@ -482,30 +379,12 @@ async function sendTelegramReply(
   } catch (error) {
     log.error(
       { chatId, error: error instanceof Error ? error.message : "Unknown" },
-      "Failed to send Telegram reply",
+      "Failed to send Telegram callback reply",
     );
   }
 }
 
-async function sendChannelReply(
-  channel: string,
-  recipient: string,
-  text: string,
-): Promise<void> {
-  const adapter = getAdapter(channel);
-  if (!adapter) return;
-
-  try {
-    await adapter.send(recipient, { text });
-  } catch (error) {
-    log.error(
-      { channel, recipient, error: error instanceof Error ? error.message : "Unknown" },
-      "Failed to send channel reply",
-    );
-  }
-}
-
-// ── Telegram Types (minimal subset for webhook) ─────────────────────
+// ── Telegram Types ──────────────────────────────────────────────────
 
 interface TelegramWebhookPayload {
   readonly update_id: number;
@@ -513,6 +392,7 @@ interface TelegramWebhookPayload {
   readonly message?: {
     readonly message_id: number;
     readonly from: { readonly id: number };
+    readonly chat?: { readonly id: number };
     readonly text?: string;
   };
 }

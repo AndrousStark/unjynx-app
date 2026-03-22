@@ -369,6 +369,7 @@ class _PomodoroPageState extends ConsumerState<PomodoroPage>
               Icons.arrow_back_rounded,
               color: colorScheme.onSurfaceVariant,
             ),
+            tooltip: 'Go back',
           ),
           Expanded(
             child: Text(

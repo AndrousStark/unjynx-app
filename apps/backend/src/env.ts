@@ -34,6 +34,14 @@ const envSchema = z.object({
   // Billing (RevenueCat)
   REVENUECAT_WEBHOOK_SECRET: z.string().default("rc_webhook_secret_dev"),
 
+  // Channel Providers
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
+  GUPSHUP_API_KEY: z.string().optional(),
+  GUPSHUP_WEBHOOK_SECRET: z.string().optional(),
+  MSG91_AUTH_KEY: z.string().optional(),
+  MSG91_WEBHOOK_TOKEN: z.string().optional(),
+
   // Google Calendar Integration
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

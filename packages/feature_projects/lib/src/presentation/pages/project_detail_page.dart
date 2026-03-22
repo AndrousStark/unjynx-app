@@ -71,6 +71,7 @@ class ProjectDetailPage extends ConsumerWidget {
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Edit project',
                 onPressed: () {
                   HapticFeedback.lightImpact();
                   _showEditSheet(context, ref);

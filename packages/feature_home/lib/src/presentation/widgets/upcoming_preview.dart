@@ -95,8 +95,10 @@ class _UpcomingCard extends StatelessWidget {
       child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        // Light: white bg with subtle purple border; Dark: surfaceContainer
-        color: isLight ? Colors.white : colorScheme.surfaceContainer,
+        // Light: surfaceContainerLowest with subtle purple border; Dark: surfaceContainer
+        color: isLight
+            ? colorScheme.surfaceContainerLowest
+            : colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
         border: isLight
             ? Border.all(
@@ -287,7 +289,9 @@ class _UpcomingShimmer extends StatelessWidget {
           Container(
             height: 44,
             decoration: BoxDecoration(
-              color: isLight ? Colors.white : colorScheme.surface,
+              color: isLight
+                  ? colorScheme.surfaceContainerLowest
+                  : colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
               border: isLight
                   ? Border.all(

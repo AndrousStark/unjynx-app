@@ -34,6 +34,7 @@ export 'theme/unjynx_typography.dart';
 export 'src/security/device_integrity.dart';
 
 // Utils
+export 'utils/accessibility_utils.dart';
 export 'utils/color_utils.dart';
 export 'utils/priority_utils.dart';
 export 'utils/result.dart';

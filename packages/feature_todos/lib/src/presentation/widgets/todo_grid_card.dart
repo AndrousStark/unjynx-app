@@ -94,18 +94,24 @@ class TodoGridCard extends StatelessWidget {
                       color: colorScheme.primary,
                     )
                   else
-                    GestureDetector(
-                      onTap: onComplete == null
-                          ? null
-                          : () {
-                              HapticFeedback.selectionClick();
-                              onComplete!();
-                            },
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Center(
-                          child: Container(
+                    Semantics(
+                      label: isCompleted
+                          ? 'Mark task incomplete'
+                          : 'Mark task complete',
+                      button: true,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onComplete == null
+                            ? null
+                            : () {
+                                HapticFeedback.selectionClick();
+                                onComplete!();
+                              },
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Center(
+                            child: Container(
                             width: 20,
                             height: 20,
                             decoration: BoxDecoration(
@@ -129,6 +135,7 @@ class TodoGridCard extends StatelessWidget {
                                     color: isLight ? ux.gold : ux.success,
                                   )
                                 : null,
+                            ),
                           ),
                         ),
                       ),

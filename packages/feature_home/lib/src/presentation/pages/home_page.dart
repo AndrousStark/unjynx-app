@@ -1,8 +1,11 @@
 import 'package:feature_home/src/presentation/providers/home_providers.dart';
+import 'package:feature_home/src/presentation/widgets/completion_momentum_card.dart';
 import 'package:feature_home/src/presentation/widgets/daily_content_card.dart';
 import 'package:feature_home/src/presentation/widgets/greeting_bar.dart';
 import 'package:feature_home/src/presentation/widgets/progress_rings.dart';
 import 'package:feature_home/src/presentation/widgets/quick_actions_row.dart';
+import 'package:feature_home/src/presentation/widgets/social_proof_counter.dart';
+import 'package:feature_home/src/presentation/widgets/streak_at_risk_banner.dart';
 import 'package:feature_home/src/presentation/widgets/today_tasks_section.dart';
 import 'package:feature_home/src/presentation/widgets/upcoming_preview.dart';
 import 'package:flutter/material.dart';
@@ -45,16 +48,29 @@ class HomePage extends ConsumerWidget {
                   children: const [
                     GreetingBar(),
                     SizedBox(height: 24),
+
+                    // Retention Hook #1: Streak at risk (after 6 PM).
+                    StreakAtRiskBanner(),
+
                     ProgressRings(),
                     SizedBox(height: 20),
                     DailyContentCard(),
                     SizedBox(height: 20),
                     QuickActionsRow(),
                     SizedBox(height: 24),
+
+                    // Retention Hook #5: Completion momentum.
+                    CompletionMomentumCard(),
+
                     TodayTasksSection(),
                     SizedBox(height: 24),
                     UpcomingPreview(),
-                    SizedBox(height: 32),
+                    SizedBox(height: 16),
+
+                    // Retention Hook #9: Social proof counter.
+                    SocialProofCounter(),
+
+                    SizedBox(height: 16),
                   ],
                 ),
               ),

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:unjynx_core/core.dart';
 
 /// A calming text widget that gently pulses in scale and opacity,
 /// mimicking a breathing rhythm.
 ///
 /// Used in Ghost Mode to reinforce a sense of calm focus.
 /// The animation cycle is 3 seconds with smooth ease-in-out curves.
+///
+/// Respects the system "reduce motion" preference: when active, the text
+/// is rendered at full opacity with no animation.
 class BreathingText extends StatefulWidget {
   const BreathingText({
     required this.text,
@@ -39,7 +43,7 @@ class _BreathingTextState extends State<BreathingText>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
+    );
 
     final curved = CurvedAnimation(
       parent: _controller,
@@ -51,6 +55,23 @@ class _BreathingTextState extends State<BreathingText>
 
     // Opacity pulse: 0.7 -> 1.0
     _opacityAnimation = Tween<double>(begin: 0.7, end: 1).animate(curved);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Start or stop animation based on reduce-motion setting.
+    final reduceMotion = accessibleDuration(
+      context,
+      const Duration(seconds: 1),
+    ) == Duration.zero;
+
+    if (reduceMotion) {
+      _controller.stop();
+      _controller.value = 1.0; // Full opacity, no pulse.
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
   }
 
   @override

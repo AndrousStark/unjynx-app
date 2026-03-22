@@ -171,20 +171,7 @@ class _BillingContent extends ConsumerWidget {
                   .withValues(alpha: isLight ? 0.06 : 0.08),
               borderRadius: BorderRadius.circular(16),
               boxShadow: isLight
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFF1A0533)
-                            .withValues(alpha: 0.06),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                      BoxShadow(
-                        color: const Color(0xFF1A0533)
-                            .withValues(alpha: 0.04),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
+                  ? context.unjynxShadow(UnjynxElevation.md)
                   : null,
             ),
             child: Row(
@@ -273,20 +260,7 @@ class _AnnualSavingsBanner extends StatelessWidget {
             ? Border.all(color: ux.success.withValues(alpha: 0.3))
             : null,
         boxShadow: isLight
-            ? [
-                BoxShadow(
-                  color:
-                      const Color(0xFF1A0533).withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color:
-                      const Color(0xFF1A0533).withValues(alpha: 0.04),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ]
+            ? UnjynxShadows.lightMd
             : null,
       ),
       child: Row(

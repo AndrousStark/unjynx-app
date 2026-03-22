@@ -61,6 +61,7 @@ class _NotificationHistoryPageState
                         Icons.arrow_back_rounded,
                         color: colorScheme.onSurface,
                       ),
+                      tooltip: 'Go back',
                     ),
                     const SizedBox(width: 4),
                     Expanded(

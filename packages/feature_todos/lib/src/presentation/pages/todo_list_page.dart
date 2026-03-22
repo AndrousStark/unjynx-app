@@ -170,6 +170,7 @@ class _TodoListPageState extends ConsumerState<TodoListPage> {
       return AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
+          tooltip: 'Exit selection mode',
           onPressed: () {
             HapticFeedback.lightImpact();
             _clearSelection();
@@ -205,6 +206,7 @@ class _TodoListPageState extends ConsumerState<TodoListPage> {
       actions: [
         IconButton(
           icon: Icon(_isSearching ? Icons.close : Icons.search),
+          tooltip: _isSearching ? 'Close search' : 'Search tasks',
           onPressed: () {
             HapticFeedback.lightImpact();
             _toggleSearch();
@@ -428,6 +430,7 @@ class _TaskCountHeader extends StatelessWidget {
               children: [
                 _ViewToggleButton(
                   icon: Icons.view_list_rounded,
+                  semanticLabel: 'List view',
                   isActive: viewMode == TaskViewMode.list,
                   onTap: () {
                     HapticFeedback.selectionClick();
@@ -436,6 +439,7 @@ class _TaskCountHeader extends StatelessWidget {
                 ),
                 _ViewToggleButton(
                   icon: Icons.grid_view_rounded,
+                  semanticLabel: 'Grid view',
                   isActive: viewMode == TaskViewMode.grid,
                   onTap: () {
                     HapticFeedback.selectionClick();
@@ -454,11 +458,13 @@ class _TaskCountHeader extends StatelessWidget {
 class _ViewToggleButton extends StatelessWidget {
   const _ViewToggleButton({
     required this.icon,
+    required this.semanticLabel,
     required this.isActive,
     required this.onTap,
   });
 
   final IconData icon;
+  final String semanticLabel;
   final bool isActive;
   final VoidCallback onTap;
 
@@ -467,22 +473,31 @@ class _ViewToggleButton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isLight = context.isLightMode;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? colorScheme.primary.withValues(alpha: isLight ? 0.12 : 0.2)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: isActive
-              ? colorScheme.primary
-              : colorScheme.onSurfaceVariant,
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      selected: isActive,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? colorScheme.primary.withValues(alpha: isLight ? 0.12 : 0.2)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: isActive
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:feature_home/src/presentation/providers/home_providers.dart';
+import 'package:feature_home/src/presentation/utils/share_content_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -229,25 +230,10 @@ class _HeroContentCardState extends ConsumerState<_HeroContentCard> {
     });
   }
 
-  void _share() {
-    HapticFeedback.lightImpact();
-    final colorScheme = Theme.of(context).colorScheme;
-    final content = widget.content;
-    final text = '\u201C${content.content}\u201D\n\n'
-        '\u2014 ${content.author}'
-        '${content.source != null ? ', ${content.source}' : ''}\n\n'
-        'Shared via UNJYNX';
-
-    Clipboard.setData(ClipboardData(text: text));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Quote copied to clipboard'),
-          duration: const Duration(seconds: 2),
-          backgroundColor: colorScheme.surfaceContainerHigh,
-        ),
-      );
-    }
+  Future<void> _share() async {
+    await HapticFeedback.mediumImpact();
+    if (!mounted) return;
+    await shareContentCard(context, widget.content);
   }
 
   @override
@@ -265,7 +251,7 @@ class _HeroContentCardState extends ConsumerState<_HeroContentCard> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isLight
-              ? [Colors.white, const Color(0xFFF0EAFC)]
+              ? [colorScheme.surfaceContainerLowest, const Color(0xFFF0EAFC)]
               : [ux.deepPurple, colorScheme.surface],
         ),
         borderRadius: BorderRadius.circular(24),
@@ -344,7 +330,7 @@ class _HeroContentCardState extends ConsumerState<_HeroContentCard> {
                 ),
               ),
 
-              // Save button.
+              // Save button (48dp touch target).
               IconButton(
                 icon: Icon(
                   _isSaved ? Icons.favorite : Icons.favorite_outline,
@@ -356,11 +342,11 @@ class _HeroContentCardState extends ConsumerState<_HeroContentCard> {
                 onPressed: _toggleSave,
                 padding: EdgeInsets.zero,
                 constraints:
-                    const BoxConstraints(minWidth: 40, minHeight: 40),
-                tooltip: _isSaved ? 'Unsave' : 'Save',
+                    const BoxConstraints(minWidth: 48, minHeight: 48),
+                tooltip: _isSaved ? 'Unsave quote' : 'Save quote',
               ),
 
-              // Share button.
+              // Share button (48dp touch target).
               IconButton(
                 icon: Icon(
                   Icons.share_outlined,
@@ -370,8 +356,8 @@ class _HeroContentCardState extends ConsumerState<_HeroContentCard> {
                 onPressed: _share,
                 padding: EdgeInsets.zero,
                 constraints:
-                    const BoxConstraints(minWidth: 40, minHeight: 40),
-                tooltip: 'Share',
+                    const BoxConstraints(minWidth: 48, minHeight: 48),
+                tooltip: 'Share quote',
               ),
             ],
           ),

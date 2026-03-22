@@ -2,6 +2,20 @@ import { z } from "zod";
 
 // ── Channel Connection Schemas ───────────────────────────────────────
 
+export const connectPushSchema = z.object({
+  token: z
+    .string()
+    .min(1, "Push token is required")
+    .max(512, "Push token too long"),
+});
+
+export const connectEmailSchema = z.object({
+  email: z
+    .string()
+    .email("Invalid email address")
+    .max(320, "Email address too long"),
+});
+
 export const connectTelegramSchema = z.object({
   token: z.string().min(1, "Telegram token is required"),
 });

@@ -1,4 +1,5 @@
 import 'package:feature_home/src/presentation/providers/home_providers.dart';
+import 'package:feature_home/src/presentation/utils/share_content_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -85,36 +86,9 @@ class _ContentCardState extends ConsumerState<_ContentCard> {
   }
 
   Future<void> _share() async {
-    HapticFeedback.lightImpact();
-    final content = widget.content;
-    final text = '\u201C${content.content}\u201D\n\n'
-        '\u2014 ${content.author}'
-        '${content.source != null ? ', ${content.source}' : ''}\n\n'
-        'Shared via UNJYNX';
-
-    // Copy to clipboard and show confirmation snackbar.
-    // Note: share_plus integration deferred until added as a dependency.
-    await Clipboard.setData(ClipboardData(text: text));
-    if (mounted) {
-      final colorScheme = Theme.of(context).colorScheme;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-              SizedBox(width: 8),
-              Text('Quote copied — paste anywhere to share'),
-            ],
-          ),
-          duration: const Duration(seconds: 2),
-          backgroundColor: colorScheme.surfaceContainerHigh,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(10)),
-          ),
-        ),
-      );
-    }
+    await HapticFeedback.mediumImpact();
+    if (!mounted) return;
+    await shareContentCard(context, widget.content);
   }
 
   @override
@@ -126,8 +100,11 @@ class _ContentCardState extends ConsumerState<_ContentCard> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        // Light: white with gold wash, Dark: surface with subtle gold glow
-        color: isLight ? Colors.white : colorScheme.surface,
+        // Light: surfaceContainerLowest (purple mist, not pure white),
+        // Dark: surface with subtle gold glow.
+        color: isLight
+            ? colorScheme.surfaceContainerLowest
+            : colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isLight
@@ -179,7 +156,7 @@ class _ContentCardState extends ConsumerState<_ContentCard> {
                 ),
               ),
 
-              // Save button
+              // Save button (48dp minimum touch target)
               IconButton(
                 icon: Icon(
                   _isSaved ? Icons.favorite : Icons.favorite_outline,
@@ -190,11 +167,11 @@ class _ContentCardState extends ConsumerState<_ContentCard> {
                 ),
                 onPressed: _toggleSave,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                tooltip: _isSaved ? 'Unsave' : 'Save',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                tooltip: _isSaved ? 'Unsave quote' : 'Save quote',
               ),
 
-              // Share button
+              // Share button (48dp minimum touch target)
               IconButton(
                 icon: Icon(
                   Icons.share_outlined,
@@ -203,8 +180,8 @@ class _ContentCardState extends ConsumerState<_ContentCard> {
                 ),
                 onPressed: _share,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                tooltip: 'Share',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                tooltip: 'Share quote',
               ),
             ],
           ),

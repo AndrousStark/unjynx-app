@@ -101,25 +101,29 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           error: (error, _) => _buildErrorState(error),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          HapticFeedback.mediumImpact();
-          // Navigate to the todos page with the selected date as a query
-          // parameter so the tasks list can pre-filter or pre-fill for
-          // that date.
-          final dateParam =
-              '${_selectedDate.year}-'
-              '${_selectedDate.month.toString().padLeft(2, '0')}-'
-              '${_selectedDate.day.toString().padLeft(2, '0')}';
-          context.push(
-            Uri(
-              path: '/todos',
-              queryParameters: {'date': dateParam},
-            ).toString(),
-          );
-        },
-        tooltip: 'Add task for selected date',
-        child: const Icon(Icons.add_rounded),
+      floatingActionButton: Semantics(
+        label: 'Add task for selected date',
+        button: true,
+        child: FloatingActionButton(
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            // Navigate to the todos page with the selected date as a query
+            // parameter so the tasks list can pre-filter or pre-fill for
+            // that date.
+            final dateParam =
+                '${_selectedDate.year}-'
+                '${_selectedDate.month.toString().padLeft(2, '0')}-'
+                '${_selectedDate.day.toString().padLeft(2, '0')}';
+            context.push(
+              Uri(
+                path: '/todos',
+                queryParameters: {'date': dateParam},
+              ).toString(),
+            );
+          },
+          tooltip: 'Add task for selected date',
+          child: const Icon(Icons.add_rounded),
+        ),
       ),
     );
   }
@@ -354,22 +358,27 @@ class _MonthHeader extends StatelessWidget {
         // Left arrow
         _NavButton(
           icon: Icons.chevron_left_rounded,
+          semanticLabel: 'Previous month',
           onTap: onPrevious,
         ),
         const SizedBox(width: 8),
 
         // Month + Year
         Expanded(
-          child: GestureDetector(
-            onTap: onToday,
-            child: Text(
-              '${_monthNames[currentMonth.month - 1]} ${currentMonth.year}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-                letterSpacing: 0.3,
+          child: Semantics(
+            label: '${_monthNames[currentMonth.month - 1]} ${currentMonth.year}. Tap to go to today.',
+            button: true,
+            child: GestureDetector(
+              onTap: onToday,
+              child: Text(
+                '${_monthNames[currentMonth.month - 1]} ${currentMonth.year}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
           ),
@@ -378,16 +387,19 @@ class _MonthHeader extends StatelessWidget {
 
         // Today button (only if not viewing current month)
         if (!isCurrentMonth) ...[
-          GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              onToday();
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 4,
-              ),
+          Semantics(
+            label: 'Go to today',
+            button: true,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                onToday();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
               decoration: BoxDecoration(
                 border: Border.all(
                   color: context.isLightMode
@@ -406,12 +418,14 @@ class _MonthHeader extends StatelessWidget {
               ),
             ),
           ),
+          ),
           const SizedBox(width: 8),
         ],
 
         // Right arrow
         _NavButton(
           icon: Icons.chevron_right_rounded,
+          semanticLabel: 'Next month',
           onTap: onNext,
         ),
       ],
@@ -420,31 +434,41 @@ class _MonthHeader extends StatelessWidget {
 }
 
 class _NavButton extends StatelessWidget {
-  const _NavButton({required this.icon, required this.onTap});
+  const _NavButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onTap,
+  });
 
   final IconData icon;
+  final String semanticLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(
-          icon,
-          size: 22,
-          color: colorScheme.onSurface,
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 22,
+            color: colorScheme.onSurface,
+          ),
         ),
       ),
     );
@@ -508,27 +532,36 @@ class _ToggleChip extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onTap();
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive ? colorScheme.surfaceContainerHigh : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              color: isActive
-                  ? colorScheme.onSurface
-                  : colorScheme.onSurfaceVariant,
+      child: Semantics(
+        label: '$label view',
+        button: true,
+        selected: isActive,
+        child: GestureDetector(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: accessibleDuration(
+              context,
+              const Duration(milliseconds: 200),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: isActive ? colorScheme.surfaceContainerHigh : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),
@@ -746,72 +779,79 @@ class _GhostEventCard extends StatelessWidget {
     final ux = context.unjynx;
     final isLight = context.isLightMode;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: isLight
-            ? ux.info.withValues(alpha: 0.04)
-            : ux.info.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: ux.info.withValues(alpha: isLight ? 0.1 : 0.12),
+    final timeDesc = event.allDay
+        ? 'all day'
+        : _formatEventTime(event.start, event.end);
+
+    return Semantics(
+      label: 'Google Calendar event: ${event.title}, $timeDesc',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isLight
+              ? ux.info.withValues(alpha: 0.04)
+              : ux.info.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: ux.info.withValues(alpha: isLight ? 0.1 : 0.12),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          // Ghost indicator dot (cyan, semi-transparent)
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: ux.info.withValues(alpha: 0.4),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Title
-          Expanded(
-            child: Text(
-              event.title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // Time or "All Day" badge
-          if (event.allDay)
+        child: Row(
+          children: [
+            // Ghost indicator dot (cyan, semi-transparent)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              width: 10,
+              height: 10,
               decoration: BoxDecoration(
-                color: ux.info.withValues(alpha: isLight ? 0.08 : 0.12),
-                borderRadius: BorderRadius.circular(10),
+                color: ux.info.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
               ),
+            ),
+            const SizedBox(width: 12),
+
+            // Title
+            Expanded(
               child: Text(
-                'All Day',
+                event.title,
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: ux.info.withValues(alpha: 0.8),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // Time or "All Day" badge
+            if (event.allDay)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: ux.info.withValues(alpha: isLight ? 0.08 : 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'All Day',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: ux.info.withValues(alpha: 0.8),
+                  ),
+                ),
+              )
+            else
+              Text(
+                _formatEventTime(event.start, event.end),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
-            )
-          else
-            Text(
-              _formatEventTime(event.start, event.end),
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -105,7 +105,7 @@ class _TimeTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             color: isLight
-                ? Colors.white.withValues(alpha: 0.7)
+                ? ux.glassBackground
                 : colorScheme.surfaceContainer.withValues(alpha: 0.5),
             border: Border.all(
               color: isLight
@@ -114,20 +114,7 @@ class _TimeTile extends StatelessWidget {
               width: 0.5,
             ),
             boxShadow: isLight
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFF1A0533)
-                          .withValues(alpha: 0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFF1A0533)
-                          .withValues(alpha: 0.04),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
+                ? UnjynxShadows.lightMd
                 : null,
           ),
           child: Column(
