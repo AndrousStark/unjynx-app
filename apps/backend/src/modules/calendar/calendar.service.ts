@@ -1,13 +1,21 @@
 import { google } from "googleapis";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { calendarTokens } from "../../db/schema/index.js";
+import {
+  calendarTokens,
+  calendarEventMapping,
+} from "../../db/schema/index.js";
 import { env } from "../../env.js";
 import type {
   CalendarEvent,
   CalendarStatus,
+  CreateCalendarEventInput,
+  UpdateCalendarEventInput,
 } from "./calendar.schema.js";
-import type { CalendarToken } from "../../db/schema/index.js";
+import type {
+  CalendarToken,
+  CalendarEventMapping,
+} from "../../db/schema/index.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -56,23 +64,54 @@ async function refreshTokenIfNeeded(
   const [updated] = await db
     .update(calendarTokens)
     .set(updatedFields)
-    .where(eq(calendarTokens.userId, tokenRow.userId))
+    .where(
+      and(
+        eq(calendarTokens.userId, tokenRow.userId),
+        eq(calendarTokens.provider, tokenRow.provider),
+      ),
+    )
     .returning();
 
   return updated;
 }
 
 /**
- * Load tokens for a user. Returns null if not connected.
+ * Load tokens for a user + provider combination. Returns null if not connected.
  */
-async function loadTokens(userId: string): Promise<CalendarToken | null> {
+async function loadTokens(
+  userId: string,
+  provider: string = "google",
+): Promise<CalendarToken | null> {
   const [row] = await db
     .select()
     .from(calendarTokens)
-    .where(eq(calendarTokens.userId, userId))
+    .where(
+      and(
+        eq(calendarTokens.userId, userId),
+        eq(calendarTokens.provider, provider),
+      ),
+    )
     .limit(1);
 
   return row ?? null;
+}
+
+/**
+ * Build an authenticated Google Calendar API client from a token row.
+ */
+async function buildCalendarClient(tokenRow: CalendarToken) {
+  const freshTokens = await refreshTokenIfNeeded(tokenRow);
+
+  const oauth2 = createOAuth2Client();
+  oauth2.setCredentials({
+    access_token: freshTokens.accessToken,
+    refresh_token: freshTokens.refreshToken,
+  });
+
+  return {
+    calendar: google.calendar({ version: "v3", auth: oauth2 }),
+    tokens: freshTokens,
+  };
 }
 
 // ── Public API ───────────────────────────────────────────────────────
@@ -108,12 +147,12 @@ export async function connectCalendar(
     updatedAt: new Date(),
   };
 
-  // Upsert: insert or update if user already has tokens
+  // Upsert: insert or update if user+provider already has tokens
   await db
     .insert(calendarTokens)
     .values(values)
     .onConflictDoUpdate({
-      target: calendarTokens.userId,
+      target: [calendarTokens.userId, calendarTokens.provider],
       set: {
         accessToken: values.accessToken,
         refreshToken: values.refreshToken,
@@ -176,15 +215,8 @@ export async function getCalendarEvents(
     throw new CalendarNotConnectedError();
   }
 
-  const freshTokens = await refreshTokenIfNeeded(tokenRow);
-
-  const oauth2 = createOAuth2Client();
-  oauth2.setCredentials({
-    access_token: freshTokens.accessToken,
-    refresh_token: freshTokens.refreshToken,
-  });
-
-  const calendar = google.calendar({ version: "v3", auth: oauth2 });
+  const { calendar, tokens: freshTokens } =
+    await buildCalendarClient(tokenRow);
 
   const res = await calendar.events.list({
     calendarId: freshTokens.calendarId ?? "primary",
@@ -212,6 +244,192 @@ export async function getCalendarEvents(
       htmlLink: event.htmlLink ?? null,
     };
   });
+}
+
+// ── Write-Back (Two-Way Sync) ────────────────────────────────────────
+
+/**
+ * Create a Google Calendar event for a task and store the mapping.
+ * Returns the mapping row, or null if user has no calendar connected.
+ */
+export async function createCalendarEvent(
+  userId: string,
+  input: CreateCalendarEventInput,
+): Promise<CalendarEventMapping | null> {
+  const tokenRow = await loadTokens(userId);
+
+  if (!tokenRow) {
+    return null;
+  }
+
+  const { calendar, tokens: freshTokens } =
+    await buildCalendarClient(tokenRow);
+
+  const calendarId = freshTokens.calendarId ?? "primary";
+
+  // Build event payload — use 30-minute slot if only a due date is given
+  const startDateTime = new Date(input.dueDate);
+  const endDateTime = new Date(startDateTime.getTime() + 30 * 60_000);
+
+  const res = await calendar.events.insert({
+    calendarId,
+    requestBody: {
+      summary: input.title,
+      description: input.description ?? `UNJYNX task`,
+      start: { dateTime: startDateTime.toISOString() },
+      end: { dateTime: endDateTime.toISOString() },
+      source: {
+        title: "UNJYNX",
+        url: "https://unjynx.me",
+      },
+    },
+  });
+
+  const externalEventId = res.data.id;
+
+  if (!externalEventId) {
+    throw new Error("Google Calendar did not return an event ID");
+  }
+
+  const [mapping] = await db
+    .insert(calendarEventMapping)
+    .values({
+      taskId: input.taskId,
+      userId,
+      provider: "google",
+      externalEventId,
+      calendarId,
+      lastSyncedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [calendarEventMapping.taskId, calendarEventMapping.provider],
+      set: {
+        externalEventId,
+        calendarId,
+        lastSyncedAt: new Date(),
+      },
+    })
+    .returning();
+
+  return mapping;
+}
+
+/**
+ * Update an existing Google Calendar event when a task changes.
+ * Returns the updated mapping, or null if no mapping exists.
+ */
+export async function updateCalendarEvent(
+  userId: string,
+  taskId: string,
+  updates: UpdateCalendarEventInput,
+): Promise<CalendarEventMapping | null> {
+  const [mapping] = await db
+    .select()
+    .from(calendarEventMapping)
+    .where(
+      and(
+        eq(calendarEventMapping.taskId, taskId),
+        eq(calendarEventMapping.provider, "google"),
+      ),
+    )
+    .limit(1);
+
+  if (!mapping) {
+    return null;
+  }
+
+  const tokenRow = await loadTokens(userId);
+
+  if (!tokenRow) {
+    return null;
+  }
+
+  const { calendar, tokens: freshTokens } =
+    await buildCalendarClient(tokenRow);
+
+  const calendarId = freshTokens.calendarId ?? "primary";
+
+  // Build partial update payload
+  const requestBody: Record<string, unknown> = {};
+
+  if (updates.title !== undefined) {
+    requestBody.summary = updates.title;
+  }
+  if (updates.description !== undefined) {
+    requestBody.description = updates.description;
+  }
+  if (updates.dueDate !== undefined) {
+    const startDateTime = new Date(updates.dueDate);
+    const endDateTime = new Date(startDateTime.getTime() + 30 * 60_000);
+    requestBody.start = { dateTime: startDateTime.toISOString() };
+    requestBody.end = { dateTime: endDateTime.toISOString() };
+  }
+
+  await calendar.events.patch({
+    calendarId,
+    eventId: mapping.externalEventId,
+    requestBody,
+  });
+
+  const [updated] = await db
+    .update(calendarEventMapping)
+    .set({ lastSyncedAt: new Date() })
+    .where(eq(calendarEventMapping.id, mapping.id))
+    .returning();
+
+  return updated;
+}
+
+/**
+ * Delete a Google Calendar event when a task is removed.
+ * Returns true if an event was deleted, false if no mapping existed.
+ */
+export async function deleteCalendarEvent(
+  userId: string,
+  taskId: string,
+): Promise<boolean> {
+  const [mapping] = await db
+    .select()
+    .from(calendarEventMapping)
+    .where(
+      and(
+        eq(calendarEventMapping.taskId, taskId),
+        eq(calendarEventMapping.provider, "google"),
+      ),
+    )
+    .limit(1);
+
+  if (!mapping) {
+    return false;
+  }
+
+  const tokenRow = await loadTokens(userId);
+
+  if (tokenRow) {
+    const { calendar, tokens: freshTokens } =
+      await buildCalendarClient(tokenRow);
+
+    const calendarId = freshTokens.calendarId ?? "primary";
+
+    try {
+      await calendar.events.delete({
+        calendarId,
+        eventId: mapping.externalEventId,
+      });
+    } catch (error) {
+      // Event may already be deleted on Google side — log but don't throw
+      const googleError = error as { code?: number };
+      if (googleError.code !== 404 && googleError.code !== 410) {
+        throw error;
+      }
+    }
+  }
+
+  await db
+    .delete(calendarEventMapping)
+    .where(eq(calendarEventMapping.id, mapping.id));
+
+  return true;
 }
 
 // ── Error Classes ────────────────────────────────────────────────────

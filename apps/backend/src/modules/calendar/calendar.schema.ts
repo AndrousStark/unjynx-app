@@ -10,10 +10,31 @@ export const eventsQuerySchema = z.object({
   end: z.coerce.date(),
 });
 
+// ── Write-Back Schemas ───────────────────────────────────────────────
+
+export const createCalendarEventSchema = z.object({
+  taskId: z.string().uuid("taskId must be a valid UUID"),
+  title: z.string().min(1).max(500),
+  dueDate: z.coerce.date(),
+  description: z.string().max(5000).optional(),
+});
+
+export const updateCalendarEventSchema = z.object({
+  title: z.string().min(1).max(500).optional(),
+  dueDate: z.coerce.date().optional(),
+  description: z.string().max(5000).nullable().optional(),
+});
+
 // ── Type Exports ───────────────────────────────────────────────────────
 
 export type ConnectInput = z.infer<typeof connectSchema>;
 export type EventsQuery = z.infer<typeof eventsQuerySchema>;
+export type CreateCalendarEventInput = z.infer<
+  typeof createCalendarEventSchema
+>;
+export type UpdateCalendarEventInput = z.infer<
+  typeof updateCalendarEventSchema
+>;
 
 export interface CalendarEvent {
   readonly id: string;

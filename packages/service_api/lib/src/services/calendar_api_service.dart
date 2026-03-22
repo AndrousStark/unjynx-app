@@ -4,11 +4,13 @@ import '../api_response.dart';
 /// API service for Google Calendar integration.
 ///
 /// Handles connecting/disconnecting Google Calendar, querying connection
-/// status, and fetching calendar events for ghost-event display.
+/// status, fetching calendar events, and two-way sync (write-back).
 class CalendarApiService {
   final ApiClient _client;
 
   const CalendarApiService(this._client);
+
+  // ── Connection Management ──────────────────────────────────────────
 
   /// Connect a Google Calendar account using the OAuth server auth code.
   ///
@@ -32,10 +34,12 @@ class CalendarApiService {
 
   /// Get current calendar connection status.
   ///
-  /// Returns `{ "connected": bool, "email": string?, "lastSyncedAt": string? }`.
+  /// Returns `{ "connected": bool, "provider": string?, "calendarId": string? }`.
   Future<ApiResponse<Map<String, dynamic>>> getCalendarStatus() {
     return _client.get('/calendar/status');
   }
+
+  // ── Read (Ghost Events) ────────────────────────────────────────────
 
   /// Fetch calendar events within a date range.
   ///
@@ -49,5 +53,57 @@ class CalendarApiService {
       'start': start.toUtc().toIso8601String(),
       'end': end.toUtc().toIso8601String(),
     });
+  }
+
+  // ── Write-Back (Two-Way Sync) ──────────────────────────────────────
+
+  /// Create a Google Calendar event linked to a task.
+  ///
+  /// The backend creates the event on Google Calendar and stores
+  /// the mapping (taskId -> externalEventId). Returns the mapping.
+  Future<ApiResponse<Map<String, dynamic>>> createEvent({
+    required String taskId,
+    required String title,
+    required DateTime dueDate,
+    String? description,
+  }) {
+    return _client.post(
+      '/calendar/events',
+      data: {
+        'taskId': taskId,
+        'title': title,
+        'dueDate': dueDate.toUtc().toIso8601String(),
+        if (description != null) 'description': description,
+      },
+    );
+  }
+
+  /// Update a Google Calendar event linked to a task.
+  ///
+  /// Only fields provided will be updated on the Google event.
+  /// Returns the updated mapping.
+  Future<ApiResponse<Map<String, dynamic>>> updateEvent({
+    required String taskId,
+    String? title,
+    DateTime? dueDate,
+    String? description,
+  }) {
+    return _client.patch(
+      '/calendar/events/$taskId',
+      data: {
+        if (title != null) 'title': title,
+        if (dueDate != null) 'dueDate': dueDate.toUtc().toIso8601String(),
+        if (description != null) 'description': description,
+      },
+    );
+  }
+
+  /// Delete a Google Calendar event linked to a task.
+  ///
+  /// Removes the event from Google Calendar and deletes the mapping.
+  Future<ApiResponse<Map<String, dynamic>>> deleteEvent({
+    required String taskId,
+  }) {
+    return _client.delete('/calendar/events/$taskId');
   }
 }

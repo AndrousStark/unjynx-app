@@ -12,9 +12,9 @@ class GoogleSignInHelper {
   /// Scopes requested for basic authentication.
   static const _authScopes = ['email', 'profile'];
 
-  /// Additional scope for read-only Google Calendar access.
+  /// Full read+write scope for Google Calendar two-way sync.
   static const _calendarScope =
-      'https://www.googleapis.com/auth/calendar.readonly';
+      'https://www.googleapis.com/auth/calendar';
 
   /// Sign in with Google and return the ID token.
   ///

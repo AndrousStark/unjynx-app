@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:service_api/service_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unjynx_core/core.dart';
 
@@ -22,6 +25,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   late TextEditingController _bioController;
   IndustryMode _industryMode = IndustryMode.general;
   bool _hasChanges = false;
+  bool _isUploadingAvatar = false;
 
   @override
   void initState() {
@@ -59,7 +63,6 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final ux = context.unjynx;
-    final isLight = context.isLightMode;
     final user = ref.watch(currentUserProvider).value;
     final timezone = ref.watch(timezoneProvider);
 
@@ -86,6 +89,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           _AvatarSection(
             avatarUrl: user?.avatarUrl,
             name: user?.name ?? '',
+            isUploading: _isUploadingAvatar,
             onPickImage: _pickAvatar,
           ),
           const SizedBox(height: 24),
@@ -168,15 +172,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               title: const Text('Take Photo'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Photo upload coming soon'),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                );
+                _pickAndUploadImage(ImageSource.camera);
               },
             ),
             ListTile(
@@ -184,26 +180,113 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               title: const Text('Choose from Gallery'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Photo upload coming soon'),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                );
+                _pickAndUploadImage(ImageSource.gallery);
               },
             ),
             ListTile(
               leading: Icon(Icons.delete_outline, color: colorScheme.error),
-              title: Text('Remove Photo', style: TextStyle(color: colorScheme.error)),
+              title: Text(
+                'Remove Photo',
+                style: TextStyle(color: colorScheme.error),
+              ),
               onTap: () {
                 Navigator.pop(context);
-                setState(() => _hasChanges = true);
+                _removeAvatar();
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadImage(ImageSource source) async {
+    HapticFeedback.lightImpact();
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+
+    if (picked == null) return;
+
+    setState(() => _isUploadingAvatar = true);
+
+    try {
+      final authApi = ref.read(authApiProvider);
+      final response = await authApi.uploadAvatar(picked.path);
+
+      if (response.success && response.data != null) {
+        // Invalidate user provider to refresh the profile with new avatar.
+        ref.invalidate(currentUserProvider);
+
+        if (mounted) {
+          HapticFeedback.mediumImpact();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Avatar updated successfully'),
+              backgroundColor: context.unjynx.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      } else {
+        _showErrorSnackBar(response.error ?? 'Failed to upload avatar');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Failed to upload avatar: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAvatar = false);
+      }
+    }
+  }
+
+  Future<void> _removeAvatar() async {
+    HapticFeedback.lightImpact();
+
+    try {
+      final authApi = ref.read(authApiProvider);
+      final response = await authApi.updateProfile(
+        clearAvatar: true,
+      );
+
+      if (response.success) {
+        ref.invalidate(currentUserProvider);
+        setState(() => _hasChanges = true);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Photo removed'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      _showErrorSnackBar('Failed to remove photo: $e');
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
         ),
       ),
     );
@@ -216,24 +299,31 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     final bio = _bioController.text.trim();
 
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Name cannot be empty'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+      _showErrorSnackBar('Name cannot be empty');
       return;
     }
 
     try {
+      // Save to backend API
+      final authApi = ref.read(authApiProvider);
+      final timezone = ref.read(timezoneProvider);
+      final response = await authApi.updateProfile(
+        name: name,
+        timezone: timezone,
+      );
+
+      if (!response.success) {
+        _showErrorSnackBar(response.error ?? 'Failed to save profile');
+        return;
+      }
+
       // Persist to SharedPreferences as fallback storage.
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('unjynx_profile_name', name);
       await prefs.setString('unjynx_profile_bio', bio);
+
+      // Refresh the user provider so UI everywhere picks up changes.
+      ref.invalidate(currentUserProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -249,17 +339,17 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         setState(() => _hasChanges = false);
       }
     } catch (e) {
+      // Fallback: try local persistence even if API fails.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('unjynx_profile_name', name);
+        await prefs.setString('unjynx_profile_bio', bio);
+      } catch (_) {
+        // Ignore local save failures.
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save profile: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+        _showErrorSnackBar('Failed to save profile: $e');
       }
     }
   }
@@ -380,11 +470,13 @@ class _AvatarSection extends StatelessWidget {
   const _AvatarSection({
     required this.avatarUrl,
     required this.name,
+    required this.isUploading,
     required this.onPickImage,
   });
 
   final String? avatarUrl;
   final String name;
+  final bool isUploading;
   final VoidCallback onPickImage;
 
   @override
@@ -395,26 +487,37 @@ class _AvatarSection extends StatelessWidget {
 
     return Center(
       child: GestureDetector(
-        onTap: onPickImage,
+        onTap: isUploading ? null : onPickImage,
         child: Stack(
           children: [
             CircleAvatar(
               radius: 52,
               backgroundColor: colorScheme.primary
                   .withValues(alpha: isLight ? 0.15 : 0.3),
-              backgroundImage:
-                  avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-              child: avatarUrl == null
-                  ? Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: isLight ? ux.gold : ux.gold.withValues(alpha: 0.8),
-                      ),
-                    )
+              backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+                  ? CachedNetworkImageProvider(avatarUrl!)
                   : null,
+              child: _buildChild(ux, isLight),
             ),
+            if (isUploading)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withValues(alpha: 0.4),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
               right: 0,
               bottom: 0,
@@ -438,6 +541,19 @@ class _AvatarSection extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget? _buildChild(UnjynxCustomColors ux, bool isLight) {
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) return null;
+
+    return Text(
+      name.isNotEmpty ? name[0].toUpperCase() : 'U',
+      style: TextStyle(
+        fontSize: 36,
+        fontWeight: FontWeight.bold,
+        color: isLight ? ux.gold : ux.gold.withValues(alpha: 0.8),
       ),
     );
   }

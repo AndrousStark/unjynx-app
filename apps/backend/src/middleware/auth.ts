@@ -38,14 +38,16 @@ async function resolveProfileId(
   logtoId: string,
   email?: string,
   name?: string,
+  picture?: string,
 ): Promise<string> {
   const cached = profileCache.get(logtoId);
   if (cached && Date.now() < cached.expiresAt) {
     return cached.profileId;
   }
 
-  // Upsert ensures the profile always exists
-  const profile = await upsertProfile({ logtoId, email, name });
+  // Upsert ensures the profile always exists.
+  // On first login, picture (from Google/social sign-in) seeds avatarUrl.
+  const profile = await upsertProfile({ logtoId, email, name, picture });
   profileCache.set(logtoId, {
     profileId: profile.id,
     expiresAt: Date.now() + CACHE_TTL_MS,
@@ -66,6 +68,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   let sub: string;
   let email: string | undefined;
   let name: string | undefined;
+  let picture: string | undefined;
 
   try {
     const { payload } = await jose.jwtVerify(token, getJwks(), {
@@ -78,6 +81,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     sub = payload.sub!;
     email = payload.email as string | undefined;
     name = payload.name as string | undefined;
+    picture = payload.picture as string | undefined;
   } catch (err) {
     const errorMessage = (err as Error).message;
     const errorCode = (err as { code?: string }).code;
@@ -87,7 +91,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   }
 
   // Resolve logtoId -> profileId (cached, upserts on first encounter)
-  const profileId = await resolveProfileId(sub, email, name);
+  const profileId = await resolveProfileId(sub, email, name, picture);
 
   c.set("auth", { sub, profileId, email, name });
 

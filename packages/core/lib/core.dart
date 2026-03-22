@@ -43,5 +43,8 @@ export 'utils/result.dart';
 export 'services/nlp_parser.dart';
 export 'services/speech_service.dart';
 
+// Providers
+export 'providers/vocabulary_provider.dart';
+
 // Widgets
 export 'widgets/widgets.dart';

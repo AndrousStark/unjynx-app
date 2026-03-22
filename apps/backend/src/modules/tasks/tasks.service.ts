@@ -6,6 +6,70 @@ import type {
   CursorQuery,
 } from "./tasks.schema.js";
 import * as taskRepo from "./tasks.repository.js";
+import * as calendarService from "../calendar/calendar.service.js";
+
+// ── Calendar Sync Helpers ────────────────────────────────────────────
+// Calendar sync is fire-and-forget: failures NEVER break task operations.
+
+async function syncCalendarCreate(
+  userId: string,
+  task: Task,
+): Promise<void> {
+  if (!task.dueDate) return;
+
+  try {
+    await calendarService.createCalendarEvent(userId, {
+      taskId: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      description: task.description ?? undefined,
+    });
+  } catch {
+    // Calendar sync failure must never break task operations
+  }
+}
+
+async function syncCalendarUpdate(
+  userId: string,
+  taskId: string,
+  input: UpdateTaskInput,
+): Promise<void> {
+  try {
+    await calendarService.updateCalendarEvent(userId, taskId, {
+      title: input.title,
+      dueDate: input.dueDate ?? undefined,
+      description: input.description,
+    });
+  } catch {
+    // Calendar sync failure must never break task operations
+  }
+}
+
+async function syncCalendarDelete(
+  userId: string,
+  taskId: string,
+): Promise<void> {
+  try {
+    await calendarService.deleteCalendarEvent(userId, taskId);
+  } catch {
+    // Calendar sync failure must never break task operations
+  }
+}
+
+async function syncCalendarComplete(
+  userId: string,
+  taskId: string,
+): Promise<void> {
+  try {
+    await calendarService.updateCalendarEvent(userId, taskId, {
+      description: `[Completed] Task marked done at ${new Date().toISOString()}`,
+    });
+  } catch {
+    // Calendar sync failure must never break task operations
+  }
+}
+
+// ── CRUD ─────────────────────────────────────────────────────────────
 
 export async function createTask(
   userId: string,
@@ -21,7 +85,12 @@ export async function createTask(
     rrule: input.rrule,
   };
 
-  return taskRepo.insertTask(newTask);
+  const task = await taskRepo.insertTask(newTask);
+
+  // Fire-and-forget: sync to Google Calendar if task has a due date
+  void syncCalendarCreate(userId, task);
+
+  return task;
 }
 
 export async function getTasks(
@@ -66,14 +135,28 @@ export async function updateTask(
     updates.completedAt = null;
   }
 
-  return taskRepo.updateTaskById(userId, taskId, updates);
+  const task = await taskRepo.updateTaskById(userId, taskId, updates);
+
+  // Fire-and-forget: sync changes to Google Calendar
+  if (task && (input.title || input.dueDate !== undefined || input.description !== undefined)) {
+    void syncCalendarUpdate(userId, taskId, input);
+  }
+
+  return task;
 }
 
 export async function deleteTask(
   userId: string,
   taskId: string,
 ): Promise<boolean> {
-  return taskRepo.deleteTaskById(userId, taskId);
+  const deleted = await taskRepo.deleteTaskById(userId, taskId);
+
+  // Fire-and-forget: remove from Google Calendar
+  if (deleted) {
+    void syncCalendarDelete(userId, taskId);
+  }
+
+  return deleted;
 }
 
 // ── Task Actions ───────────────────────────────────────────────────────
@@ -82,11 +165,18 @@ export async function completeTask(
   userId: string,
   taskId: string,
 ): Promise<Task | undefined> {
-  return taskRepo.updateTaskById(userId, taskId, {
+  const task = await taskRepo.updateTaskById(userId, taskId, {
     status: "completed",
     completedAt: new Date(),
     updatedAt: new Date(),
   });
+
+  // Fire-and-forget: mark event as completed on Google Calendar
+  if (task) {
+    void syncCalendarComplete(userId, taskId);
+  }
+
+  return task;
 }
 
 export async function uncompleteTask(

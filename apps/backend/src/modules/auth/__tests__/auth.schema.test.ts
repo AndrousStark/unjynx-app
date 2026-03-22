@@ -4,6 +4,7 @@ import {
   refreshSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  updateProfileSchema,
 } from "../auth.schema.js";
 
 describe("Auth Schemas", () => {
@@ -147,6 +148,82 @@ describe("Auth Schemas", () => {
       expect(
         resetPasswordSchema.safeParse({ password: "abc12345" }).success,
       ).toBe(false);
+    });
+  });
+
+  // ── Update Profile Schema ─────────────────────────────────────────
+
+  describe("updateProfileSchema", () => {
+    it("accepts valid name update", () => {
+      const result = updateProfileSchema.safeParse({ name: "New Name" });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts valid timezone update", () => {
+      const result = updateProfileSchema.safeParse({
+        timezone: "America/New_York",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts valid avatar URL update", () => {
+      const result = updateProfileSchema.safeParse({
+        avatarUrl: "https://cdn.example.com/avatars/123.jpg",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts null avatarUrl (removal)", () => {
+      const result = updateProfileSchema.safeParse({ avatarUrl: null });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.avatarUrl).toBeNull();
+      }
+    });
+
+    it("accepts all fields together", () => {
+      const result = updateProfileSchema.safeParse({
+        name: "Full Update",
+        avatarUrl: "https://cdn.example.com/avatar.png",
+        timezone: "Asia/Kolkata",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts empty object (all fields optional)", () => {
+      const result = updateProfileSchema.safeParse({});
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects empty name", () => {
+      const result = updateProfileSchema.safeParse({ name: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects name longer than 100 characters", () => {
+      const result = updateProfileSchema.safeParse({
+        name: "a".repeat(101),
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects invalid avatar URL", () => {
+      const result = updateProfileSchema.safeParse({
+        avatarUrl: "not-a-url",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects empty timezone", () => {
+      const result = updateProfileSchema.safeParse({ timezone: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects timezone longer than 50 characters", () => {
+      const result = updateProfileSchema.safeParse({
+        timezone: "a".repeat(51),
+      });
+      expect(result.success).toBe(false);
     });
   });
 });

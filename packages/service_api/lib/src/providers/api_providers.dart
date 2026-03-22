@@ -17,6 +17,7 @@ import '../services/progress_api_service.dart';
 import '../services/project_api_service.dart';
 import '../services/sync_api_service.dart';
 import '../services/task_api_service.dart';
+import '../services/mode_api_service.dart';
 import '../services/team_api_service.dart';
 
 /// API config — override for production base URL.
@@ -93,4 +94,10 @@ final adminApiProvider = Provider<AdminApiService>(
 
 final calendarApiProvider = Provider<CalendarApiService>(
   (ref) => CalendarApiService(ref.watch(apiClientProvider)),
+);
+
+// Phase 7: Industry Modes
+
+final modeApiProvider = Provider<ModeApiService>(
+  (ref) => ModeApiService(ref.watch(apiClientProvider)),
 );

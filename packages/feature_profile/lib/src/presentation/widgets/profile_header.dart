@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:unjynx_core/contracts/auth_port.dart';
 import 'package:unjynx_core/core.dart';
@@ -53,9 +54,7 @@ class ProfileHeader extends StatelessWidget {
               // Dark: lower opacity ring (subtle glow on dark bg)
               backgroundColor: colorScheme.primary
                   .withValues(alpha: isLight ? 0.15 : 0.3),
-              backgroundImage: user?.avatarUrl != null
-                  ? NetworkImage(user!.avatarUrl!)
-                  : null,
+              backgroundImage: _avatarImage,
               child: user?.avatarUrl == null
                   ? Text(
                       _initials,
@@ -97,6 +96,13 @@ class ProfileHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Cached network image for the avatar, or null for initials fallback.
+  ImageProvider? get _avatarImage {
+    final url = user?.avatarUrl;
+    if (url == null || url.isEmpty) return null;
+    return CachedNetworkImageProvider(url);
   }
 
   String get _initials {

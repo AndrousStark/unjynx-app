@@ -248,3 +248,27 @@ export {
   type CalendarToken,
   type NewCalendarToken,
 } from "./calendar-tokens.js";
+export {
+  calendarEventMapping,
+  type CalendarEventMapping,
+  type NewCalendarEventMapping,
+} from "./calendar-event-mapping.js";
+
+// ── Industry Modes ──────────────────────────────────────────────────
+export {
+  industryModes,
+  modeVocabulary,
+  modeTemplates,
+  modeDashboardWidgets,
+  userModePreference,
+  type IndustryMode,
+  type NewIndustryMode,
+  type ModeVocabularyEntry,
+  type NewModeVocabularyEntry,
+  type ModeTemplate,
+  type NewModeTemplate,
+  type ModeDashboardWidget,
+  type NewModeDashboardWidget,
+  type UserModePreferenceRow,
+  type NewUserModePreferenceRow,
+} from "./industry-modes.js";

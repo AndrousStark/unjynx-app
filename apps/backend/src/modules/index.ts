@@ -23,6 +23,7 @@ import { importExportRoutes } from "./import-export/import-export.routes.js";
 import { adminRoutes } from "./admin/admin.routes.js";
 import { devPortalRoutes } from "./dev-portal/dev-portal.routes.js";
 import { calendarRoutes } from "./calendar/calendar.routes.js";
+import { modesRoutes } from "./modes/modes.routes.js";
 
 /**
  * Register all domain modules on the Hono app instance.
@@ -64,6 +65,9 @@ export function registerModules(app: Hono): void {
 
   // Phase 6: Calendar integration (Google Calendar read-only)
   app.route("/api/v1/calendar", calendarRoutes);
+
+  // Phase 7: Industry Modes
+  app.route("/api/v1/modes", modesRoutes);
 
   // Webhooks (no auth — providers call these directly)
   app.route("/api/v1/webhooks", webhookRoutes);

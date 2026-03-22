@@ -6,6 +6,7 @@ interface UpsertProfileInput {
   readonly logtoId: string;
   readonly email?: string;
   readonly name?: string;
+  readonly picture?: string;
 }
 
 export async function upsertProfile(
@@ -17,12 +18,16 @@ export async function upsertProfile(
       logtoId: input.logtoId,
       email: input.email,
       name: input.name,
+      // Seed avatarUrl from social provider picture on first insert only.
+      avatarUrl: input.picture ?? undefined,
     })
     .onConflictDoUpdate({
       target: profiles.logtoId,
       set: {
         email: input.email,
         name: input.name,
+        // Do NOT overwrite avatarUrl on subsequent logins —
+        // manual uploads take precedence over social provider pictures.
         updatedAt: new Date(),
       },
     })

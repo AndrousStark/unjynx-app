@@ -467,6 +467,473 @@ async function seed() {
     logger.info("Test user already exists, skipping task seeding");
   }
 
+  // ── 4. Seed Industry Modes ─────────────────────────────────────────
+
+  logger.info("Seeding industry modes...");
+
+  // 4a. Insert modes
+  const modeData: schema.NewIndustryMode[] = [
+    {
+      slug: "general",
+      name: "General",
+      description: "Default mode with standard terminology. Works for everyone.",
+      icon: "dashboard",
+      colorHex: "#6C5CE7",
+      isActive: true,
+      sortOrder: 0,
+    },
+    {
+      slug: "hustle",
+      name: "Hustle Mode",
+      description: "Built for freelancers and solopreneurs. Track clients, invoices, and deliverables.",
+      icon: "rocket_launch",
+      colorHex: "#FF6B6B",
+      isActive: true,
+      sortOrder: 1,
+    },
+    {
+      slug: "closer",
+      name: "Closer Mode",
+      description: "Designed for sales teams and real estate agents. Pipeline-first thinking.",
+      icon: "handshake",
+      colorHex: "#00B894",
+      isActive: true,
+      sortOrder: 2,
+    },
+    {
+      slug: "grind",
+      name: "Grind Mode",
+      description: "Made for small businesses and retail. Daily ops, staff, and inventory.",
+      icon: "storefront",
+      colorHex: "#FDCB6E",
+      isActive: true,
+      sortOrder: 3,
+    },
+  ];
+
+  const insertedModes = await db
+    .insert(schema.industryModes)
+    .values(modeData)
+    .onConflictDoNothing()
+    .returning();
+
+  // If modes already exist, fetch them instead
+  const allModes = insertedModes.length > 0
+    ? insertedModes
+    : await db.select().from(schema.industryModes);
+
+  const modeMap = new Map(allModes.map((m) => [m.slug, m.id]));
+
+  logger.info({ count: allModes.length }, "Industry modes seeded");
+
+  // 4b. Seed vocabulary (General has no swaps)
+  const vocabularyData: schema.NewModeVocabularyEntry[] = [];
+
+  const hustleId = modeMap.get("hustle");
+  if (hustleId) {
+    const hustleVocab: Array<[string, string]> = [
+      ["Task", "Deliverable"],
+      ["Project", "Client"],
+      ["Priority", "Urgency"],
+      ["Deadline", "Due Date"],
+      ["Complete", "Shipped"],
+      ["In Progress", "Working On"],
+      ["Tags", "Skills"],
+      ["Section", "Phase"],
+      ["Archive", "Completed Clients"],
+      ["Kanban", "Client Board"],
+      ["Calendar", "Schedule"],
+      ["Progress", "Billing"],
+      ["Home", "Dashboard"],
+      ["Ghost Mode", "Deep Work"],
+      ["Pomodoro", "Sprint"],
+    ];
+    for (const [original, translated] of hustleVocab) {
+      vocabularyData.push({ modeId: hustleId, originalTerm: original, translatedTerm: translated });
+    }
+  }
+
+  const closerId = modeMap.get("closer");
+  if (closerId) {
+    const closerVocab: Array<[string, string]> = [
+      ["Task", "Follow-up"],
+      ["Project", "Deal"],
+      ["Priority", "Heat Score"],
+      ["Deadline", "Close Date"],
+      ["Complete", "Closed Won"],
+      ["In Progress", "Negotiating"],
+      ["Tags", "Lead Source"],
+      ["Section", "Pipeline Stage"],
+      ["Archive", "Closed Deals"],
+      ["Kanban", "Pipeline"],
+      ["Calendar", "Appointments"],
+      ["Progress", "Revenue"],
+      ["Home", "Pipeline View"],
+      ["Ghost Mode", "Focused Selling"],
+      ["Pomodoro", "Power Hour"],
+    ];
+    for (const [original, translated] of closerVocab) {
+      vocabularyData.push({ modeId: closerId, originalTerm: original, translatedTerm: translated });
+    }
+  }
+
+  const grindId = modeMap.get("grind");
+  if (grindId) {
+    const grindVocab: Array<[string, string]> = [
+      ["Task", "To-Do"],
+      ["Project", "Department"],
+      ["Priority", "Urgency"],
+      ["Deadline", "Due By"],
+      ["Complete", "Done"],
+      ["In Progress", "On It"],
+      ["Tags", "Category"],
+      ["Section", "Zone"],
+      ["Archive", "Completed"],
+      ["Kanban", "Task Board"],
+      ["Calendar", "Roster"],
+      ["Progress", "Operations"],
+      ["Home", "HQ"],
+      ["Ghost Mode", "Focus Time"],
+      ["Pomodoro", "Work Block"],
+    ];
+    for (const [original, translated] of grindVocab) {
+      vocabularyData.push({ modeId: grindId, originalTerm: original, translatedTerm: translated });
+    }
+  }
+
+  if (vocabularyData.length > 0) {
+    await db
+      .insert(schema.modeVocabulary)
+      .values(vocabularyData)
+      .onConflictDoNothing();
+  }
+
+  logger.info({ count: vocabularyData.length }, "Mode vocabulary seeded");
+
+  // 4c. Seed templates
+  const templateData: schema.NewModeTemplate[] = [];
+
+  const generalId = modeMap.get("general");
+  if (generalId) {
+    templateData.push(
+      {
+        modeId: generalId,
+        name: "Daily Standup",
+        description: "Quick daily check-in to align on priorities",
+        subtasksJson: ["What did I accomplish yesterday?", "What will I work on today?", "Any blockers?"],
+        category: "productivity",
+        sortOrder: 0,
+      },
+      {
+        modeId: generalId,
+        name: "Weekly Review",
+        description: "End-of-week reflection and planning",
+        subtasksJson: ["Review completed tasks", "Move incomplete tasks forward", "Set top 3 priorities for next week"],
+        category: "productivity",
+        sortOrder: 1,
+      },
+      {
+        modeId: generalId,
+        name: "Sprint Planning",
+        description: "Plan the next sprint or work cycle",
+        subtasksJson: ["Review backlog", "Estimate effort for each item", "Assign tasks to team members", "Set sprint goal"],
+        category: "productivity",
+        sortOrder: 2,
+      },
+    );
+  }
+
+  if (hustleId) {
+    templateData.push(
+      {
+        modeId: hustleId,
+        name: "Client Onboarding",
+        description: "Checklist for bringing on a new client",
+        subtasksJson: [
+          "Send welcome email with contract",
+          "Schedule kickoff call",
+          "Collect brand assets and guidelines",
+          "Set up project board",
+          "Define deliverables and milestones",
+          "Agree on communication cadence",
+          "Send first invoice (deposit)",
+          "Add to CRM and calendar",
+        ],
+        category: "client_management",
+        sortOrder: 0,
+      },
+      {
+        modeId: hustleId,
+        name: "Invoice Follow-up Chain",
+        description: "Systematic follow-up for unpaid invoices",
+        subtasksJson: [
+          "Send initial invoice with 14-day terms",
+          "Day 7: Friendly reminder email",
+          "Day 14: Second reminder with urgency",
+          "Day 21: Phone call follow-up",
+          "Day 30: Final notice before collections",
+        ],
+        category: "billing",
+        sortOrder: 1,
+      },
+      {
+        modeId: hustleId,
+        name: "Portfolio Update",
+        description: "Keep your portfolio fresh and relevant",
+        subtasksJson: [
+          "Select 3 best recent projects",
+          "Write case study for each",
+          "Update screenshots and mockups",
+          "Get client testimonials",
+          "Update website and social profiles",
+        ],
+        category: "marketing",
+        sortOrder: 2,
+      },
+      {
+        modeId: hustleId,
+        name: "Tax Season Prep",
+        description: "Quarterly tax preparation checklist",
+        subtasksJson: [
+          "Export all invoices for the quarter",
+          "Categorize business expenses",
+          "Calculate estimated tax payment",
+          "Review deductible expenses",
+          "File estimated quarterly taxes",
+        ],
+        category: "finance",
+        sortOrder: 3,
+      },
+      {
+        modeId: hustleId,
+        name: "Proposal Template",
+        description: "Standard proposal for new client pitches",
+        subtasksJson: [
+          "Research client and their industry",
+          "Define scope and deliverables",
+          "Create timeline with milestones",
+          "Prepare pricing breakdown",
+          "Add portfolio samples and testimonials",
+        ],
+        category: "sales",
+        sortOrder: 4,
+      },
+    );
+  }
+
+  if (closerId) {
+    templateData.push(
+      {
+        modeId: closerId,
+        name: "New Lead Follow-up",
+        description: "Structured follow-up for new inbound leads",
+        subtasksJson: [
+          "Respond within 5 minutes of inquiry",
+          "Qualify lead: budget, timeline, decision-maker",
+          "Send personalized property/product list",
+          "Schedule site visit or demo",
+          "Follow up 24 hours after first contact",
+        ],
+        category: "lead_management",
+        sortOrder: 0,
+      },
+      {
+        modeId: closerId,
+        name: "Site Visit Prep",
+        description: "Preparation checklist before a property showing or demo",
+        subtasksJson: [
+          "Confirm appointment with client",
+          "Review client preferences and budget",
+          "Prepare property details and comparables",
+          "Print or prepare digital brochures",
+          "Plan route and arrive 15 minutes early",
+        ],
+        category: "client_meeting",
+        sortOrder: 1,
+      },
+      {
+        modeId: closerId,
+        name: "Document Collection",
+        description: "Gather all documents needed for closing",
+        subtasksJson: [
+          "Request ID proof from buyer/seller",
+          "Collect financial pre-approval letter",
+          "Verify property title and ownership",
+          "Prepare sale agreement draft",
+          "Schedule legal review",
+        ],
+        category: "closing",
+        sortOrder: 2,
+      },
+      {
+        modeId: closerId,
+        name: "Monthly Market Update",
+        description: "Stay on top of market trends",
+        subtasksJson: [
+          "Review local market data and trends",
+          "Update comparable listings spreadsheet",
+          "Send market update email to active leads",
+          "Post market insights on social media",
+          "Adjust pricing strategy if needed",
+        ],
+        category: "market_analysis",
+        sortOrder: 3,
+      },
+      {
+        modeId: closerId,
+        name: "Closing Checklist",
+        description: "Final steps to close the deal",
+        subtasksJson: [
+          "Verify all documents are signed",
+          "Confirm payment or financing is in place",
+          "Schedule final walkthrough",
+          "Coordinate with legal and registry",
+          "Hand over keys and congratulate client",
+        ],
+        category: "closing",
+        sortOrder: 4,
+      },
+    );
+  }
+
+  if (grindId) {
+    templateData.push(
+      {
+        modeId: grindId,
+        name: "Daily Open Checklist",
+        description: "Opening procedures for the day",
+        subtasksJson: [
+          "Unlock and inspect premises",
+          "Turn on all equipment and POS systems",
+          "Check cash register float",
+          "Review staff schedule for the day",
+          "Check inventory for low-stock items",
+          "Brief morning team huddle",
+        ],
+        category: "daily_ops",
+        sortOrder: 0,
+      },
+      {
+        modeId: grindId,
+        name: "Daily Close Checklist",
+        description: "End-of-day closing procedures",
+        subtasksJson: [
+          "Reconcile cash register and card payments",
+          "Clean and sanitize all work areas",
+          "Restock shelves and displays",
+          "Lock all doors and set alarm",
+          "Submit daily sales report",
+          "Turn off all non-essential equipment",
+        ],
+        category: "daily_ops",
+        sortOrder: 1,
+      },
+      {
+        modeId: grindId,
+        name: "Restock Alert",
+        description: "Inventory replenishment checklist",
+        subtasksJson: [
+          "Review items below minimum stock level",
+          "Check supplier pricing and availability",
+          "Place purchase orders",
+          "Confirm delivery dates",
+          "Update inventory system on arrival",
+        ],
+        category: "inventory",
+        sortOrder: 2,
+      },
+      {
+        modeId: grindId,
+        name: "New Staff Onboarding",
+        description: "Get new team members up to speed",
+        subtasksJson: [
+          "Complete employment paperwork",
+          "Issue uniform and access credentials",
+          "Walk through store layout and safety procedures",
+          "Train on POS system and policies",
+          "Assign a buddy for the first week",
+          "Schedule 7-day check-in",
+        ],
+        category: "hr",
+        sortOrder: 3,
+      },
+      {
+        modeId: grindId,
+        name: "Monthly Bills Tracker",
+        description: "Track and pay all monthly business expenses",
+        subtasksJson: [
+          "Pay rent and utilities",
+          "Process staff salaries",
+          "Pay supplier invoices",
+          "Review subscription costs",
+          "File GST/tax returns",
+          "Update cash flow spreadsheet",
+        ],
+        category: "finance",
+        sortOrder: 4,
+      },
+      {
+        modeId: grindId,
+        name: "Customer Follow-up",
+        description: "Maintain customer relationships",
+        subtasksJson: [
+          "Send thank-you message to new customers",
+          "Follow up on pending customer requests",
+          "Ask for reviews and referrals",
+          "Resolve any open complaints",
+          "Update customer contact list",
+        ],
+        category: "customer_service",
+        sortOrder: 5,
+      },
+    );
+  }
+
+  if (templateData.length > 0) {
+    await db
+      .insert(schema.modeTemplates)
+      .values(templateData)
+      .onConflictDoNothing();
+  }
+
+  logger.info({ count: templateData.length }, "Mode templates seeded");
+
+  // 4d. Seed dashboard widgets
+  const widgetData: schema.NewModeDashboardWidget[] = [];
+
+  if (hustleId) {
+    widgetData.push(
+      { modeId: hustleId, widgetType: "revenue_tracker", configJson: { label: "Revenue This Month", currency: "INR" }, sortOrder: 0 },
+      { modeId: hustleId, widgetType: "active_clients", configJson: { label: "Active Clients" }, sortOrder: 1 },
+      { modeId: hustleId, widgetType: "pending_invoices", configJson: { label: "Pending Invoices", alertThresholdDays: 14 }, sortOrder: 2 },
+    );
+  }
+
+  if (closerId) {
+    widgetData.push(
+      { modeId: closerId, widgetType: "deal_pipeline", configJson: { label: "Deal Pipeline", stages: ["Lead", "Qualified", "Negotiating", "Closing", "Won"] }, sortOrder: 0 },
+      { modeId: closerId, widgetType: "hot_leads", configJson: { label: "Hot Leads", minHeatScore: 8 }, sortOrder: 1 },
+      { modeId: closerId, widgetType: "pending_follow_ups", configJson: { label: "Pending Follow-ups" }, sortOrder: 2 },
+    );
+  }
+
+  if (grindId) {
+    widgetData.push(
+      { modeId: grindId, widgetType: "daily_checklist", configJson: { label: "Today's Checklist" }, sortOrder: 0 },
+      { modeId: grindId, widgetType: "pending_orders", configJson: { label: "Pending Orders" }, sortOrder: 1 },
+      { modeId: grindId, widgetType: "staff_tasks", configJson: { label: "Staff Tasks" }, sortOrder: 2 },
+    );
+  }
+
+  if (widgetData.length > 0) {
+    await db
+      .insert(schema.modeDashboardWidgets)
+      .values(widgetData)
+      .onConflictDoNothing();
+  }
+
+  logger.info({ count: widgetData.length }, "Mode dashboard widgets seeded");
+
   // ── Done ──────────────────────────────────────────────────────────────
 
   logger.info(

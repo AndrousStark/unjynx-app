@@ -23,8 +23,17 @@ export const resetPasswordSchema = z.object({
   password: z.string().min(8).max(128),
 });
 
+// ── Profile Update ──────────────────────────────────────────────────────
+export const updateProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  // Accept a valid URL or null to clear the avatar.
+  avatarUrl: z.union([z.string().url(), z.null()]).optional(),
+  timezone: z.string().min(1).max(50).optional(),
+});
+
 // ── Type Exports ────────────────────────────────────────────────────────
 export type CallbackInput = z.infer<typeof callbackSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

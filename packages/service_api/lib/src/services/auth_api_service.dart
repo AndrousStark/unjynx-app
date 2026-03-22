@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../api_client.dart';
 import '../api_response.dart';
 
@@ -37,5 +39,51 @@ class AuthApiService {
   /// Log out the current user.
   Future<ApiResponse<void>> logout() {
     return _client.post('/auth/logout');
+  }
+
+  /// Update the current user's profile fields (name, avatarUrl, timezone).
+  ///
+  /// Only provided fields are sent to the backend.
+  /// Set [clearAvatar] to true to explicitly remove the avatar (sends null).
+  Future<ApiResponse<Map<String, dynamic>>> updateProfile({
+    String? name,
+    String? avatarUrl,
+    String? timezone,
+    bool clearAvatar = false,
+  }) {
+    final data = <String, dynamic>{};
+    if (name != null) data['name'] = name;
+    if (clearAvatar) {
+      data['avatarUrl'] = null;
+    } else if (avatarUrl != null) {
+      data['avatarUrl'] = avatarUrl;
+    }
+    if (timezone != null) data['timezone'] = timezone;
+
+    return _client.patch('/auth/me', data: data);
+  }
+
+  /// Upload a profile avatar image via multipart form data.
+  ///
+  /// Returns the new avatar URL on success.
+  Future<ApiResponse<Map<String, dynamic>>> uploadAvatar(
+    String filePath,
+  ) async {
+    final formData = FormData.fromMap({
+      'avatar': await MultipartFile.fromFile(
+        filePath,
+        filename: filePath.split('/').last,
+      ),
+    });
+
+    // Use the underlying Dio directly for multipart — the ApiClient
+    // envelope-unwrapping helper expects JSON content-type by default.
+    final response = await _client.dio.post<Map<String, dynamic>>(
+      '/auth/me/avatar',
+      data: formData,
+      options: Options(contentType: 'multipart/form-data'),
+    );
+
+    return ApiResponse.fromJson(response.data!, null);
   }
 }
