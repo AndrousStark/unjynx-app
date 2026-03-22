@@ -457,6 +457,105 @@ final weeklyInsightProvider = FutureProvider<WeeklyInsight>((ref) async {
 });
 
 // ---------------------------------------------------------------------------
+// AI / ML — Weekly Review enhancements
+// ---------------------------------------------------------------------------
+
+/// Detected productivity patterns from Prophet time-series analysis.
+///
+/// Each pattern is a map with keys: type, description, confidence, and
+/// optional type-specific fields (best_day, direction, magnitude, etc.).
+///
+/// Override in app bootstrap with data from the ML service via the
+/// progress API (GET /ai/patterns).
+@immutable
+class AiPatterns {
+  const AiPatterns({
+    this.patterns = const <Map<String, dynamic>>[],
+    this.forecast = const <Map<String, dynamic>>[],
+    this.dataPoints = 0,
+  });
+
+  /// List of detected pattern objects.
+  final List<Map<String, dynamic>> patterns;
+
+  /// 7-day productivity forecast.
+  final List<Map<String, dynamic>> forecast;
+
+  /// Number of data points used for analysis.
+  final int dataPoints;
+}
+
+/// Provider for AI-detected productivity patterns.
+///
+/// Override in app bootstrap with real ML service data.
+final weeklyPatternsProvider = FutureProvider<AiPatterns>(
+  (ref) async => const AiPatterns(),
+);
+
+/// 24-hour energy forecast from Gaussian Process regression.
+///
+/// Each hour entry has: hour (int), energy (double), confidence (double),
+/// std (double).
+@immutable
+class EnergyForecast {
+  const EnergyForecast({
+    this.forecast = const <Map<String, dynamic>>[],
+    this.peakHours = const <Map<String, dynamic>>[],
+    this.lowHours = const <Map<String, dynamic>>[],
+    this.dataPoints = 0,
+  });
+
+  /// 24 entries (one per hour) with predicted energy levels.
+  final List<Map<String, dynamic>> forecast;
+
+  /// Top peak hours (highest energy).
+  final List<Map<String, dynamic>> peakHours;
+
+  /// Low-energy hours.
+  final List<Map<String, dynamic>> lowHours;
+
+  /// Number of data points used for the model.
+  final int dataPoints;
+}
+
+/// Provider for 24-hour energy forecast.
+///
+/// Override in app bootstrap with real ML service data.
+final energyForecastProvider = FutureProvider<EnergyForecast>(
+  (ref) async => const EnergyForecast(),
+);
+
+/// AI-ranked task suggestion for the "Smart Next Week" section.
+@immutable
+class SmartSuggestion {
+  const SmartSuggestion({
+    required this.taskId,
+    required this.title,
+    required this.score,
+    this.suggestedTime,
+  });
+
+  /// Task identifier.
+  final String taskId;
+
+  /// Task title.
+  final String title;
+
+  /// ML confidence score (0.0 - 1.0+).
+  final double score;
+
+  /// Suggested time slot (e.g. "9:00 AM").
+  final String? suggestedTime;
+}
+
+/// Provider for AI-ranked task suggestions.
+///
+/// Override in app bootstrap with real ML service data.
+final smartSuggestionsProvider = FutureProvider<List<SmartSuggestion>>(
+  (ref) async => const <SmartSuggestion>[],
+);
+
+// ---------------------------------------------------------------------------
 // Ghost mode
 // ---------------------------------------------------------------------------
 

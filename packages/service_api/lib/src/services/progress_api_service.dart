@@ -61,4 +61,31 @@ class ProgressApiService {
   Future<ApiResponse<Map<String, dynamic>>> getProductivityByHour() {
     return _client.get('/progress/productivity-by-hour');
   }
+
+  // ── AI / ML endpoints ──────────────────────────────────────────────────
+
+  /// Get detected productivity patterns (Prophet time-series analysis).
+  ///
+  /// Returns patterns with confidence scores and 7-day forecast.
+  Future<ApiResponse<Map<String, dynamic>>> getPatterns({int days = 90}) {
+    return _client.get('/ai/patterns', queryParameters: {
+      'days': days.toString(),
+    });
+  }
+
+  /// Get 24-hour energy forecast (Gaussian Process regression).
+  ///
+  /// Returns hourly energy predictions with peak/low hours.
+  Future<ApiResponse<Map<String, dynamic>>> getEnergyForecast() {
+    return _client.get('/ai/energy');
+  }
+
+  /// Get AI-ranked task suggestions (LinUCB contextual bandit).
+  ///
+  /// Returns top tasks sorted by ML confidence score.
+  Future<ApiResponse<Map<String, dynamic>>> getSuggestions({int limit = 5}) {
+    return _client.get('/ai/suggestions', queryParameters: {
+      'limit': limit.toString(),
+    });
+  }
 }

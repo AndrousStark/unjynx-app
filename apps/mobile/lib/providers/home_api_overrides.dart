@@ -157,6 +157,11 @@ List<Override> homeApiOverrides() {
     // Calendar tasks (family provider)
     calendarTasksProvider.overrideWith(_calendarTasksFromRepo),
 
+    // AI / ML providers (graceful fallback if ML service unavailable)
+    weeklyPatternsProvider.overrideWith(_patternsFromMl),
+    energyForecastProvider.overrideWith(_energyFromMl),
+    smartSuggestionsProvider.overrideWith(_suggestionsFromMl),
+
     // Google Calendar ghost events (family provider)
     calendarGhostEventsProvider.overrideWith(_ghostEventsFromApi),
 
@@ -538,6 +543,98 @@ Future<void> Function(String, {required bool completed})
       // Swallow — sync engine will reconcile later.
     }
   };
+}
+
+// ---------------------------------------------------------------------------
+// AI / ML providers — graceful fallback when ML service is unavailable
+// ---------------------------------------------------------------------------
+
+Future<AiPatterns> _patternsFromMl(Ref ref) async {
+  final api = _tryRead(ref, progressApiProvider);
+  if (api == null) return const AiPatterns();
+
+  try {
+    final response = await api.getPatterns();
+    if (response.success && response.data != null) {
+      final d = response.data!;
+      final patterns = (d['patterns'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const <Map<String, dynamic>>[];
+      final forecast = (d['forecast'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const <Map<String, dynamic>>[];
+      return AiPatterns(
+        patterns: List.unmodifiable(patterns),
+        forecast: List.unmodifiable(forecast),
+        dataPoints: (d['dataPoints'] as num?)?.toInt() ?? 0,
+      );
+    }
+    return const AiPatterns();
+  } on DioException {
+    return const AiPatterns();
+  }
+}
+
+Future<EnergyForecast> _energyFromMl(Ref ref) async {
+  final api = _tryRead(ref, progressApiProvider);
+  if (api == null) return const EnergyForecast();
+
+  try {
+    final response = await api.getEnergyForecast();
+    if (response.success && response.data != null) {
+      final d = response.data!;
+      final forecast = (d['forecast'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const <Map<String, dynamic>>[];
+      final peakHours = (d['peakHours'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const <Map<String, dynamic>>[];
+      final lowHours = (d['lowHours'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const <Map<String, dynamic>>[];
+      return EnergyForecast(
+        forecast: List.unmodifiable(forecast),
+        peakHours: List.unmodifiable(peakHours),
+        lowHours: List.unmodifiable(lowHours),
+        dataPoints: (d['dataPoints'] as num?)?.toInt() ?? 0,
+      );
+    }
+    return const EnergyForecast();
+  } on DioException {
+    return const EnergyForecast();
+  }
+}
+
+Future<List<SmartSuggestion>> _suggestionsFromMl(Ref ref) async {
+  final api = _tryRead(ref, progressApiProvider);
+  if (api == null) return const <SmartSuggestion>[];
+
+  try {
+    final response = await api.getSuggestions(limit: 5);
+    if (response.success && response.data != null) {
+      final d = response.data!;
+      final ranked = (d['rankedTasks'] as List<dynamic>?) ??
+          const <dynamic>[];
+      final suggestions = ranked.map((e) {
+        final item = Map<String, dynamic>.from(e as Map);
+        return SmartSuggestion(
+          taskId: (item['taskId'] as String?) ?? '',
+          title: (item['title'] as String?) ?? 'Untitled Task',
+          score: (item['score'] as num?)?.toDouble() ?? 0.0,
+          suggestedTime: item['suggestedTime'] as String?,
+        );
+      }).toList();
+      return List.unmodifiable(suggestions);
+    }
+    return const <SmartSuggestion>[];
+  } on DioException {
+    return const <SmartSuggestion>[];
+  }
 }
 
 // ---------------------------------------------------------------------------

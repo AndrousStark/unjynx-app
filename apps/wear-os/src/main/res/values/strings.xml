@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">UNJYNX</string>
+    <string name="tile_today_tasks">Today\'s Tasks</string>
+    <string name="tile_progress_rings">Progress Rings</string>
+    <string name="empty_tasks">All caught up!</string>
+    <string name="complete_task">Complete</string>
+    <string name="snooze_task">Snooze</string>
+    <string name="snooze_30min">30 min</string>
+    <string name="snooze_1h">1 hour</string>
+    <string name="snooze_tomorrow">Tomorrow</string>
+    <string name="streak_keep_going">Keep it going!</string>
+    <string name="streak_best">Best: %d days</string>
+    <string name="loading">Loading...</string>
+    <string name="error_network">Connection lost</string>
+    <string name="error_auth">Sign in on phone</string>
+</resources>

@@ -6,15 +6,21 @@ import 'package:unjynx_core/core.dart';
 
 /// H5 - Weekly Review Page.
 ///
-/// A rule-based (no AI) weekly productivity review that aggregates existing
-/// data from progress and home providers into five sections:
+/// A productivity review that aggregates existing data from progress and
+/// home providers, enhanced with ML-powered insights:
 ///
 /// 1. Week date range header
 /// 2. Stats cards (tasks, focus, streak, projects)
 /// 3. Completion trend mini-chart (last 7 days from heatmap data)
+/// 3b. AI Detected Patterns (ML-powered, graceful fallback)
+/// 3c. Energy Forecast Mini-Chart (ML-powered, graceful fallback)
 /// 4. Top accomplishments (top 3 completed tasks by priority)
 /// 5. Carry forward (overdue/incomplete tasks from last week)
+/// 5b. Smart Next Week Plan (ML-powered, graceful fallback)
 /// 6. Next week focus (tasks due next week, grouped by day)
+///
+/// ML sections (3b, 3c, 5b) are hidden when the ML service is unavailable
+/// or returns empty data, ensuring the page degrades gracefully.
 ///
 /// Pull-to-refresh invalidates all relevant providers.
 class WeeklyReviewPage extends ConsumerWidget {
@@ -48,7 +54,10 @@ class WeeklyReviewPage extends ConsumerWidget {
               ..invalidate(homeTodayTasksProvider)
               ..invalidate(homeUpcomingTasksProvider)
               ..invalidate(activityHeatmapProvider)
-              ..invalidate(personalBestsProvider);
+              ..invalidate(personalBestsProvider)
+              ..invalidate(weeklyPatternsProvider)
+              ..invalidate(energyForecastProvider)
+              ..invalidate(smartSuggestionsProvider);
             // Invalidate the current and next month calendar tasks.
             final now = DateTime.now();
             ref
@@ -80,6 +89,12 @@ class WeeklyReviewPage extends ConsumerWidget {
                       _CompletionTrendSection(ref: ref, ux: ux),
                       const SizedBox(height: 20),
 
+                      // 3b. AI Detected Patterns (hidden if ML unavailable)
+                      _AiPatternsSection(ref: ref, ux: ux),
+
+                      // 3c. Energy Forecast Mini-Chart (hidden if ML unavailable)
+                      _EnergyForecastSection(ref: ref, ux: ux),
+
                       // 4. Top accomplishments
                       _TopAccomplishments(ref: ref, ux: ux),
                       const SizedBox(height: 20),
@@ -87,6 +102,9 @@ class WeeklyReviewPage extends ConsumerWidget {
                       // 5. Carry forward
                       _CarryForwardSection(ref: ref, ux: ux),
                       const SizedBox(height: 20),
+
+                      // 5b. Smart Next Week Plan (hidden if ML unavailable)
+                      _SmartSuggestionsSection(ref: ref, ux: ux),
 
                       // 6. Next week focus
                       _NextWeekFocus(ref: ref, ux: ux),
@@ -816,6 +834,551 @@ class _CarryForwardTile extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3b. AI Detected Patterns (graceful fallback — hidden when ML unavailable)
+// ---------------------------------------------------------------------------
+
+class _AiPatternsSection extends StatelessWidget {
+  const _AiPatternsSection({required this.ref, required this.ux});
+
+  final WidgetRef ref;
+  final UnjynxCustomColors ux;
+
+  @override
+  Widget build(BuildContext context) {
+    final patternsAsync = ref.watch(weeklyPatternsProvider);
+
+    return patternsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (data) {
+        // Hide section if no patterns or only insufficient-data marker.
+        if (data.patterns.isEmpty) return const SizedBox.shrink();
+        if (data.patterns.length == 1 &&
+            data.patterns.first['type'] == 'insufficient_data') {
+          return const SizedBox.shrink();
+        }
+
+        final colorScheme = Theme.of(context).colorScheme;
+        final textTheme = Theme.of(context).textTheme;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: ux.shadowBase.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.insights, color: ux.info, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Detected Patterns',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'AI-powered insights from your activity',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (int i = 0; i < data.patterns.length; i++) ...[
+                  _PatternTile(
+                    pattern: data.patterns[i],
+                    infoColor: ux.info,
+                  ),
+                  if (i < data.patterns.length - 1) const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PatternTile extends StatelessWidget {
+  const _PatternTile({required this.pattern, required this.infoColor});
+
+  final Map<String, dynamic> pattern;
+  final Color infoColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    final type = (pattern['type'] as String?) ?? '';
+    final description = (pattern['description'] as String?) ?? '';
+    final confidence = ((pattern['confidence'] as num?)?.toDouble() ?? 0.0)
+        .clamp(0.0, 1.0);
+
+    final icon = switch (type) {
+      'weekly_peak' => Icons.calendar_today,
+      'trend' => Icons.trending_up,
+      'consistency' => Icons.equalizer,
+      _ => Icons.lightbulb_outline,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: infoColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: infoColor, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: textTheme.bodyMedium,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                // Confidence bar
+                Row(
+                  children: [
+                    Text(
+                      '${(confidence * 100).toInt()}% confidence',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: confidence,
+                          minHeight: 4,
+                          backgroundColor:
+                              colorScheme.onSurface.withValues(alpha: 0.08),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            infoColor.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3c. Energy Forecast Mini-Chart (graceful fallback — hidden when ML unavailable)
+// ---------------------------------------------------------------------------
+
+class _EnergyForecastSection extends StatelessWidget {
+  const _EnergyForecastSection({required this.ref, required this.ux});
+
+  final WidgetRef ref;
+  final UnjynxCustomColors ux;
+
+  @override
+  Widget build(BuildContext context) {
+    final forecastAsync = ref.watch(energyForecastProvider);
+
+    return forecastAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (data) {
+        // Hide if no data or all zero-confidence (unfitted model).
+        if (data.forecast.isEmpty) return const SizedBox.shrink();
+        final hasRealData = data.forecast.any(
+          (e) => ((e['confidence'] as num?)?.toDouble() ?? 0.0) > 0.0,
+        );
+        if (!hasRealData) return const SizedBox.shrink();
+
+        final colorScheme = Theme.of(context).colorScheme;
+        final textTheme = Theme.of(context).textTheme;
+
+        // Build peak hours summary text.
+        final peakSummary = data.peakHours.isNotEmpty
+            ? data.peakHours
+                .map((h) => _formatHour((h['hour'] as num?)?.toInt() ?? 0))
+                .join(', ')
+            : null;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: ux.shadowBase.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.bolt, color: ux.gold, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Energy Forecast',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Predicted energy levels by hour',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _EnergyBarChart(
+                  forecast: data.forecast,
+                  peakHours: data.peakHours
+                      .map((h) => (h['hour'] as num?)?.toInt() ?? -1)
+                      .toSet(),
+                  lowHours: data.lowHours
+                      .map((h) => (h['hour'] as num?)?.toInt() ?? -1)
+                      .toSet(),
+                  goldColor: ux.gold,
+                  mutedColor: colorScheme.primary.withValues(alpha: 0.25),
+                ),
+                if (peakSummary != null) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_fire_department,
+                        color: ux.gold,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Best focus hours: $peakSummary',
+                          style: textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  static String _formatHour(int hour) {
+    if (hour == 0) return '12 AM';
+    if (hour < 12) return '$hour AM';
+    if (hour == 12) return '12 PM';
+    return '${hour - 12} PM';
+  }
+}
+
+/// A compact 24-bar chart showing predicted energy by hour.
+///
+/// Peak hours are highlighted in gold, low hours in muted purple.
+class _EnergyBarChart extends StatelessWidget {
+  const _EnergyBarChart({
+    required this.forecast,
+    required this.peakHours,
+    required this.lowHours,
+    required this.goldColor,
+    required this.mutedColor,
+  });
+
+  final List<Map<String, dynamic>> forecast;
+  final Set<int> peakHours;
+  final Set<int> lowHours;
+  final Color goldColor;
+  final Color mutedColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // Find min/max energy for scaling.
+    double minE = 5.0;
+    double maxE = 1.0;
+    for (final entry in forecast) {
+      final e = (entry['energy'] as num?)?.toDouble() ?? 3.0;
+      if (e < minE) minE = e;
+      if (e > maxE) maxE = e;
+    }
+    final range = (maxE - minE).clamp(0.5, 5.0);
+
+    return SizedBox(
+      height: 80,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(24, (hour) {
+          final entry = hour < forecast.length ? forecast[hour] : null;
+          final energy = (entry?['energy'] as num?)?.toDouble() ?? 3.0;
+          final fraction = ((energy - minE) / range).clamp(0.05, 1.0);
+          final isPeak = peakHours.contains(hour);
+          final isLow = lowHours.contains(hour);
+
+          final barColor = isPeak
+              ? goldColor
+              : isLow
+                  ? mutedColor
+                  : colorScheme.primary.withValues(alpha: 0.4);
+
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0.5),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOut,
+                    height: fraction * 60 + 4,
+                    decoration: BoxDecoration(
+                      color: barColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  // Show label every 6 hours.
+                  if (hour % 6 == 0)
+                    Text(
+                      '${hour}h',
+                      style: textTheme.bodySmall?.copyWith(
+                        fontSize: 8,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5b. Smart Next Week Plan (graceful fallback — hidden when ML unavailable)
+// ---------------------------------------------------------------------------
+
+class _SmartSuggestionsSection extends StatelessWidget {
+  const _SmartSuggestionsSection({required this.ref, required this.ux});
+
+  final WidgetRef ref;
+  final UnjynxCustomColors ux;
+
+  @override
+  Widget build(BuildContext context) {
+    final suggestionsAsync = ref.watch(smartSuggestionsProvider);
+
+    return suggestionsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (suggestions) {
+        if (suggestions.isEmpty) return const SizedBox.shrink();
+
+        final colorScheme = Theme.of(context).colorScheme;
+        final textTheme = Theme.of(context).textTheme;
+
+        // Show at most 3 suggestions.
+        final top3 = suggestions.take(3).toList();
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: ux.shadowBase.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: ux.gold, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Suggested Focus',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'AI-ranked tasks for maximum impact',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (int i = 0; i < top3.length; i++) ...[
+                  _SuggestionTile(
+                    suggestion: top3[i],
+                    rank: i + 1,
+                    goldColor: ux.gold,
+                  ),
+                  if (i < top3.length - 1) const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SuggestionTile extends StatelessWidget {
+  const _SuggestionTile({
+    required this.suggestion,
+    required this.rank,
+    required this.goldColor,
+  });
+
+  final SmartSuggestion suggestion;
+  final int rank;
+  final Color goldColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    final confidencePercent = (suggestion.score.clamp(0.0, 1.0) * 100).toInt();
+
+    return GestureDetector(
+      onTap: () => HapticFeedback.lightImpact(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: goldColor.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            // Rank badge
+            Container(
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: goldColor.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '#$rank',
+                style: textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: goldColor,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    suggestion.title,
+                    style: textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (suggestion.suggestedTime != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      suggestion.suggestedTime!,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Confidence badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: goldColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$confidencePercent%',
+                style: textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: goldColor,
+                  fontSize: 11,
+                ),
+              ),
+            ),
           ],
         ),
       ),
