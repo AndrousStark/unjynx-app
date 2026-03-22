@@ -6,4 +6,5 @@ export 'src/domain/entities/app_settings.dart';
 export 'src/domain/repositories/settings_repository.dart';
 export 'src/presentation/providers/settings_providers.dart';
 export 'src/presentation/providers/theme_providers.dart';
+export 'src/presentation/pages/mode_selector_page.dart';
 export 'src/settings_plugin.dart';

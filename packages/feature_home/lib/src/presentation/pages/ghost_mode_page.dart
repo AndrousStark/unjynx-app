@@ -182,7 +182,7 @@ class _GhostModePageState extends ConsumerState<GhostModePage>
           top: 16,
           right: 12,
           child: Semantics(
-            label: 'Exit Ghost Mode',
+            label: 'Exit ${unjynxLabelWidget(ref, 'Ghost Mode')}',
             button: true,
             child: GestureDetector(
               onTap: _exitGhostMode,
@@ -562,13 +562,13 @@ class _CompletionButton extends StatelessWidget {
 // Zen Screen -- shown when all tasks are complete
 // ---------------------------------------------------------------------------
 
-class _ZenScreen extends StatelessWidget {
+class _ZenScreen extends ConsumerWidget {
   const _ZenScreen({required this.onExit});
 
   final VoidCallback onExit;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final ux = context.unjynx;
 
@@ -579,7 +579,7 @@ class _ZenScreen extends StatelessWidget {
           top: 16,
           right: 12,
           child: Semantics(
-            label: 'Done, exit Ghost Mode',
+            label: 'Done, exit ${unjynxLabelWidget(ref, 'Ghost Mode')}',
             button: true,
             child: GestureDetector(
               onTap: onExit,

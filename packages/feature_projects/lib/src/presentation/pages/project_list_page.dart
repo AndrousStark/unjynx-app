@@ -18,7 +18,7 @@ class ProjectListPage extends ConsumerWidget {
     final projectsAsync = ref.watch(projectListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Projects')),
+      appBar: AppBar(title: Text(unjynxLabelWidget(ref, 'Projects'))),
       body: RefreshIndicator(
         color: colorScheme.primary,
         onRefresh: () async {

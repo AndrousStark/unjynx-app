@@ -11,11 +11,17 @@ import type {
   CalendarStatus,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
+  ProviderStatus,
 } from "./calendar.schema.js";
 import type {
   CalendarToken,
   CalendarEventMapping,
 } from "../../db/schema/index.js";
+import { getCalDAVEvents } from "./providers/caldav.provider.js";
+import { getOutlookEvents } from "./providers/msgraph.provider.js";
+import { logger } from "../../middleware/logger.js";
+
+const log = logger.child({ module: "calendar-service" });
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -432,11 +438,154 @@ export async function deleteCalendarEvent(
   return true;
 }
 
+// ── Multi-Provider Support ────────────────────────────────────────────
+
+/**
+ * List all connected calendar providers for a user.
+ */
+export async function getConnectedProviders(
+  userId: string,
+): Promise<readonly ProviderStatus[]> {
+  const rows = await db
+    .select()
+    .from(calendarTokens)
+    .where(eq(calendarTokens.userId, userId));
+
+  return rows.map(
+    (row): ProviderStatus => ({
+      provider: row.provider,
+      connected: true,
+      calendarId: row.calendarId,
+      connectedAt: row.createdAt,
+    }),
+  );
+}
+
+/**
+ * Fetch events from ALL connected calendar providers for a date range.
+ * Merges events from Google, Apple (CalDAV), and Outlook into a single
+ * list, sorted by start time. Failures from individual providers are
+ * logged but do not block other providers from returning events.
+ */
+export async function getAllProviderEvents(
+  userId: string,
+  start: Date,
+  end: Date,
+): Promise<readonly CalendarEvent[]> {
+  const connectedProviders = await db
+    .select()
+    .from(calendarTokens)
+    .where(eq(calendarTokens.userId, userId));
+
+  const providerNames = new Set(connectedProviders.map((r) => r.provider));
+
+  const eventPromises: Promise<readonly CalendarEvent[]>[] = [];
+
+  // Google Calendar
+  if (providerNames.has("google")) {
+    eventPromises.push(
+      getCalendarEvents(userId, start, end).catch((error) => {
+        log.warn(
+          {
+            userId,
+            provider: "google",
+            error: error instanceof Error ? error.message : "Unknown",
+          },
+          "Google Calendar fetch failed in multi-provider merge",
+        );
+        return [] as CalendarEvent[];
+      }),
+    );
+  }
+
+  // Apple CalDAV
+  if (providerNames.has("apple")) {
+    eventPromises.push(
+      getCalDAVEvents(userId, start, end).catch((error) => {
+        log.warn(
+          {
+            userId,
+            provider: "apple",
+            error: error instanceof Error ? error.message : "Unknown",
+          },
+          "CalDAV fetch failed in multi-provider merge",
+        );
+        return [] as CalendarEvent[];
+      }),
+    );
+  }
+
+  // Outlook
+  if (providerNames.has("outlook")) {
+    eventPromises.push(
+      getOutlookEvents(userId, start, end).catch((error) => {
+        log.warn(
+          {
+            userId,
+            provider: "outlook",
+            error: error instanceof Error ? error.message : "Unknown",
+          },
+          "Outlook fetch failed in multi-provider merge",
+        );
+        return [] as CalendarEvent[];
+      }),
+    );
+  }
+
+  if (eventPromises.length === 0) {
+    return [];
+  }
+
+  const results = await Promise.all(eventPromises);
+
+  // Flatten and sort by start time (immutable: spread into new array)
+  const allEvents = [...results.flat()].sort(
+    (a: CalendarEvent, b: CalendarEvent) => a.start.localeCompare(b.start),
+  );
+
+  return allEvents;
+}
+
+/**
+ * Disconnect a specific provider for a user.
+ * If provider is not specified, disconnects ALL providers.
+ */
+export async function disconnectProvider(
+  userId: string,
+  provider?: string,
+): Promise<void> {
+  if (provider) {
+    const deleted = await db
+      .delete(calendarTokens)
+      .where(
+        and(
+          eq(calendarTokens.userId, userId),
+          eq(calendarTokens.provider, provider),
+        ),
+      )
+      .returning();
+
+    if (deleted.length === 0) {
+      throw new CalendarNotConnectedError();
+    }
+  } else {
+    // Original behavior: disconnect all
+    const deleted = await db
+      .delete(calendarTokens)
+      .where(eq(calendarTokens.userId, userId))
+      .returning();
+
+    if (deleted.length === 0) {
+      throw new CalendarNotConnectedError();
+    }
+  }
+}
+
 // ── Error Classes ────────────────────────────────────────────────────
 
 export class CalendarNotConnectedError extends Error {
   constructor() {
-    super("Google Calendar is not connected");
+    super("Calendar is not connected");
     this.name = "CalendarNotConnectedError";
   }
 }

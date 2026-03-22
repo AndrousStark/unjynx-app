@@ -46,6 +46,13 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
+  // Microsoft Outlook Calendar Integration (Graph API)
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+
+  // ML Service
+  ML_SERVICE_URL: z.string().default("http://ml-service:8000"),
+
   // Monitoring (Sentry)
   SENTRY_DSN: z.string().optional(),
   SENTRY_ENVIRONMENT: z.string().default("development"),

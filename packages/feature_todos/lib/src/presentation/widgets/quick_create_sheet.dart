@@ -187,7 +187,7 @@ class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet>
 
             // Header
             Text(
-              'Quick Add Task',
+              'Quick Add ${unjynxLabelWidget(ref, 'Task')}',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -319,9 +319,9 @@ class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet>
                           color: isLight ? Colors.white : Colors.black,
                         ),
                       )
-                    : const Text(
-                        'Add Task',
-                        style: TextStyle(
+                    : Text(
+                        'Add ${unjynxLabelWidget(ref, 'Task')}',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),

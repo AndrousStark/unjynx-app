@@ -202,7 +202,7 @@ class _TodoListPageState extends ConsumerState<TodoListPage> {
               ),
               onChanged: _onSearchChanged,
             )
-          : const Text('Tasks'),
+          : Text(unjynxLabelWidget(ref, 'Tasks')),
       actions: [
         IconButton(
           icon: Icon(_isSearching ? Icons.close : Icons.search),

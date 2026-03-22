@@ -24,6 +24,7 @@ import { adminRoutes } from "./admin/admin.routes.js";
 import { devPortalRoutes } from "./dev-portal/dev-portal.routes.js";
 import { calendarRoutes } from "./calendar/calendar.routes.js";
 import { modesRoutes } from "./modes/modes.routes.js";
+import { aiRoutes } from "./ai/ai.routes.js";
 
 /**
  * Register all domain modules on the Hono app instance.
@@ -68,6 +69,9 @@ export function registerModules(app: Hono): void {
 
   // Phase 7: Industry Modes
   app.route("/api/v1/modes", modesRoutes);
+
+  // Phase 6: AI / ML intelligence
+  app.route("/api/v1/ai", aiRoutes);
 
   // Webhooks (no auth — providers call these directly)
   app.route("/api/v1/webhooks", webhookRoutes);

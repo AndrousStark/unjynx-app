@@ -664,6 +664,16 @@ final calendarConnectedProvider = FutureProvider<bool>(
   (ref) async => false,
 );
 
+/// List of all connected calendar providers for the current user.
+///
+/// Each entry is a map with 'provider', 'connected', 'calendarId', and
+/// 'connectedAt' keys. Override in app bootstrap with real
+/// CalendarApiService.getProviders().
+final calendarProvidersProvider =
+    FutureProvider<List<Map<String, dynamic>>>(
+  (ref) async => const <Map<String, dynamic>>[],
+);
+
 /// Callback to connect Google Calendar.
 ///
 /// Override in app bootstrap with real implementation that calls

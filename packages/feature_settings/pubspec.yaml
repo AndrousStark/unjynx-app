@@ -17,7 +17,10 @@ dependencies:
   go_router: ^16.0.0
   json_annotation: ^4.11.0
   shared_preferences: ^2.3.0
+  dio: ^5.0.0
 
+  service_api:
+    path: ../service_api
   unjynx_core:
     path: ../core
 

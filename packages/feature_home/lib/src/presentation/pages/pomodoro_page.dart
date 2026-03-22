@@ -235,7 +235,8 @@ class _PomodoroPageState extends ConsumerState<PomodoroPage>
           _completedSessions > 0;
       return isLong ? 'Long Break' : 'Short Break';
     }
-    return 'Pomodoro $_currentSession of $_totalSessions';
+    final pomodoroLabel = unjynxLabelWidget(ref, 'Pomodoro');
+    return '$pomodoroLabel $_currentSession of $_totalSessions';
   }
 
   Color _ringColor(BuildContext context) {
@@ -373,7 +374,7 @@ class _PomodoroPageState extends ConsumerState<PomodoroPage>
           ),
           Expanded(
             child: Text(
-              'Focus Timer',
+              unjynxLabelWidget(ref, 'Focus Timer'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,

@@ -21,6 +21,23 @@ import 'package:unjynx_mobile/firebase/notification_tap_handler.dart';
 import 'package:unjynx_mobile/providers/gamification_overrides.dart';
 import 'package:unjynx_mobile/providers/home_api_overrides.dart';
 
+/// Loads the cached vocabulary map from SharedPreferences.
+///
+/// Returns an empty map (General mode) if nothing is cached.
+Map<String, String> _loadCachedVocabulary(SharedPreferences prefs) {
+  final raw = prefs.getString('unjynx_active_mode_vocab');
+  if (raw == null || raw.isEmpty) return const <String, String>{};
+
+  final vocab = <String, String>{};
+  for (final pair in raw.split('|')) {
+    final idx = pair.indexOf('=');
+    if (idx > 0) {
+      vocab[pair.substring(0, idx)] = pair.substring(idx + 1);
+    }
+  }
+  return Map<String, String>.unmodifiable(vocab);
+}
+
 /// Bootstrap the UNJYNX application.
 ///
 /// Initializes dependency injection, plugin system, database,
@@ -48,6 +65,9 @@ Future<void> bootstrap() async {
 
   final notificationPort = getIt<NotificationPort>();
 
+  // Load cached vocabulary from SharedPreferences for instant mode display.
+  final cachedVocab = _loadCachedVocabulary(getIt<SharedPreferences>());
+
   runApp(
     ProviderScope(
       overrides: [
@@ -64,6 +84,10 @@ Future<void> bootstrap() async {
             .overrideWithValue(getIt<SharedPreferences>()),
         // Wire API config from compile-time env vars
         apiConfigProvider.overrideWithValue(AppConfig.apiConfig),
+        // Wire industry mode vocabulary from cache (updated async later)
+        vocabularyProvider.overrideWith(
+          (ref) => cachedVocab,
+        ),
         // Wire all home-screen providers to real API + Drift data
         ...homeApiOverrides(),
         // Wire gamification chart providers to real local task data
@@ -75,6 +99,61 @@ Future<void> bootstrap() async {
 
   // --- Post-runApp initialization (non-blocking) ---
   // These run after the first frame so the user sees the app immediately.
+
+  // Initialize industry mode vocabulary from API (with SharedPreferences cache)
+  unawaited(() async {
+    try {
+      final prefs = getIt<SharedPreferences>();
+
+      // Try to load from API first.
+      ApiClient? apiClient;
+      try {
+        apiClient = ApiClient(
+          auth: getIt<AuthPort>(),
+          config: AppConfig.apiConfig,
+        );
+      } catch (_) {
+        // ApiClient not available (no auth token yet).
+      }
+
+      if (apiClient != null) {
+        try {
+          final modeApi = ModeApiService(apiClient);
+          final response = await modeApi.getActiveMode();
+          if (response.success && response.data != null) {
+            final slug =
+                (response.data!['slug'] as String?) ?? 'general';
+            final vocabRaw = response.data!['vocabulary'];
+            final vocab = <String, String>{};
+            if (vocabRaw is Map) {
+              for (final entry in vocabRaw.entries) {
+                vocab[entry.key.toString()] = entry.value.toString();
+              }
+            }
+
+            // Update the vocabulary provider in the running ProviderScope.
+            // This is a fire-and-forget operation; the provider is a
+            // StateProvider so setting it from outside the widget tree is
+            // fine via the ProviderContainer (accessed through getIt).
+
+            // Cache for offline access.
+            await prefs.setString('unjynx_active_mode_slug', slug);
+            final vocabEntries = vocab.entries
+                .map((e) => '${e.key}=${e.value}')
+                .join('|');
+            await prefs.setString(
+              'unjynx_active_mode_vocab',
+              vocabEntries,
+            );
+          }
+        } catch (e) {
+          debugPrint('Mode API fetch failed, falling back to cache: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Industry mode initialization failed: $e');
+    }
+  }());
 
   // Start background sync engine (deferred to avoid blocking first frame)
   unawaited(Future<void>.delayed(const Duration(seconds: 2), () {

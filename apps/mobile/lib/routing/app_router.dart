@@ -4,6 +4,7 @@ import 'package:feature_home/feature_home.dart';
 import 'package:feature_import_export/feature_import_export.dart';
 import 'package:feature_notifications/feature_notifications.dart';
 import 'package:feature_projects/feature_projects.dart';
+import 'package:feature_settings/feature_settings.dart';
 import 'package:feature_team/feature_team.dart';
 import 'package:feature_todos/todo_plugin.dart';
 import 'package:feature_widgets/feature_widgets.dart';
@@ -239,6 +240,12 @@ GoRouter createAppRouter(
     GoRoute(
       path: '/widgets',
       builder: (context, state) => const WidgetConfigPage(),
+    ),
+
+    // Industry Mode selector
+    GoRoute(
+      path: '/settings/mode',
+      builder: (context, state) => const ModeSelectorPage(),
     ),
   ];
 

@@ -4,45 +4,85 @@ import { authMiddleware } from "../../middleware/auth.js";
 import { ok, err } from "../../types/api.js";
 import {
   connectSchema,
+  connectAppleSchema,
+  connectOutlookSchema,
   eventsQuerySchema,
   createCalendarEventSchema,
   updateCalendarEventSchema,
 } from "./calendar.schema.js";
 import * as calendarService from "./calendar.service.js";
 import { CalendarNotConnectedError } from "./calendar.service.js";
+import * as caldavProvider from "./providers/caldav.provider.js";
+import { CalDAVConnectionError } from "./providers/caldav.provider.js";
+import * as msgraphProvider from "./providers/msgraph.provider.js";
+import { OutlookAuthError } from "./providers/msgraph.provider.js";
 
 export const calendarRoutes = new Hono();
 
 calendarRoutes.use("/*", authMiddleware);
 
-// ── Helper: handle Google API errors consistently ────────────────────
+// ── Helper: handle provider API errors consistently ──────────────────
 
-function handleGoogleApiError(error: unknown) {
+function handleProviderApiError(error: unknown) {
+  // Google-specific errors
   const googleError = error as { code?: number; message?: string };
 
   if (googleError.code === 401) {
     return {
-      message: "Google Calendar authorization expired. Please reconnect.",
+      message: "Calendar authorization expired. Please reconnect.",
       status: 401 as const,
     };
   }
   if (googleError.code === 403) {
     return {
-      message: "Google Calendar API quota exceeded. Please try again later.",
+      message: "Calendar API quota exceeded. Please try again later.",
       status: 429 as const,
     };
   }
   if (googleError.code === 404) {
     return {
-      message: "Calendar or event not found on Google.",
+      message: "Calendar or event not found.",
       status: 404 as const,
+    };
+  }
+
+  // CalDAV errors
+  if (error instanceof CalDAVConnectionError) {
+    return {
+      message: error.message,
+      status: 401 as const,
+    };
+  }
+
+  // Outlook errors
+  if (error instanceof OutlookAuthError) {
+    return {
+      message: error.message,
+      status: 401 as const,
+    };
+  }
+
+  // MS Graph status code errors
+  const graphError = error as { statusCode?: number };
+  if (graphError.statusCode === 401) {
+    return {
+      message: "Outlook Calendar authorization expired. Please reconnect.",
+      status: 401 as const,
+    };
+  }
+  if (graphError.statusCode === 403) {
+    return {
+      message: "Outlook Calendar permissions insufficient.",
+      status: 403 as const,
     };
   }
 
   return null;
 }
 
-// POST /api/v1/calendar/connect - Exchange auth code for tokens
+// ── Google Calendar Connect ──────────────────────────────────────────
+
+// POST /api/v1/calendar/connect - Exchange Google auth code for tokens
 calendarRoutes.post(
   "/connect",
   zValidator("json", connectSchema),
@@ -64,13 +104,80 @@ calendarRoutes.post(
   },
 );
 
+// ── Apple CalDAV Connect ─────────────────────────────────────────────
+
+// POST /api/v1/calendar/connect/apple - Connect via CalDAV credentials
+calendarRoutes.post(
+  "/connect/apple",
+  zValidator("json", connectAppleSchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const { caldavUrl, username, password } = c.req.valid("json");
+
+    try {
+      const status = await caldavProvider.connectCalDAV(
+        auth.profileId,
+        caldavUrl,
+        username,
+        password,
+      );
+      return c.json(ok(status));
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to connect Apple Calendar";
+      return c.json(err(message), 400);
+    }
+  },
+);
+
+// ── Outlook Connect ──────────────────────────────────────────────────
+
+// POST /api/v1/calendar/connect/outlook - Exchange Microsoft auth code
+calendarRoutes.post(
+  "/connect/outlook",
+  zValidator("json", connectOutlookSchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const { authCode } = c.req.valid("json");
+
+    try {
+      const status = await msgraphProvider.connectOutlook(
+        auth.profileId,
+        authCode,
+      );
+      return c.json(ok(status));
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to connect Outlook Calendar";
+      return c.json(err(message), 400);
+    }
+  },
+);
+
+// ── Provider Management ──────────────────────────────────────────────
+
+// GET /api/v1/calendar/providers - List all connected providers
+calendarRoutes.get("/providers", async (c) => {
+  const auth = c.get("auth");
+  const providers = await calendarService.getConnectedProviders(
+    auth.profileId,
+  );
+  return c.json(ok(providers));
+});
+
 // DELETE /api/v1/calendar/disconnect - Remove stored tokens
+// Optional query param: ?provider=google|apple|outlook
 calendarRoutes.delete("/disconnect", async (c) => {
   const auth = c.get("auth");
+  const provider = c.req.query("provider");
 
   try {
-    await calendarService.disconnectCalendar(auth.profileId);
-    return c.json(ok({ disconnected: true }));
+    await calendarService.disconnectProvider(auth.profileId, provider);
+    return c.json(ok({ disconnected: true, provider: provider ?? "all" }));
   } catch (error) {
     if (error instanceof CalendarNotConnectedError) {
       return c.json(err(error.message), 404);
@@ -81,14 +188,16 @@ calendarRoutes.delete("/disconnect", async (c) => {
   }
 });
 
-// GET /api/v1/calendar/status - Check connection status
+// GET /api/v1/calendar/status - Check connection status (legacy, single-provider)
 calendarRoutes.get("/status", async (c) => {
   const auth = c.get("auth");
   const status = await calendarService.getCalendarStatus(auth.profileId);
   return c.json(ok(status));
 });
 
-// GET /api/v1/calendar/events - Fetch events for a date range
+// ── Events (Multi-Provider Merge) ────────────────────────────────────
+
+// GET /api/v1/calendar/events - Fetch events from ALL connected providers
 calendarRoutes.get(
   "/events",
   zValidator("query", eventsQuerySchema),
@@ -97,7 +206,7 @@ calendarRoutes.get(
     const { start, end } = c.req.valid("query");
 
     try {
-      const events = await calendarService.getCalendarEvents(
+      const events = await calendarService.getAllProviderEvents(
         auth.profileId,
         start,
         end,
@@ -108,9 +217,9 @@ calendarRoutes.get(
         return c.json(err(error.message), 404);
       }
 
-      const googleErr = handleGoogleApiError(error);
-      if (googleErr) {
-        return c.json(err(googleErr.message), googleErr.status);
+      const providerErr = handleProviderApiError(error);
+      if (providerErr) {
+        return c.json(err(providerErr.message), providerErr.status);
       }
 
       const message =
@@ -140,7 +249,7 @@ calendarRoutes.post(
 
       if (!mapping) {
         return c.json(
-          err("Google Calendar is not connected. Connect first via /connect."),
+          err("No calendar is connected. Connect a provider first via /connect, /connect/apple, or /connect/outlook."),
           404,
         );
       }
@@ -151,9 +260,9 @@ calendarRoutes.post(
         return c.json(err(error.message), 404);
       }
 
-      const googleErr = handleGoogleApiError(error);
-      if (googleErr) {
-        return c.json(err(googleErr.message), googleErr.status);
+      const providerErr = handleProviderApiError(error);
+      if (providerErr) {
+        return c.json(err(providerErr.message), providerErr.status);
       }
 
       const message =
@@ -190,9 +299,9 @@ calendarRoutes.patch(
 
       return c.json(ok(mapping));
     } catch (error) {
-      const googleErr = handleGoogleApiError(error);
-      if (googleErr) {
-        return c.json(err(googleErr.message), googleErr.status);
+      const providerErr = handleProviderApiError(error);
+      if (providerErr) {
+        return c.json(err(providerErr.message), providerErr.status);
       }
 
       const message =
@@ -224,9 +333,9 @@ calendarRoutes.delete("/events/:taskId", async (c) => {
 
     return c.json(ok({ deleted: true }));
   } catch (error) {
-    const googleErr = handleGoogleApiError(error);
-    if (googleErr) {
-      return c.json(err(googleErr.message), googleErr.status);
+    const providerErr = handleProviderApiError(error);
+    if (providerErr) {
+      return c.json(err(providerErr.message), providerErr.status);
     }
 
     const message =

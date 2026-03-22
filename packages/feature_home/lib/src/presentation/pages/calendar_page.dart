@@ -726,7 +726,7 @@ class _GhostEventsSection extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              'Google Calendar',
+              'Calendar Events',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

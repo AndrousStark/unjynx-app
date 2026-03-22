@@ -23,6 +23,10 @@ import {
 } from "./scheduler.service.js";
 import { dispatchBatch } from "./notification-dispatcher.js";
 import { runContentDelivery } from "./content-scheduler.js";
+import {
+  runCalendarSync,
+  CALENDAR_SYNC_INTERVAL_MS,
+} from "../calendar/calendar.sync-worker.js";
 
 const log = logger.child({ module: "cron-scheduler" });
 
@@ -581,6 +585,14 @@ export function startCronJobs(): void {
   }, INACTIVITY_CHECK_INTERVAL_MS);
   activeIntervals.push(inactivityInterval);
 
+  // Every 15 minutes: sync external calendar changes (Google, Apple, Outlook)
+  const calendarSyncInterval = setInterval(() => {
+    runCalendarSync().catch((error) => {
+      log.error({ error }, "Unhandled error in calendar sync");
+    });
+  }, CALENDAR_SYNC_INTERVAL_MS);
+  activeIntervals.push(calendarSyncInterval);
+
   log.info(
     {
       reminderIntervalMs: REMINDER_CHECK_INTERVAL_MS,
@@ -589,6 +601,7 @@ export function startCronJobs(): void {
       contentDeliveryIntervalMs: CONTENT_DELIVERY_INTERVAL_MS,
       instagramIntervalMs: INSTAGRAM_REENGAGEMENT_INTERVAL_MS,
       inactivityIntervalMs: INACTIVITY_CHECK_INTERVAL_MS,
+      calendarSyncIntervalMs: CALENDAR_SYNC_INTERVAL_MS,
     },
     "All cron jobs started",
   );

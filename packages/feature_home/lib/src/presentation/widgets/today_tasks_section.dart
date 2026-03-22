@@ -57,20 +57,22 @@ class TodayTasksSection extends ConsumerWidget {
 // Section header with task count badge
 // ---------------------------------------------------------------------------
 
-class _SectionHeader extends StatelessWidget {
+class _SectionHeader extends ConsumerWidget {
   const _SectionHeader({required this.taskCount});
 
   final int taskCount;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLight = context.isLightMode;
+
+    final tasksLabel = unjynxLabelWidget(ref, 'Tasks');
 
     return Row(
       children: [
         Text(
-          "Today's Tasks",
+          "Today's $tasksLabel",
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
