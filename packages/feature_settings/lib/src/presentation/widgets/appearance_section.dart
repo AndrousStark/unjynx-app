@@ -13,6 +13,9 @@ class AppearanceSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final themeMode = ref.watch(themeModeProvider);
+    final fontSize = ref.watch(fontSizeProvider);
+    final reduceAnimations = ref.watch(reduceAnimationsProvider);
+    final hapticEnabled = ref.watch(hapticFeedbackProvider);
 
     return SettingsSection(
       title: 'Appearance',
@@ -58,36 +61,70 @@ class AppearanceSection extends ConsumerWidget {
           ),
         ),
         Divider(height: 1, color: const Color(0xFF6B21A8).withValues(alpha: 0.06)),
-        // Font size (placeholder)
+        // Font size
         ListTile(
           leading: Icon(Icons.text_fields_rounded, color: colorScheme.onSurfaceVariant),
           title: const Text('Font Size'),
-          subtitle: const Text('Default'),
-          trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-          onTap: () {
-            HapticFeedback.lightImpact();
-          },
+          subtitle: Text(fontSize.label),
+          trailing: SizedBox(
+            width: 200,
+            child: SegmentedButton<FontSizeOption>(
+              segments: const [
+                ButtonSegment(
+                  value: FontSizeOption.small,
+                  label: Text('S'),
+                ),
+                ButtonSegment(
+                  value: FontSizeOption.medium,
+                  label: Text('M'),
+                ),
+                ButtonSegment(
+                  value: FontSizeOption.large,
+                  label: Text('L'),
+                ),
+              ],
+              selected: {fontSize},
+              onSelectionChanged: (selected) {
+                HapticFeedback.selectionClick();
+                ref
+                    .read(fontSizeProvider.notifier)
+                    .setFontSize(selected.first);
+              },
+            ),
+          ),
         ),
         Divider(height: 1, color: const Color(0xFF6B21A8).withValues(alpha: 0.06)),
-        // Animations toggle (placeholder)
+        // Animations toggle
         SwitchListTile(
           title: const Text('Animations'),
-          subtitle: const Text('Enable UI transitions'),
-          value: true,
+          subtitle: Text(
+            reduceAnimations
+                ? 'UI transitions disabled'
+                : 'Enable UI transitions',
+          ),
+          value: !reduceAnimations,
           activeColor: colorScheme.primary,
           onChanged: (value) {
             HapticFeedback.selectionClick();
+            ref.read(reduceAnimationsProvider.notifier).set(!value);
           },
         ),
         Divider(height: 1, color: const Color(0xFF6B21A8).withValues(alpha: 0.06)),
-        // Haptic feedback (placeholder)
+        // Haptic feedback
         SwitchListTile(
           title: const Text('Haptic Feedback'),
-          subtitle: const Text('Vibration on interactions'),
-          value: true,
+          subtitle: Text(
+            hapticEnabled
+                ? 'Vibration on interactions'
+                : 'Vibration disabled',
+          ),
+          value: hapticEnabled,
           activeColor: colorScheme.primary,
           onChanged: (value) {
-            HapticFeedback.selectionClick();
+            if (hapticEnabled) {
+              HapticFeedback.selectionClick();
+            }
+            ref.read(hapticFeedbackProvider.notifier).set(value);
           },
         ),
       ],

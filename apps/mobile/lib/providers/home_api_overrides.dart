@@ -150,6 +150,10 @@ List<Override> homeApiOverrides() {
     // Reschedule task callback
     rescheduleTaskCallbackProvider.overrideWith(_rescheduleTaskCallback),
 
+    // Toggle task completion callback
+    toggleTaskCompletionCallbackProvider
+        .overrideWith(_toggleTaskCompletionCallback),
+
     // Calendar tasks (family provider)
     calendarTasksProvider.overrideWith(_calendarTasksFromRepo),
 
@@ -489,6 +493,47 @@ Future<void> Function(String) _rescheduleTaskCallback(Ref ref) {
       await api.updateTask(taskId, {
         'dueDate': tomorrow.toIso8601String(),
       });
+    } on DioException {
+      // Swallow — sync engine will reconcile later.
+    }
+  };
+}
+
+Future<void> Function(String, {required bool completed})
+    _toggleTaskCompletionCallback(Ref ref) {
+  return (String taskId, {required bool completed}) async {
+    // 1. Update local Drift database.
+    try {
+      final repo = ref.read(todoRepositoryProvider);
+      final result = await repo.getById(taskId);
+      final todo = result.unwrapOr(
+        Todo(
+          id: taskId,
+          title: '',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+      if (todo.title.isNotEmpty) {
+        await repo.update(todo.copyWith(
+          status: completed ? TodoStatus.completed : TodoStatus.pending,
+          updatedAt: DateTime.now(),
+        ));
+      }
+    } catch (_) {
+      // Local update failed — continue to API attempt.
+    }
+
+    // 2. Push to backend API.
+    final api = _tryReadSync(ref, taskApiProvider);
+    if (api == null) return;
+
+    try {
+      if (completed) {
+        await api.completeTask(taskId);
+      } else {
+        await api.uncompleteTask(taskId);
+      }
     } on DioException {
       // Swallow — sync engine will reconcile later.
     }

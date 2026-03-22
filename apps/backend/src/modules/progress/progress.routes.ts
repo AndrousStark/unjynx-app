@@ -2,7 +2,10 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { authMiddleware } from "../../middleware/auth.js";
 import { ok } from "../../types/api.js";
-import { heatmapQuerySchema } from "./progress.schema.js";
+import {
+  heatmapQuerySchema,
+  completionTrendQuerySchema,
+} from "./progress.schema.js";
 import * as progressService from "./progress.service.js";
 
 export const progressRoutes = new Hono();
@@ -40,6 +43,35 @@ progressRoutes.get("/insights", async (c) => {
   const auth = c.get("auth");
   const insights = await progressService.getInsights(auth.profileId);
   return c.json(ok(insights));
+});
+
+// GET /api/v1/progress/completion-trend?days=30
+progressRoutes.get(
+  "/completion-trend",
+  zValidator("query", completionTrendQuerySchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const query = c.req.valid("query");
+    const data = await progressService.getCompletionTrend(
+      auth.profileId,
+      query,
+    );
+    return c.json(ok(data));
+  },
+);
+
+// GET /api/v1/progress/productivity-by-day
+progressRoutes.get("/productivity-by-day", async (c) => {
+  const auth = c.get("auth");
+  const data = await progressService.getProductivityByDay(auth.profileId);
+  return c.json(ok(data));
+});
+
+// GET /api/v1/progress/productivity-by-hour
+progressRoutes.get("/productivity-by-hour", async (c) => {
+  const auth = c.get("auth");
+  const data = await progressService.getProductivityByHour(auth.profileId);
+  return c.json(ok(data));
 });
 
 // GET /api/v1/progress/bests

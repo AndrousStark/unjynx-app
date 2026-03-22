@@ -2,7 +2,7 @@
  * UNJYNX Database Seed Script
  *
  * Seeds the PostgreSQL database with:
- * - 100 daily content entries (10 per category)
+ * - 190 daily content entries (10 per category, 19 categories)
  * - 5 system task templates
  * - 1 test user with 20 sample tasks across 3 projects
  *
@@ -47,6 +47,15 @@ async function seed() {
     "poetry",
     "productivity_hacks",
     "comeback_stories",
+    "tech_wisdom",
+    "financial_literacy",
+    "health_wellness",
+    "leadership",
+    "creativity",
+    "relationships",
+    "science",
+    "philosophy",
+    "sports",
   ] as const;
 
   const contentEntries: schema.NewDailyContentItem[] = [
@@ -169,6 +178,114 @@ async function seed() {
     { category: "comeback_stories", content: "I was born into apartheid. I spent 27 years in prison. Then I became president.", author: "Nelson Mandela", source: null },
     { category: "comeback_stories", content: "I was told I would never walk again. I won 8 Olympic gold medals.", author: "Wilma Rudolph", source: null },
     { category: "comeback_stories", content: "I dropped out of college and started a company in my garage.", author: "Bill Gates", source: "Microsoft" },
+
+    // Tech Wisdom
+    { category: "tech_wisdom", content: "We can only see a short distance ahead, but we can see plenty there that needs to be done.", author: "Alan Turing", source: "Computing Machinery and Intelligence" },
+    { category: "tech_wisdom", content: "The best way to predict the future is to invent it.", author: "Alan Kay", source: "Xerox PARC" },
+    { category: "tech_wisdom", content: "Talk is cheap. Show me the code.", author: "Linus Torvalds", source: null },
+    { category: "tech_wisdom", content: "Simplicity is the ultimate sophistication.", author: "Leonardo da Vinci", source: null },
+    { category: "tech_wisdom", content: "Programs must be written for people to read, and only incidentally for machines to execute.", author: "Harold Abelson", source: "Structure and Interpretation of Computer Programs" },
+    { category: "tech_wisdom", content: "The most important property of a program is whether it accomplishes the intention of its user.", author: "C.A.R. Hoare", source: null },
+    { category: "tech_wisdom", content: "UNIX is simple. It just takes a genius to understand its simplicity.", author: "Dennis Ritchie", source: null },
+    { category: "tech_wisdom", content: "Any fool can write code that a computer can understand. Good programmers write code that humans can understand.", author: "Martin Fowler", source: "Refactoring" },
+    { category: "tech_wisdom", content: "First, solve the problem. Then, write the code.", author: "John Johnson", source: null },
+    { category: "tech_wisdom", content: "Measuring programming progress by lines of code is like measuring aircraft building progress by weight.", author: "Bill Gates", source: null },
+
+    // Financial Literacy
+    { category: "financial_literacy", content: "Rule No. 1: Never lose money. Rule No. 2: Never forget Rule No. 1.", author: "Warren Buffett", source: null },
+    { category: "financial_literacy", content: "The stock market is a device for transferring money from the impatient to the patient.", author: "Warren Buffett", source: null },
+    { category: "financial_literacy", content: "It is not the man who has too little that is poor, but the one who hankers after more.", author: "Seneca", source: "Letters from a Stoic" },
+    { category: "financial_literacy", content: "Spend each day trying to be a little wiser than you were when you woke up.", author: "Charlie Munger", source: "Poor Charlie's Almanack" },
+    { category: "financial_literacy", content: "The individual investor should act consistently as an investor and not as a speculator.", author: "Benjamin Graham", source: "The Intelligent Investor" },
+    { category: "financial_literacy", content: "Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn't, pays it.", author: "Albert Einstein", source: null },
+    { category: "financial_literacy", content: "Do not save what is left after spending, but spend what is left after saving.", author: "Warren Buffett", source: null },
+    { category: "financial_literacy", content: "The four most dangerous words in investing are: This time it's different.", author: "John Templeton", source: null },
+    { category: "financial_literacy", content: "An investment in knowledge pays the best interest.", author: "Benjamin Franklin", source: null },
+    { category: "financial_literacy", content: "Wide diversification is only required when investors do not understand what they are doing.", author: "Warren Buffett", source: null },
+
+    // Health & Wellness
+    { category: "health_wellness", content: "Take care of your body. It's the only place you have to live.", author: "Jim Rohn", source: null },
+    { category: "health_wellness", content: "The greatest wealth is health.", author: "Virgil", source: null },
+    { category: "health_wellness", content: "It is health that is real wealth and not pieces of gold and silver.", author: "Mahatma Gandhi", source: null },
+    { category: "health_wellness", content: "Physical fitness is the first requisite of happiness.", author: "Joseph Pilates", source: "Return to Life Through Contrology" },
+    { category: "health_wellness", content: "The doctor of the future will give no medicine, but will instruct his patients in care of the human frame, in diet, and in the cause and prevention of disease.", author: "Thomas Edison", source: null },
+    { category: "health_wellness", content: "Let food be thy medicine and medicine be thy food.", author: "Hippocrates", source: null },
+    { category: "health_wellness", content: "A healthy outside starts from the inside.", author: "Robert Urich", source: null },
+    { category: "health_wellness", content: "Sleep is the best meditation.", author: "Dalai Lama", source: null },
+    { category: "health_wellness", content: "Walking is man's best medicine.", author: "Hippocrates", source: null },
+    { category: "health_wellness", content: "The mind and body are not separate. What affects one, affects the other.", author: "Unknown", source: null },
+
+    // Leadership
+    { category: "leadership", content: "A leader is one who knows the way, goes the way, and shows the way.", author: "John C. Maxwell", source: null },
+    { category: "leadership", content: "Nearly all men can stand adversity, but if you want to test a man's character, give him power.", author: "Abraham Lincoln", source: null },
+    { category: "leadership", content: "It is better to lead from behind and to put others in front, especially when you celebrate victory.", author: "Nelson Mandela", source: "Long Walk to Freedom" },
+    { category: "leadership", content: "The task of leadership is not to put greatness into people, but to elicit it, for the greatness is there already.", author: "John Buchan", source: null },
+    { category: "leadership", content: "Before you are a leader, success is all about growing yourself. When you become a leader, success is all about growing others.", author: "Jack Welch", source: null },
+    { category: "leadership", content: "The greatest leader is not the one who does the greatest things, but the one who gets people to do the greatest things.", author: "Ronald Reagan", source: null },
+    { category: "leadership", content: "Leadership is not about being in charge. It is about taking care of those in your charge.", author: "Simon Sinek", source: "Leaders Eat Last" },
+    { category: "leadership", content: "A genuine leader is not a searcher for consensus but a molder of consensus.", author: "Martin Luther King Jr.", source: null },
+    { category: "leadership", content: "The quality of a leader is reflected in the standards they set for themselves.", author: "Ray Kroc", source: null },
+    { category: "leadership", content: "Management is doing things right; leadership is doing the right things.", author: "Peter Drucker", source: null },
+
+    // Creativity
+    { category: "creativity", content: "Creativity is intelligence having fun.", author: "Albert Einstein", source: null },
+    { category: "creativity", content: "The chief enemy of creativity is good sense.", author: "Pablo Picasso", source: null },
+    { category: "creativity", content: "Every child is an artist. The problem is how to remain an artist once we grow up.", author: "Pablo Picasso", source: null },
+    { category: "creativity", content: "Creativity takes courage.", author: "Henri Matisse", source: null },
+    { category: "creativity", content: "Design is not just what it looks like and feels like. Design is how it works.", author: "Steve Jobs", source: null },
+    { category: "creativity", content: "Learn the rules like a pro, so you can break them like an artist.", author: "Pablo Picasso", source: null },
+    { category: "creativity", content: "I have no special talents. I am only passionately curious.", author: "Albert Einstein", source: null },
+    { category: "creativity", content: "The desire to create is one of the deepest yearnings of the human soul.", author: "Dieter F. Uchtdorf", source: null },
+    { category: "creativity", content: "Art is not what you see, but what you make others see.", author: "Edgar Degas", source: null },
+    { category: "creativity", content: "Imagination is the beginning of creation. You imagine what you desire, you will what you imagine, and at last you create what you will.", author: "George Bernard Shaw", source: null },
+
+    // Relationships
+    { category: "relationships", content: "The most important thing in communication is hearing what isn't said.", author: "Peter Drucker", source: null },
+    { category: "relationships", content: "No road is long with good company.", author: "Turkish Proverb", source: null },
+    { category: "relationships", content: "The meeting of two personalities is like the contact of two chemical substances: if there is any reaction, both are transformed.", author: "Carl Jung", source: null },
+    { category: "relationships", content: "We are most alive when we find the courage to be vulnerable and to let our true selves be seen.", author: "Brene Brown", source: "Daring Greatly" },
+    { category: "relationships", content: "The quality of your life is the quality of your relationships.", author: "Tony Robbins", source: null },
+    { category: "relationships", content: "When people talk, listen completely. Most people never listen.", author: "Ernest Hemingway", source: null },
+    { category: "relationships", content: "Between stimulus and response there is a space. In that space is our power to choose our response.", author: "Viktor Frankl", source: "Man's Search for Meaning" },
+    { category: "relationships", content: "Empathy is about finding echoes of another person in yourself.", author: "Mohsin Hamid", source: null },
+    { category: "relationships", content: "The single biggest problem in communication is the illusion that it has taken place.", author: "George Bernard Shaw", source: null },
+    { category: "relationships", content: "People will forget what you said, people will forget what you did, but people will never forget how you made them feel.", author: "Maya Angelou", source: null },
+
+    // Science
+    { category: "science", content: "Imagination is more important than knowledge. Knowledge is limited. Imagination encircles the world.", author: "Albert Einstein", source: null },
+    { category: "science", content: "The important thing is not to stop questioning. Curiosity has its own reason for existing.", author: "Albert Einstein", source: null },
+    { category: "science", content: "Nothing in life is to be feared, it is only to be understood. Now is the time to understand more, so that we may fear less.", author: "Marie Curie", source: null },
+    { category: "science", content: "I would rather have questions that can't be answered than answers that can't be questioned.", author: "Richard Feynman", source: null },
+    { category: "science", content: "The good thing about science is that it's true whether or not you believe in it.", author: "Neil deGrasse Tyson", source: null },
+    { category: "science", content: "Somewhere, something incredible is waiting to be known.", author: "Carl Sagan", source: null },
+    { category: "science", content: "In science, there are no shortcuts to truth.", author: "Karl Popper", source: "The Logic of Scientific Discovery" },
+    { category: "science", content: "If I have seen further, it is by standing on the shoulders of giants.", author: "Isaac Newton", source: "Letter to Robert Hooke" },
+    { category: "science", content: "The saddest aspect of life right now is that science gathers knowledge faster than society gathers wisdom.", author: "Isaac Asimov", source: null },
+    { category: "science", content: "We are just an advanced breed of monkeys on a minor planet of a very average star. But we can understand the Universe.", author: "Stephen Hawking", source: null },
+
+    // Philosophy
+    { category: "philosophy", content: "He who has a why to live for can bear almost any how.", author: "Friedrich Nietzsche", source: "Twilight of the Idols" },
+    { category: "philosophy", content: "The unexamined life is not worth living.", author: "Socrates", source: "Apology" },
+    { category: "philosophy", content: "Man is condemned to be free; because once thrown into the world, he is responsible for everything he does.", author: "Jean-Paul Sartre", source: "Being and Nothingness" },
+    { category: "philosophy", content: "One must imagine Sisyphus happy.", author: "Albert Camus", source: "The Myth of Sisyphus" },
+    { category: "philosophy", content: "The only true wisdom is in knowing you know nothing.", author: "Socrates", source: null },
+    { category: "philosophy", content: "To live is to suffer, to survive is to find some meaning in the suffering.", author: "Friedrich Nietzsche", source: null },
+    { category: "philosophy", content: "Happiness is not an ideal of reason, but of imagination.", author: "Immanuel Kant", source: "Groundwork of the Metaphysics of Morals" },
+    { category: "philosophy", content: "I think, therefore I am.", author: "Rene Descartes", source: "Discourse on the Method" },
+    { category: "philosophy", content: "In the middle of difficulty lies opportunity.", author: "Albert Einstein", source: null },
+    { category: "philosophy", content: "We do not see things as they are, we see them as we are.", author: "Anais Nin", source: "Seduction of the Minotaur" },
+
+    // Sports
+    { category: "sports", content: "I've missed more than 9,000 shots in my career. I've lost almost 300 games. Twenty-six times I've been trusted to take the game-winning shot and missed. I've failed over and over and over again in my life. And that is why I succeed.", author: "Michael Jordan", source: null },
+    { category: "sports", content: "Float like a butterfly, sting like a bee.", author: "Muhammad Ali", source: null },
+    { category: "sports", content: "The more difficult the victory, the greater the happiness in winning.", author: "Pele", source: null },
+    { category: "sports", content: "I can't relate to lazy people. We don't speak the same language.", author: "Kobe Bryant", source: null },
+    { category: "sports", content: "Champions keep playing until they get it right.", author: "Billie Jean King", source: null },
+    { category: "sports", content: "It's not whether you get knocked down; it's whether you get up.", author: "Vince Lombardi", source: null },
+    { category: "sports", content: "The harder the battle, the sweeter the victory.", author: "Les Brown", source: null },
+    { category: "sports", content: "You miss 100% of the shots you don't take.", author: "Wayne Gretzky", source: null },
+    { category: "sports", content: "I hated every minute of training, but I said, don't quit. Suffer now and live the rest of your life as a champion.", author: "Muhammad Ali", source: null },
+    { category: "sports", content: "The principle is competing against yourself. It's about self-improvement, about being better than you were the day before.", author: "Steve Young", source: null },
   ];
 
   await db

@@ -226,137 +226,108 @@ final sharedGoalsProvider = FutureProvider<List<SharedGoal>>((ref) async {
 });
 
 // ---------------------------------------------------------------------------
-// Progress Dashboard chart data (mock — no dedicated backend endpoints yet)
+// Progress Dashboard chart data
 // ---------------------------------------------------------------------------
 
 /// Completion trend data points: (dayOffset, completedCount).
 final completionTrendProvider =
     FutureProvider<List<(int, double)>>((ref) async {
   final api = _tryRead(ref, progressApiProvider);
-  if (api != null) {
-    try {
-      final response = await api.getHeatmap();
-      if (response.success && response.data != null) {
-        final entries = response.data!['entries'] as List?;
-        if (entries != null) {
-          return List.unmodifiable(
-            entries.asMap().entries.map((e) => (
-              e.key,
-              (e.value['count'] as num?)?.toDouble() ?? 0.0,
-            )),
-          );
-        }
+  if (api == null) return const [];
+
+  try {
+    final response = await api.getCompletionTrend();
+    if (response.success && response.data != null) {
+      final entries = response.data!['entries'] as List?;
+      if (entries != null) {
+        return List.unmodifiable(
+          entries.asMap().entries.map((e) => (
+            e.key,
+            (e.value['count'] as num?)?.toDouble() ?? 0.0,
+          )),
+        );
       }
-    } on DioException {
-      // Fall through to mock data.
     }
+    return const [];
+  } on DioException {
+    return const [];
   }
-  // Fallback mock data when API unavailable.
-  return List.generate(30, (i) => (i, (i * 1.5 + 3).toDouble()));
 });
 
 /// Productivity by day of week: (dayName, avgTasks).
 final productivityByDayProvider =
     FutureProvider<List<(String, double)>>((ref) async {
   final api = _tryRead(ref, progressApiProvider);
-  if (api != null) {
-    try {
-      final response = await api.getInsights();
-      if (response.success && response.data != null) {
-        final byDay = response.data!['productivityByDay'] as List?;
-        if (byDay != null) {
-          return List.unmodifiable(
-            byDay.map((e) => (
-              e['day'] as String? ?? '',
-              (e['avg'] as num?)?.toDouble() ?? 0.0,
-            )),
-          );
-        }
+  if (api == null) return const [];
+
+  try {
+    final response = await api.getProductivityByDay();
+    if (response.success && response.data != null) {
+      final byDay = response.data!['entries'] as List?;
+      if (byDay != null) {
+        return List.unmodifiable(
+          byDay.map((e) => (
+            e['day'] as String? ?? '',
+            (e['count'] as num?)?.toDouble() ?? 0.0,
+          )),
+        );
       }
-    } on DioException {
-      // Fall through to mock data.
     }
+    return const [];
+  } on DioException {
+    return const [];
   }
-  // Fallback mock data when API unavailable.
-  return [
-    ('Mon', 8.0),
-    ('Tue', 12.0),
-    ('Wed', 10.0),
-    ('Thu', 14.0),
-    ('Fri', 9.0),
-    ('Sat', 5.0),
-    ('Sun', 3.0),
-  ];
 });
 
 /// Productivity by hour heatmap: (hour, dayOfWeek, intensity 0.0-1.0).
 final productivityByHourProvider =
     FutureProvider<List<(int, int, double)>>((ref) async {
   final api = _tryRead(ref, progressApiProvider);
-  if (api != null) {
-    try {
-      final response = await api.getInsights();
-      if (response.success && response.data != null) {
-        final byHour = response.data!['productivityByHour'] as List?;
-        if (byHour != null) {
-          return List.unmodifiable(
-            byHour.map((e) => (
-              e['hour'] as int? ?? 0,
-              e['day'] as int? ?? 0,
-              (e['intensity'] as num?)?.toDouble() ?? 0.0,
-            )),
-          );
-        }
+  if (api == null) return const [];
+
+  try {
+    final response = await api.getProductivityByHour();
+    if (response.success && response.data != null) {
+      final byHour = response.data!['entries'] as List?;
+      if (byHour != null) {
+        return List.unmodifiable(
+          byHour.map((e) => (
+            e['hour'] as int? ?? 0,
+            e['day'] as int? ?? 0,
+            (e['intensity'] as num?)?.toDouble() ?? 0.0,
+          )),
+        );
       }
-    } on DioException {
-      // Fall through to mock data.
     }
+    return const [];
+  } on DioException {
+    return const [];
   }
-  // Fallback mock data: generate 24h x 7d heatmap.
-  final data = <(int, int, double)>[];
-  for (int h = 0; h < 24; h++) {
-    for (int d = 0; d < 7; d++) {
-      // Peak hours 9-17 on weekdays.
-      final isWorkHour = h >= 9 && h <= 17;
-      final isWeekday = d < 5;
-      final intensity =
-          (isWorkHour && isWeekday) ? 0.6 + (h % 3) * 0.1 : 0.1 + (h % 4) * 0.05;
-      data.add((h, d, intensity.clamp(0.0, 1.0)));
-    }
-  }
-  return data;
 });
 
 /// Category breakdown: (categoryName, count).
 final categoryBreakdownProvider =
     FutureProvider<List<(String, double)>>((ref) async {
   final api = _tryRead(ref, progressApiProvider);
-  if (api != null) {
-    try {
-      final response = await api.getInsights();
-      if (response.success && response.data != null) {
-        final categories = response.data!['categoryBreakdown'] as List?;
-        if (categories != null) {
-          return List.unmodifiable(
-            categories.map((e) => (
-              e['name'] as String? ?? '',
-              (e['count'] as num?)?.toDouble() ?? 0.0,
-            )),
-          );
-        }
+  if (api == null) return const [];
+
+  try {
+    final response = await api.getInsights();
+    if (response.success && response.data != null) {
+      final categories = response.data!['categoryBreakdown'] as List?;
+      if (categories != null) {
+        return List.unmodifiable(
+          categories.map((e) => (
+            e['name'] as String? ?? '',
+            (e['count'] as num?)?.toDouble() ?? 0.0,
+          )),
+        );
       }
-    } on DioException {
-      // Fall through to mock data.
     }
+    return const [];
+  } on DioException {
+    return const [];
   }
-  // Fallback mock data when API unavailable.
-  return [
-    ('Work', 45.0),
-    ('Personal', 28.0),
-    ('Health', 15.0),
-    ('Learning', 8.0),
-    ('Other', 4.0),
-  ];
 });
 
 /// Selected trend range for completion chart.

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _themeModeKey = 'unjynx_theme_mode';
+const _fontSizeKey = 'unjynx_font_size';
+const _reduceAnimationsKey = 'unjynx_reduce_animations';
+const _hapticFeedbackKey = 'unjynx_haptic_feedback';
 
 /// Provider for the SharedPreferences instance.
 ///
@@ -50,5 +53,99 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
       ThemeMode.dark => ThemeMode.system,
     };
     await setThemeMode(next);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Font size
+// ---------------------------------------------------------------------------
+
+/// Available font size options.
+enum FontSizeOption {
+  small('Small', 0.85),
+  medium('Medium', 1.0),
+  large('Large', 1.15);
+
+  const FontSizeOption(this.label, this.scaleFactor);
+
+  /// Display label shown in the UI.
+  final String label;
+
+  /// Text scale factor applied via [MediaQuery.textScalerOf].
+  final double scaleFactor;
+}
+
+/// Reactive font-size provider backed by SharedPreferences.
+final fontSizeProvider =
+    NotifierProvider<FontSizeNotifier, FontSizeOption>(FontSizeNotifier.new);
+
+/// Notifier that persists the selected font size to SharedPreferences.
+class FontSizeNotifier extends Notifier<FontSizeOption> {
+  @override
+  FontSizeOption build() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final stored = prefs.getString(_fontSizeKey);
+    return switch (stored) {
+      'small' => FontSizeOption.small,
+      'large' => FontSizeOption.large,
+      _ => FontSizeOption.medium,
+    };
+  }
+
+  /// Update the font size and persist.
+  Future<void> setFontSize(FontSizeOption size) async {
+    state = size;
+    await ref.read(sharedPreferencesProvider).setString(_fontSizeKey, size.name);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reduce animations
+// ---------------------------------------------------------------------------
+
+/// When `true`, all UI animations should use [Duration.zero].
+final reduceAnimationsProvider =
+    NotifierProvider<ReduceAnimationsNotifier, bool>(
+  ReduceAnimationsNotifier.new,
+);
+
+/// Notifier that persists the reduce-animations preference.
+class ReduceAnimationsNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    return prefs.getBool(_reduceAnimationsKey) ?? false;
+  }
+
+  /// Toggle or set the reduce-animations flag and persist.
+  Future<void> set(bool value) async {
+    state = value;
+    await ref.read(sharedPreferencesProvider).setBool(_reduceAnimationsKey, value);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Haptic feedback
+// ---------------------------------------------------------------------------
+
+/// When `false`, all [HapticFeedback] calls throughout the app should be
+/// skipped. Defaults to `true` (enabled).
+final hapticFeedbackProvider =
+    NotifierProvider<HapticFeedbackNotifier, bool>(
+  HapticFeedbackNotifier.new,
+);
+
+/// Notifier that persists the haptic-feedback preference.
+class HapticFeedbackNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    return prefs.getBool(_hapticFeedbackKey) ?? true;
+  }
+
+  /// Toggle or set haptic feedback and persist.
+  Future<void> set(bool value) async {
+    state = value;
+    await ref.read(sharedPreferencesProvider).setBool(_hapticFeedbackKey, value);
   }
 }

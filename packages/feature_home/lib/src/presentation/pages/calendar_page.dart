@@ -5,6 +5,7 @@ import 'package:feature_home/src/presentation/widgets/day_task_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:unjynx_core/core.dart';
 
 /// Calendar view screen -- Tab 4 in the bottom navigation.
@@ -102,10 +103,22 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navigate to add task with pre-filled date.
-          // For now just a placeholder - will wire up in integration.
+          HapticFeedback.mediumImpact();
+          // Navigate to the todos page with the selected date as a query
+          // parameter so the tasks list can pre-filter or pre-fill for
+          // that date.
+          final dateParam =
+              '${_selectedDate.year}-'
+              '${_selectedDate.month.toString().padLeft(2, '0')}-'
+              '${_selectedDate.day.toString().padLeft(2, '0')}';
+          context.push(
+            Uri(
+              path: '/todos',
+              queryParameters: {'date': dateParam},
+            ).toString(),
+          );
         },
-        tooltip: 'Add task',
+        tooltip: 'Add task for selected date',
         child: const Icon(Icons.add_rounded),
       ),
     );

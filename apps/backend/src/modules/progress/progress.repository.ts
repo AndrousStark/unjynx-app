@@ -224,6 +224,83 @@ export async function calculateDailyProgress(
   };
 }
 
+// ── Completion Trend (daily counts) ─────────────────────────────────
+
+export async function findCompletionTrend(
+  userId: string,
+  days: number,
+): Promise<Array<{ day: string; count: number }>> {
+  const startDate = new Date(Date.now() - days * 86_400_000);
+
+  const rows = await db
+    .select({
+      day: sql<string>`date_trunc('day', ${tasks.completedAt})::date::text`,
+      count: count(),
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.status, "completed"),
+        gte(tasks.completedAt, startDate),
+      ),
+    )
+    .groupBy(sql`date_trunc('day', ${tasks.completedAt})`)
+    .orderBy(sql`date_trunc('day', ${tasks.completedAt})`);
+
+  return rows.map((r) => ({ day: r.day, count: r.count }));
+}
+
+// ── Productivity by Day of Week ─────────────────────────────────────
+
+export async function findProductivityByDay(
+  userId: string,
+): Promise<Array<{ dow: number; count: number }>> {
+  const rows = await db
+    .select({
+      dow: sql<number>`extract(dow from ${tasks.completedAt})::int`,
+      count: count(),
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.status, "completed"),
+        sql`${tasks.completedAt} IS NOT NULL`,
+      ),
+    )
+    .groupBy(sql`extract(dow from ${tasks.completedAt})`);
+
+  return rows.map((r) => ({ dow: r.dow, count: r.count }));
+}
+
+// ── Productivity by Hour Heatmap ────────────────────────────────────
+
+export async function findProductivityByHour(
+  userId: string,
+): Promise<Array<{ hour: number; dow: number; count: number }>> {
+  const rows = await db
+    .select({
+      hour: sql<number>`extract(hour from ${tasks.completedAt})::int`,
+      dow: sql<number>`extract(dow from ${tasks.completedAt})::int`,
+      count: count(),
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.status, "completed"),
+        sql`${tasks.completedAt} IS NOT NULL`,
+      ),
+    )
+    .groupBy(
+      sql`extract(hour from ${tasks.completedAt})`,
+      sql`extract(dow from ${tasks.completedAt})`,
+    );
+
+  return rows.map((r) => ({ hour: r.hour, dow: r.dow, count: r.count }));
+}
+
 // ── Personal Bests ───────────────────────────────────────────────────
 
 export async function findPersonalBests(userId: string): Promise<{

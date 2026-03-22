@@ -226,12 +226,12 @@ class _BillingContent extends ConsumerWidget {
   }
 
   void _selectPlan(BuildContext context, String planName) {
-    // RevenueCat not yet integrated — show coming soon
+    // Alpha phase — all features free, subscriptions not yet live
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Upgrade to $planName coming soon! '
-          'RevenueCat integration pending.',
+          'All features are free during alpha! '
+          '$planName subscriptions coming soon.',
         ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
@@ -391,7 +391,11 @@ class _ManageSubscriptionSection extends StatelessWidget {
             onTap: () {
               HapticFeedback.lightImpact();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invoices coming soon')),
+                const SnackBar(
+                  content: Text(
+                    'Invoice history will be available with Pro subscriptions.',
+                  ),
+                ),
               );
             },
           ),

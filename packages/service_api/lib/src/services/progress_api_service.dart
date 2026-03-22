@@ -42,4 +42,23 @@ class ProgressApiService {
   Future<ApiResponse<Map<String, dynamic>>> saveSnapshot() {
     return _client.post('/progress/snapshot');
   }
+
+  /// Get daily completion trend (default 30 days).
+  Future<ApiResponse<Map<String, dynamic>>> getCompletionTrend({
+    int days = 30,
+  }) {
+    return _client.get('/progress/completion-trend', queryParameters: {
+      'days': days.toString(),
+    });
+  }
+
+  /// Get task completion counts grouped by day of week.
+  Future<ApiResponse<Map<String, dynamic>>> getProductivityByDay() {
+    return _client.get('/progress/productivity-by-day');
+  }
+
+  /// Get task completion heatmap by hour and day of week.
+  Future<ApiResponse<Map<String, dynamic>>> getProductivityByHour() {
+    return _client.get('/progress/productivity-by-hour');
+  }
 }

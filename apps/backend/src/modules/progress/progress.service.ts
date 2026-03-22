@@ -1,4 +1,4 @@
-import type { HeatmapQuery } from "./progress.schema.js";
+import type { HeatmapQuery, CompletionTrendQuery } from "./progress.schema.js";
 import type { ProgressSnapshot, Streak } from "../../db/schema/index.js";
 import * as progressRepo from "./progress.repository.js";
 
@@ -115,6 +115,64 @@ export async function getInsights(userId: string): Promise<{
     bestDay: bestSnapshot.snapshotDate.toISOString().split("T")[0],
     activeDays,
   };
+}
+
+// ── Completion Trend ────────────────────────────────────────────────
+
+export async function getCompletionTrend(
+  userId: string,
+  query: CompletionTrendQuery,
+): Promise<{
+  readonly entries: ReadonlyArray<{ readonly day: string; readonly count: number }>;
+}> {
+  const entries = await progressRepo.findCompletionTrend(userId, query.days);
+  return { entries };
+}
+
+// ── Productivity by Day of Week ─────────────────────────────────────
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+export async function getProductivityByDay(userId: string): Promise<{
+  readonly entries: ReadonlyArray<{ readonly day: string; readonly count: number }>;
+}> {
+  const raw = await progressRepo.findProductivityByDay(userId);
+
+  // Fill all 7 days (even if zero) — Mon–Sun order for UI.
+  const dayMap = new Map<number, number>();
+  for (const row of raw) {
+    dayMap.set(row.dow, row.count);
+  }
+
+  const entries = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
+    day: DAY_NAMES[dow],
+    count: dayMap.get(dow) ?? 0,
+  }));
+
+  return { entries };
+}
+
+// ── Productivity by Hour Heatmap ────────────────────────────────────
+
+export async function getProductivityByHour(userId: string): Promise<{
+  readonly entries: ReadonlyArray<{
+    readonly hour: number;
+    readonly day: number;
+    readonly intensity: number;
+  }>;
+}> {
+  const raw = await progressRepo.findProductivityByHour(userId);
+
+  // Find max count for normalization.
+  const maxCount = raw.reduce((max, r) => Math.max(max, r.count), 1);
+
+  const entries = raw.map((r) => ({
+    hour: r.hour,
+    day: r.dow,
+    intensity: Math.round((r.count / maxCount) * 100) / 100,
+  }));
+
+  return { entries };
 }
 
 // ── Personal Bests ───────────────────────────────────────────────────

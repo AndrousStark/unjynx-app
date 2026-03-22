@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,7 +25,8 @@ class QuickCreateSheet extends ConsumerStatefulWidget {
   ConsumerState<QuickCreateSheet> createState() => _QuickCreateSheetState();
 }
 
-class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet> {
+class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet>
+    with SingleTickerProviderStateMixin {
   final _controller = TextEditingController();
   ParsedTask _parsed = const ParsedTask(title: '');
   bool _isSubmitting = false;
@@ -37,14 +39,26 @@ class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet> {
   bool _timeOverridden = false;
   bool _priorityOverridden = false;
 
+  // Voice input state
+  final SpeechService _speechService = SpeechService();
+  late final AnimationController _pulseController;
+  bool _isListening = false;
+  bool _speechInitialized = false;
+
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
   }
 
   @override
   void dispose() {
+    _pulseController.dispose();
+    _speechService.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -73,6 +87,62 @@ class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet> {
   }
 
   String? get _resolvedProject => _parsed.projectHint;
+
+  // ---------------------------------------------------------------------------
+  // Voice input
+  // ---------------------------------------------------------------------------
+
+  Future<void> _toggleVoice() async {
+    HapticFeedback.mediumImpact();
+
+    if (_isListening) {
+      await _speechService.stopListening();
+      _pulseController.stop();
+      _pulseController.reset();
+      setState(() => _isListening = false);
+      return;
+    }
+
+    // Initialize on first use
+    if (!_speechInitialized) {
+      final available = await _speechService.initialize();
+      _speechInitialized = true;
+      if (!available) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Speech recognition is not available on this device',
+              ),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    if (!_speechService.isAvailable) return;
+
+    // Start listening
+    setState(() => _isListening = true);
+    _pulseController.repeat();
+
+    await _speechService.startListening(
+      onResult: (text) {
+        _controller.text = text;
+        _controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: text.length),
+        );
+        // Auto-stop UI when the engine finishes
+        if (!_speechService.isListening && mounted) {
+          _pulseController.stop();
+          _pulseController.reset();
+          setState(() => _isListening = false);
+        }
+      },
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Build
@@ -373,6 +443,12 @@ class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet> {
             HapticFeedback.lightImpact();
             _showPriorityPicker();
           },
+        ),
+        const SizedBox(width: 12),
+        _VoiceActionButton(
+          isListening: _isListening,
+          pulseController: _pulseController,
+          onTap: _toggleVoice,
         ),
       ],
     );
@@ -680,6 +756,91 @@ class _ActionButton extends StatelessWidget {
             ),
           ),
           child: Icon(icon, size: 20, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+/// Microphone button with a pulsing animation when actively listening.
+///
+/// Follows the same visual pattern as [_ActionButton] but adds a sine-based
+/// scale pulse when [isListening] is true, matching the onboarding
+/// [VoiceInputButton] pattern.
+class _VoiceActionButton extends StatelessWidget {
+  const _VoiceActionButton({
+    required this.isListening,
+    required this.pulseController,
+    required this.onTap,
+  });
+
+  final bool isListening;
+  final AnimationController pulseController;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final ux = context.unjynx;
+    final isLight = context.isLightMode;
+
+    final activeColor = ux.gold;
+    final idleColor = colorScheme.onSurfaceVariant;
+
+    return Tooltip(
+      message: isListening ? 'Stop listening' : 'Voice input',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedBuilder(
+          animation: pulseController,
+          builder: (context, child) {
+            final pulse = isListening
+                ? 1.0 +
+                    0.12 *
+                        math.sin(pulseController.value * 2 * math.pi)
+                : 1.0;
+
+            final color = isListening ? activeColor : idleColor;
+
+            return Transform.scale(
+              scale: pulse,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isListening
+                      ? activeColor.withValues(
+                          alpha: isLight ? 0.12 : 0.18,
+                        )
+                      : color.withValues(alpha: isLight ? 0.08 : 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: color.withValues(
+                      alpha: isListening
+                          ? (isLight ? 0.4 : 0.5)
+                          : (isLight ? 0.15 : 0.2),
+                    ),
+                  ),
+                  boxShadow: isListening
+                      ? [
+                          BoxShadow(
+                            color: activeColor.withValues(
+                              alpha: isLight ? 0.20 : 0.35,
+                            ),
+                            blurRadius: isLight ? 10 : 16,
+                            spreadRadius: isLight ? 1 : 2,
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Icon(
+                  isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                  size: 20,
+                  color: color,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

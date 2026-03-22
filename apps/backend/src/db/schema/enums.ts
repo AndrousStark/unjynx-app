@@ -60,6 +60,15 @@ export const contentCategoryEnum = pgEnum("content_category", [
   "poetry",
   "productivity_hacks",
   "comeback_stories",
+  "tech_wisdom",
+  "financial_literacy",
+  "health_wellness",
+  "leadership",
+  "creativity",
+  "relationships",
+  "science",
+  "philosophy",
+  "sports",
 ]);
 
 // ── Rituals ───────────────────────────────────────────────────────────

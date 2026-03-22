@@ -129,6 +129,12 @@ GoRouter createAppRouter(
       builder: (context, state) => const TimeBlockingPage(),
     ),
 
+    // Weekly Review (full-screen, outside shell)
+    GoRoute(
+      path: '/weekly-review',
+      builder: (context, state) => const WeeklyReviewPage(),
+    ),
+
     // Rituals (full-screen, outside shell)
     GoRoute(
       path: '/rituals/morning',
