@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:unjynx_core/contracts/auth_port.dart';
 
@@ -116,6 +118,58 @@ class ApiClient {
       data: data,
     );
     return ApiResponse.fromJson(response.data!, fromData);
+  }
+
+  /// GET request that returns raw bytes (for PDF/binary downloads).
+  ///
+  /// Bypasses the JSON envelope — returns the raw response body as bytes.
+  Future<Uint8List> getBytes(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    final response = await _dio.get<ResponseBody>(
+      path,
+      queryParameters: queryParameters,
+      options: Options(responseType: ResponseType.stream),
+    );
+    final chunks = <int>[];
+    await for (final chunk in response.data!.stream) {
+      chunks.addAll(chunk);
+    }
+    return Uint8List.fromList(chunks);
+  }
+
+  /// POST request that returns a byte stream (for SSE / streaming).
+  ///
+  /// Bypasses the JSON envelope — returns the raw response stream.
+  Future<ResponseBody> postStream(
+    String path, {
+    Object? data,
+  }) async {
+    final response = await _dio.post<ResponseBody>(
+      path,
+      data: data,
+      options: Options(
+        responseType: ResponseType.stream,
+        headers: {'Accept': 'text/event-stream'},
+      ),
+    );
+    return response.data!;
+  }
+
+  /// GET request that returns raw text (for CSV/plain-text downloads).
+  ///
+  /// Bypasses the JSON envelope — returns the raw response body as a string.
+  Future<String> getText(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    final response = await _dio.get<String>(
+      path,
+      queryParameters: queryParameters,
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data ?? '';
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unjynx_core/core.dart';
 
+import '../../data/purchase_manager.dart';
 import '../../domain/models/plan_info.dart';
 import '../../domain/models/subscription.dart';
 import '../providers/billing_providers.dart';
@@ -77,7 +78,7 @@ class BillingPage extends ConsumerWidget {
   }
 }
 
-class _BillingContent extends ConsumerWidget {
+class _BillingContent extends ConsumerStatefulWidget {
   const _BillingContent({
     required this.subscription,
   });
@@ -85,147 +86,288 @@ class _BillingContent extends ConsumerWidget {
   final Subscription subscription;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BillingContent> createState() => _BillingContentState();
+}
+
+class _BillingContentState extends ConsumerState<_BillingContent> {
+  bool _purchasing = false;
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final isLight = context.isLightMode;
     final isAnnual = ref.watch(isAnnualBillingProvider);
     final plansAsync = ref.watch(plansProvider);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: StaggeredColumn(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Current plan banner
-          CurrentPlanBanner(subscription: subscription),
-          const SizedBox(height: 24),
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(subscriptionProvider);
+        ref.invalidate(plansProvider);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: StaggeredColumn(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Current plan banner
+            CurrentPlanBanner(subscription: widget.subscription),
+            const SizedBox(height: 24),
 
-          // Annual savings highlight
-          _AnnualSavingsBanner(
-            isAnnual: isAnnual,
-            onToggle: (value) {
-              HapticFeedback.selectionClick();
-              ref.read(isAnnualBillingProvider.notifier).set(value);
-            },
-          ),
-          const SizedBox(height: 16),
-
-          // 7-day free trial toggle
-          if (!subscription.isPaid) ...[
-            const _FreeTrialToggle(),
+            // Annual savings highlight
+            _AnnualSavingsBanner(
+              isAnnual: isAnnual,
+              onToggle: (value) {
+                HapticFeedback.selectionClick();
+                ref.read(isAnnualBillingProvider.notifier).set(value);
+              },
+            ),
             const SizedBox(height: 16),
-          ],
 
-          // Plan cards
-          ...plansAsync.when(
-            data: (plans) => plans.map((plan) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: PlanCard(
-                    plan: plan,
-                    isAnnual: isAnnual,
-                    isCurrentPlan: _isCurrentPlan(plan.name),
-                    onSelect: () => _selectPlan(context, plan.name),
-                  ),
-                )),
-            loading: () => [
-              for (var i = 0; i < 3; i++)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: UnjynxShimmerBox(
-                    height: 160,
-                    width: double.infinity,
-                    borderRadius: 16,
-                  ),
-                ),
+            // 7-day free trial toggle
+            if (!widget.subscription.isPaid) ...[
+              const _FreeTrialToggle(),
+              const SizedBox(height: 16),
             ],
-            error: (_, __) => PlanInfo.allPlans.map((plan) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: PlanCard(
-                    plan: plan,
-                    isAnnual: isAnnual,
-                    isCurrentPlan: _isCurrentPlan(plan.name),
-                    onSelect: () => _selectPlan(context, plan.name),
-                  ),
-                )),
-          ),
 
-          // Compare all features link
-          const SizedBox(height: 8),
-          Center(
-            child: TextButton.icon(
-              onPressed: () => GoRouter.of(context).push(
-                '/billing/compare',
-              ),
-              icon: const Icon(Icons.compare_arrows_rounded, size: 18),
-              label: const Text('Compare all features'),
-            ),
-          ),
-
-          // Regional pricing note
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: colorScheme.primary
-                  .withValues(alpha: isLight ? 0.06 : 0.08),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: isLight
-                  ? context.unjynxShadow(UnjynxElevation.md)
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Prices shown in USD. Indian users get regional pricing '
-                    '(e.g. Pro at Rs 149/mo or Rs 99/mo annual).',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.3,
+            // Plan cards
+            ...plansAsync.when(
+              data: (plans) => plans.map((plan) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: PlanCard(
+                      plan: plan,
+                      isAnnual: isAnnual,
+                      isCurrentPlan: _isCurrentPlan(plan.name),
+                      onSelect: _purchasing
+                          ? null
+                          : () => _selectPlan(context, plan, isAnnual),
+                    ),
+                  )),
+              loading: () => [
+                for (var i = 0; i < 3; i++)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: UnjynxShimmerBox(
+                      height: 160,
+                      width: double.infinity,
+                      borderRadius: 16,
                     ),
                   ),
-                ),
               ],
+              error: (_, __) => PlanInfo.allPlans.map((plan) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: PlanCard(
+                      plan: plan,
+                      isAnnual: isAnnual,
+                      isCurrentPlan: _isCurrentPlan(plan.name),
+                      onSelect: _purchasing
+                          ? null
+                          : () => _selectPlan(context, plan, isAnnual),
+                    ),
+                  )),
             ),
-          ),
 
-          // Manage subscription (for paid users)
-          if (subscription.isPaid) ...[
-            const SizedBox(height: 24),
-            _ManageSubscriptionSection(subscription: subscription),
+            // Restore purchases button
+            if (!widget.subscription.isPaid) ...[
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  onPressed: _purchasing ? null : () => _restorePurchases(),
+                  icon: const Icon(Icons.restore_rounded, size: 18),
+                  label: const Text('Restore Purchases'),
+                ),
+              ),
+            ],
+
+            // Compare all features link
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => GoRouter.of(context).push(
+                  '/billing/compare',
+                ),
+                icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+                label: const Text('Compare all features'),
+              ),
+            ),
+
+            // Regional pricing note
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.primary
+                    .withValues(alpha: isLight ? 0.06 : 0.08),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: isLight
+                    ? context.unjynxShadow(UnjynxElevation.md)
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Prices shown in USD. Indian users get regional pricing '
+                      '(e.g. Pro at Rs 149/mo or Rs 99/mo annual).',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Alpha notice
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: context.unjynx.gold.withValues(
+                  alpha: isLight ? 0.06 : 0.08,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: context.unjynx.gold.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.celebration_rounded,
+                    size: 18,
+                    color: context.unjynx.gold,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Alpha access: All Pro features are free during '
+                      'the alpha period. Thank you for being an early user!',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Manage subscription (for paid users)
+            if (widget.subscription.isPaid) ...[
+              const SizedBox(height: 24),
+              _ManageSubscriptionSection(subscription: widget.subscription),
+            ],
+
+            const SizedBox(height: 40),
           ],
-
-          const SizedBox(height: 40),
-        ],
+        ),
       ),
     );
   }
 
   bool _isCurrentPlan(String planName) {
-    return planName.toLowerCase() == subscription.plan.name.toLowerCase();
+    return planName.toLowerCase() ==
+        widget.subscription.plan.name.toLowerCase();
   }
 
-  void _selectPlan(BuildContext context, String planName) {
-    // Alpha phase — all features free, subscriptions not yet live
+  Future<void> _selectPlan(
+    BuildContext context,
+    PlanInfo plan,
+    bool isAnnual,
+  ) async {
+    // Free plan -- nothing to purchase
+    if (plan.monthlyPrice == 0) return;
+
+    final productId = _productIdForPlan(plan.name, isAnnual);
+    if (productId == null) {
+      _showSnackBar('This plan is not yet available for purchase.');
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+
+    // Check if store has this product
+    final manager = ref.read(purchaseManagerProvider);
+    if (!manager.isStoreAvailable) {
+      // Alpha fallback: show alpha message
+      _showSnackBar(
+        'All features are free during alpha! '
+        '${plan.name} subscriptions will be available at launch.',
+      );
+      return;
+    }
+
+    setState(() => _purchasing = true);
+
+    try {
+      final result = await purchasePlan(ref, productId);
+
+      if (!mounted) return;
+
+      if (result.success) {
+        _showSnackBar('Welcome to ${plan.name}! Enjoy your new features.');
+      } else {
+        _showSnackBar(result.errorMessage ?? 'Purchase could not be completed.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _purchasing = false);
+      }
+    }
+  }
+
+  Future<void> _restorePurchases() async {
+    HapticFeedback.lightImpact();
+    setState(() => _purchasing = true);
+
+    try {
+      final result = await restorePurchases(ref);
+
+      if (!mounted) return;
+
+      if (result.success && result.subscription.isPaid) {
+        _showSnackBar('Purchases restored! Your subscription is active.');
+      } else if (result.success) {
+        _showSnackBar('No previous purchases found.');
+      } else {
+        _showSnackBar(result.errorMessage ?? 'Could not restore purchases.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _purchasing = false);
+      }
+    }
+  }
+
+  void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'All features are free during alpha! '
-          '$planName subscriptions coming soon.',
-        ),
+        content: Text(message),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
       ),
     );
+  }
+
+  /// Maps plan name + billing period to a store product ID.
+  static String? _productIdForPlan(String planName, bool isAnnual) {
+    return switch (planName.toLowerCase()) {
+      'pro' => isAnnual ? ProductIds.proAnnual : ProductIds.proMonthly,
+      'team' => isAnnual ? ProductIds.teamAnnual : ProductIds.teamMonthly,
+      'family' => ProductIds.familyMonthly,
+      _ => null,
+    };
   }
 }
 

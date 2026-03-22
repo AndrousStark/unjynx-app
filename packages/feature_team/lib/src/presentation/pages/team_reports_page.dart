@@ -1,6 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:service_api/service_api.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../../domain/models/team_report.dart';
@@ -11,11 +16,128 @@ import '../widgets/report_charts.dart';
 ///
 /// Period selector, productivity chart, contribution bar chart,
 /// project completion rates, overdue by assignee, and export buttons.
-class TeamReportsPage extends ConsumerWidget {
+class TeamReportsPage extends ConsumerStatefulWidget {
   const TeamReportsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeamReportsPage> createState() => _TeamReportsPageState();
+}
+
+class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
+  bool _isExportingPdf = false;
+  bool _isExportingCsv = false;
+
+  /// Maps [ReportPeriod] to the backend query parameter value.
+  String _periodToApiParam(ReportPeriod period) {
+    switch (period) {
+      case ReportPeriod.week:
+        return 'week';
+      case ReportPeriod.month:
+        return 'month';
+      case ReportPeriod.quarter:
+        return 'month'; // Backend supports week|month; quarter maps to month.
+    }
+  }
+
+  Future<void> _exportPdf() async {
+    final team = ref.read(currentTeamProvider);
+    final period = ref.read(reportPeriodProvider);
+    final api = _tryReadApi();
+
+    if (team == null || api == null) {
+      _showError('No active team. Please select a team first.');
+      return;
+    }
+
+    setState(() => _isExportingPdf = true);
+    try {
+      final bytes = await api.exportReportPdf(
+        team.id,
+        period: _periodToApiParam(period),
+      );
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/unjynx-team-report-${period.name}.pdf',
+      );
+      await file.writeAsBytes(bytes);
+      if (!mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'UNJYNX Team Report - ${period.displayName}',
+        ),
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      _showError(e.message ?? 'Failed to download PDF report.');
+    } on Exception catch (e) {
+      if (!mounted) return;
+      _showError('Export failed: $e');
+    } finally {
+      if (mounted) setState(() => _isExportingPdf = false);
+    }
+  }
+
+  Future<void> _exportCsv() async {
+    final team = ref.read(currentTeamProvider);
+    final period = ref.read(reportPeriodProvider);
+    final api = _tryReadApi();
+
+    if (team == null || api == null) {
+      _showError('No active team. Please select a team first.');
+      return;
+    }
+
+    setState(() => _isExportingCsv = true);
+    try {
+      final csvText = await api.exportReportCsv(
+        team.id,
+        period: _periodToApiParam(period),
+      );
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/unjynx-team-report-${period.name}.csv',
+      );
+      await file.writeAsString(csvText);
+      if (!mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'UNJYNX Team Report - ${period.displayName}',
+        ),
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      _showError(e.message ?? 'Failed to download CSV report.');
+    } on Exception catch (e) {
+      if (!mounted) return;
+      _showError('Export failed: $e');
+    } finally {
+      if (mounted) setState(() => _isExportingCsv = false);
+    }
+  }
+
+  /// Safely reads the team API provider, returning null if unavailable.
+  TeamApiService? _tryReadApi() {
+    try {
+      return ref.read(teamApiProvider);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final period = ref.watch(reportPeriodProvider);
@@ -25,26 +147,42 @@ class TeamReportsPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Team Reports'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded),
-            tooltip: 'Export PDF',
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('PDF export coming soon')),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.table_chart_rounded),
-            tooltip: 'Export CSV',
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('CSV export coming soon')),
-              );
-            },
-          ),
+          // PDF export button
+          _isExportingPdf
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.picture_as_pdf_rounded),
+                  tooltip: 'Export PDF',
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    _exportPdf();
+                  },
+                ),
+          // CSV export button
+          _isExportingCsv
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.table_chart_rounded),
+                  tooltip: 'Export CSV',
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    _exportCsv();
+                  },
+                ),
         ],
       ),
       body: RefreshIndicator(

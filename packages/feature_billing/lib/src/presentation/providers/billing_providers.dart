@@ -1,7 +1,11 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:service_api/service_api.dart';
 
-import '../../data/revenuecat_manager.dart';
+import '../../data/purchase_manager.dart';
 import '../../domain/models/plan_info.dart';
 import '../../domain/models/subscription.dart';
 
@@ -17,16 +21,55 @@ T? _tryRead<T>(Ref ref, Provider<T> provider) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Purchase manager singleton
+// ---------------------------------------------------------------------------
+
+/// Provides the [PurchaseManager] singleton with backend verification wired in.
+final purchaseManagerProvider = Provider<PurchaseManager>((ref) {
+  final manager = PurchaseManager.instance;
+  final api = _tryRead(ref, billingApiProvider);
+
+  // Wire up receipt verification to the backend
+  if (api != null) {
+    manager.onVerifyReceipt = (receipt, productId) async {
+      final platform = Platform.isIOS ? 'ios' : 'android';
+      final response = await api.verifyReceipt(
+        receipt: receipt,
+        productId: productId,
+        platform: platform,
+      );
+      if (response.success && response.data != null) {
+        return Subscription.fromJson(response.data!);
+      }
+      return Subscription.free;
+    };
+  }
+
+  return manager;
+});
+
+/// Initialize the purchase manager at app startup.
+final purchaseManagerInitProvider = FutureProvider<void>((ref) async {
+  final manager = ref.watch(purchaseManagerProvider);
+  await manager.initialize();
+});
+
+// ---------------------------------------------------------------------------
+// Subscription state
+// ---------------------------------------------------------------------------
+
 /// Current user's subscription.
 ///
-/// Checks RevenueCat entitlements first (instant, works offline), then
+/// Checks the purchase manager first (instant, works offline), then
 /// falls back to the billing API. Returns [Subscription.free] when
 /// neither source is available.
 final subscriptionProvider = FutureProvider<Subscription>((ref) async {
-  // RevenueCat is the source of truth for subscription status
-  if (RevenueCatManager.isInitialized) {
-    final sub = await RevenueCatManager.getSubscription();
-    if (sub.isPaid) return sub;
+  final manager = ref.watch(purchaseManagerProvider);
+
+  // PurchaseManager is the source of truth for subscription status
+  if (manager.isInitialized && manager.currentSubscription.isPaid) {
+    return manager.currentSubscription;
   }
 
   // Fallback to backend API
@@ -45,6 +88,10 @@ final subscriptionProvider = FutureProvider<Subscription>((ref) async {
     return Subscription.free;
   }
 });
+
+// ---------------------------------------------------------------------------
+// Available plans
+// ---------------------------------------------------------------------------
 
 /// All available plans.
 ///
@@ -70,6 +117,16 @@ final plansProvider = FutureProvider<List<PlanInfo>>((ref) async {
   }
 });
 
+/// Store product details fetched from App Store / Play Store.
+final storeProductsProvider = Provider<List<ProductDetails>>((ref) {
+  final manager = ref.watch(purchaseManagerProvider);
+  return manager.products;
+});
+
+// ---------------------------------------------------------------------------
+// Derived providers
+// ---------------------------------------------------------------------------
+
 /// Whether the user is on a free plan.
 final isFreePlanProvider = Provider<AsyncValue<bool>>((ref) {
   return ref.watch(subscriptionProvider).whenData(
@@ -84,12 +141,39 @@ final isProProvider = Provider<AsyncValue<bool>>((ref) {
       );
 });
 
-/// Restore previous purchases.
-Future<Subscription> restorePurchases(WidgetRef ref) async {
-  final sub = await RevenueCatManager.restorePurchases();
-  ref.invalidate(subscriptionProvider);
-  return sub;
+// ---------------------------------------------------------------------------
+// Purchase actions
+// ---------------------------------------------------------------------------
+
+/// Purchase a plan by product ID.
+///
+/// Returns a [PurchaseResult] and invalidates the subscription provider
+/// on success to refresh the UI.
+Future<PurchaseResult> purchasePlan(
+  WidgetRef ref,
+  String productId,
+) async {
+  final manager = ref.read(purchaseManagerProvider);
+  final result = await manager.purchase(productId);
+
+  if (result.success) {
+    ref.invalidate(subscriptionProvider);
+  }
+
+  return result;
 }
+
+/// Restore previous purchases.
+Future<PurchaseResult> restorePurchases(WidgetRef ref) async {
+  final manager = ref.read(purchaseManagerProvider);
+  final result = await manager.restorePurchases();
+  ref.invalidate(subscriptionProvider);
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// UI state
+// ---------------------------------------------------------------------------
 
 /// Notifier for the annual billing toggle.
 class _IsAnnualBillingNotifier extends Notifier<bool> {

@@ -5,6 +5,7 @@ import '../../../domain/entities/activity_entry.dart';
 import '../../../domain/entities/subtask.dart';
 import '../../../domain/entities/todo.dart';
 import '../../widgets/activity_log.dart';
+import '../../widgets/comment_section.dart';
 import '../../widgets/subtask_list.dart';
 import '../../widgets/task_info_section.dart';
 import 'todo_detail_actions.dart';
@@ -182,6 +183,11 @@ class TodoDetailBody extends StatelessWidget {
 
             // === Activity Log ===
             ActivityLog(entries: activityLog),
+
+            const SizedBox(height: 24),
+
+            // === Comments ===
+            CommentSection(taskId: todo.id),
 
             const SizedBox(height: 32),
 

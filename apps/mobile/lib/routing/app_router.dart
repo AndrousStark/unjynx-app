@@ -1,3 +1,4 @@
+import 'package:feature_ai/feature_ai.dart';
 import 'package:feature_billing/feature_billing.dart';
 import 'package:feature_gamification/feature_gamification.dart';
 import 'package:feature_home/feature_home.dart';
@@ -246,6 +247,20 @@ GoRouter createAppRouter(
     GoRoute(
       path: '/settings/mode',
       builder: (context, state) => const ModeSelectorPage(),
+    ),
+
+    // AI screens (K1-K3)
+    GoRoute(
+      path: '/ai/chat',
+      builder: (context, state) => const AiChatPage(),
+    ),
+    GoRoute(
+      path: '/ai/schedule',
+      builder: (context, state) => const AiSchedulePage(),
+    ),
+    GoRoute(
+      path: '/ai/insights',
+      builder: (context, state) => const AiInsightsPage(),
     ),
   ];
 

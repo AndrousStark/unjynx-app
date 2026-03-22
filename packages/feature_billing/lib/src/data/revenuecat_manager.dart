@@ -1,54 +1,43 @@
-import 'package:flutter/foundation.dart';
-
 import '../domain/models/subscription.dart';
+import 'purchase_manager.dart';
 
-/// RevenueCat SDK wrapper for in-app purchase management.
+/// Legacy RevenueCat facade -- now delegates to [PurchaseManager].
 ///
-/// **Stubbed out** — purchases_flutter has a freezed_annotation version
-/// conflict with the rest of the monorepo. When RevenueCat is ready:
-/// 1. Add `purchases_flutter: ^9.x` (needs freezed_annotation ^3.0.0 compat)
-/// 2. Replace this stub with the real implementation
-///
-/// All methods gracefully return defaults so the billing UI works.
+/// Retained for backward compatibility with existing provider code.
+/// New code should use [PurchaseManager] directly.
+@Deprecated('Use PurchaseManager instead')
 class RevenueCatManager {
   RevenueCatManager._();
 
-  static bool _initialized = false;
+  /// Whether the purchase system has been initialized.
+  static bool get isInitialized => PurchaseManager.instance.isInitialized;
 
-  /// Whether RevenueCat has been successfully initialized.
-  static bool get isInitialized => _initialized;
-
-  /// Initialize RevenueCat with the given API key.
+  /// Initialize the purchase system.
   static Future<void> initialize({
     required String apiKey,
     String? userId,
   }) async {
-    if (apiKey.isEmpty) {
-      debugPrint('RevenueCat: skipped (no API key)');
-      return;
-    }
-    debugPrint('RevenueCat: stubbed (purchases_flutter not yet compatible)');
+    await PurchaseManager.instance.initialize();
   }
 
-  /// Log in the user (call after auth to link purchases).
+  /// Log in the user (no-op for in_app_purchase -- identity handled by store).
   static Future<void> logIn(String userId) async {
-    if (!_initialized) return;
-    debugPrint('RevenueCat: logIn stubbed');
+    // Identity is tied to the App Store / Play Store account.
   }
 
-  /// Log out the user (call on sign-out).
+  /// Log out the user (no-op).
   static Future<void> logOut() async {
-    if (!_initialized) return;
-    debugPrint('RevenueCat: logOut stubbed');
+    // No sign-out concept in native store billing.
   }
 
-  /// Get the current subscription — always returns free (stubbed).
+  /// Get current subscription.
   static Future<Subscription> getSubscription() async {
-    return Subscription.free;
+    return PurchaseManager.instance.currentSubscription;
   }
 
-  /// Restore previous purchases — always returns free (stubbed).
+  /// Restore purchases.
   static Future<Subscription> restorePurchases() async {
-    return Subscription.free;
+    final result = await PurchaseManager.instance.restorePurchases();
+    return result.subscription;
   }
 }

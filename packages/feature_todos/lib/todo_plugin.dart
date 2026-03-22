@@ -24,5 +24,8 @@ export 'src/presentation/pages/todo_list_page.dart';
 export 'src/presentation/pages/kanban_board_page.dart';
 export 'src/presentation/pages/recurring_builder_page.dart';
 export 'src/presentation/pages/templates_page.dart';
+export 'src/domain/entities/task_comment.dart';
 export 'src/domain/services/rrule_service.dart';
+export 'src/presentation/providers/comment_providers.dart';
+export 'src/presentation/widgets/comment_section.dart';
 export 'src/todo_plugin_impl.dart';

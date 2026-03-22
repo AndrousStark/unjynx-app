@@ -73,4 +73,25 @@ class BillingApiService {
       idempotencyKey: idempotencyKey,
     );
   }
+
+  /// Verify a store receipt and activate the subscription server-side.
+  ///
+  /// The backend validates the receipt with Apple/Google, records the
+  /// subscription, and returns the updated subscription object.
+  Future<ApiResponse<Map<String, dynamic>>> verifyReceipt({
+    required String receipt,
+    required String productId,
+    required String platform,
+    String? idempotencyKey,
+  }) {
+    return _client.post(
+      '/billing/verify',
+      data: {
+        'receipt': receipt,
+        'productId': productId,
+        'platform': platform,
+      },
+      idempotencyKey: idempotencyKey,
+    );
+  }
 }

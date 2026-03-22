@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../api_client.dart';
 import '../api_response.dart';
 
@@ -113,6 +115,34 @@ class TeamApiService {
       '/teams/$teamId/standups',
       data: data,
       idempotencyKey: idempotencyKey,
+    );
+  }
+
+  // ── Report Exports ──
+
+  /// Download team report as CSV text.
+  ///
+  /// Returns raw CSV string (UTF-8 BOM + comma-separated).
+  Future<String> exportReportCsv(
+    String teamId, {
+    String period = 'week',
+  }) {
+    return _client.getText(
+      '/teams/$teamId/reports/export/csv',
+      queryParameters: {'period': period},
+    );
+  }
+
+  /// Download team report as PDF bytes.
+  ///
+  /// Returns raw PDF binary data for writing to file.
+  Future<Uint8List> exportReportPdf(
+    String teamId, {
+    String period = 'week',
+  }) {
+    return _client.getBytes(
+      '/teams/$teamId/reports/export/pdf',
+      queryParameters: {'period': period},
     );
   }
 }

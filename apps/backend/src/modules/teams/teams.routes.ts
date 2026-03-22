@@ -13,6 +13,7 @@ import {
   teamReportsQuerySchema,
 } from "./teams.schema.js";
 import * as teamService from "./teams.service.js";
+import * as reportExport from "./report-export.service.js";
 
 export const teamRoutes = new Hono();
 
@@ -148,6 +149,57 @@ teamRoutes.get(
     const query = c.req.valid("query");
     const report = await teamService.getTeamReport(teamId, query);
     return c.json(ok(report));
+  },
+);
+
+// GET /teams/:teamId/reports/export/csv - Export report as CSV
+teamRoutes.get(
+  "/:teamId/reports/export/csv",
+  zValidator("query", teamReportsQuerySchema),
+  async (c) => {
+    const teamId = c.req.param("teamId");
+    const query = c.req.valid("query");
+
+    try {
+      const csv = await reportExport.exportTeamReportCsv(teamId, query);
+
+      const filename = `unjynx-team-report-${query.period}-${Date.now()}.csv`;
+      c.header("Content-Type", "text/csv; charset=utf-8");
+      c.header("Content-Disposition", `attachment; filename="${filename}"`);
+      return c.body(csv);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to export CSV";
+      return c.json(err(message), 500);
+    }
+  },
+);
+
+// GET /teams/:teamId/reports/export/pdf - Export report as PDF
+teamRoutes.get(
+  "/:teamId/reports/export/pdf",
+  zValidator("query", teamReportsQuerySchema),
+  async (c) => {
+    const teamId = c.req.param("teamId");
+    const query = c.req.valid("query");
+
+    try {
+      const pdfBytes = await reportExport.exportTeamReportPdf(teamId, query);
+
+      const filename = `unjynx-team-report-${query.period}-${Date.now()}.pdf`;
+      return new Response(pdfBytes, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Content-Length": String(pdfBytes.byteLength),
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to export PDF";
+      return c.json(err(message), 500);
+    }
   },
 );
 

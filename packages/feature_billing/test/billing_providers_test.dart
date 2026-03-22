@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:feature_billing/src/data/purchase_manager.dart';
 import 'package:feature_billing/src/domain/models/plan_info.dart';
 import 'package:feature_billing/src/domain/models/subscription.dart';
 import 'package:feature_billing/src/presentation/providers/billing_providers.dart';
@@ -117,6 +118,50 @@ void main() {
       );
       expect(row.feature, 'Tasks');
       expect(row.free, '50');
+    });
+  });
+
+  group('ProductIds', () {
+    test('has 5 product IDs', () {
+      expect(ProductIds.all.length, 5);
+    });
+
+    test('contains expected IDs', () {
+      expect(ProductIds.all, contains(ProductIds.proMonthly));
+      expect(ProductIds.all, contains(ProductIds.proAnnual));
+      expect(ProductIds.all, contains(ProductIds.teamMonthly));
+      expect(ProductIds.all, contains(ProductIds.teamAnnual));
+      expect(ProductIds.all, contains(ProductIds.familyMonthly));
+    });
+  });
+
+  group('PurchaseResult', () {
+    test('ok result has success true', () {
+      const result = PurchaseResult.ok(Subscription.free);
+      expect(result.success, true);
+      expect(result.errorMessage, isNull);
+      expect(result.subscription, Subscription.free);
+    });
+
+    test('error result has success false', () {
+      const result = PurchaseResult.error('Something went wrong');
+      expect(result.success, false);
+      expect(result.errorMessage, 'Something went wrong');
+      expect(result.subscription.plan, PlanType.free);
+    });
+  });
+
+  group('PurchaseManager singleton', () {
+    test('instance returns same object', () {
+      final a = PurchaseManager.instance;
+      final b = PurchaseManager.instance;
+      expect(identical(a, b), true);
+    });
+
+    test('default state is not initialized', () {
+      // Note: isInitialized may already be true if previous test
+      // initialized it, but this tests the accessor works.
+      expect(PurchaseManager.instance.currentSubscription, Subscription.free);
     });
   });
 

@@ -53,6 +53,9 @@ const envSchema = z.object({
   // ML Service
   ML_SERVICE_URL: z.string().default("http://ml-service:8000"),
 
+  // AI (Claude API)
+  ANTHROPIC_API_KEY: z.string().optional(),
+
   // Monitoring (Sentry)
   SENTRY_DSN: z.string().optional(),
   SENTRY_ENVIRONMENT: z.string().default("development"),

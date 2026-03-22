@@ -4,10 +4,12 @@ import 'package:service_auth/service_auth.dart';
 import '../api_client.dart';
 import '../api_config.dart';
 import '../services/accountability_api_service.dart';
+import '../services/ai_api_service.dart';
 import '../services/admin_api_service.dart';
 import '../services/auth_api_service.dart';
 import '../services/billing_api_service.dart';
 import '../services/calendar_api_service.dart';
+import '../services/comment_api_service.dart';
 import '../services/channel_api_service.dart';
 import '../services/content_api_service.dart';
 import '../services/gamification_api_service.dart';
@@ -94,6 +96,16 @@ final adminApiProvider = Provider<AdminApiService>(
 
 final calendarApiProvider = Provider<CalendarApiService>(
   (ref) => CalendarApiService(ref.watch(apiClientProvider)),
+);
+
+final commentApiProvider = Provider<CommentApiService>(
+  (ref) => CommentApiService(ref.watch(apiClientProvider)),
+);
+
+// Phase 6: AI (Claude + ML service)
+
+final aiApiProvider = Provider<AiApiService>(
+  (ref) => AiApiService(ref.watch(apiClientProvider)),
 );
 
 // Phase 7: Industry Modes

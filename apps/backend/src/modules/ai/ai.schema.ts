@@ -78,7 +78,65 @@ export interface PatternsResult {
   readonly dataPoints: number;
 }
 
+// ── Claude Chat Schemas ─────────────────────────────────────────────────
+
+export const chatMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(10_000),
+});
+
+export const chatRequestSchema = z.object({
+  messages: z.array(chatMessageSchema).min(1).max(100),
+  persona: z
+    .enum(["default", "drill_sergeant", "therapist", "ceo", "coach"])
+    .optional()
+    .default("default"),
+  model: z.enum(["haiku", "sonnet", "opus"]).optional(),
+});
+
+export const decomposeRequestSchema = z.object({
+  taskTitle: z.string().min(1).max(500),
+  description: z.string().max(2000).optional(),
+});
+
+export const scheduleRequestSchema = z.object({
+  taskIds: z.array(z.string().uuid()).min(1).max(50),
+});
+
+// ── Claude Response Types ───────────────────────────────────────────────
+
+export interface ChatStreamEvent {
+  readonly type: "text" | "done" | "error";
+  readonly data: string;
+}
+
+export interface SubtaskSuggestion {
+  readonly title: string;
+  readonly estimatedMinutes: number;
+  readonly priority: "high" | "medium" | "low";
+}
+
+export interface DecomposeResponse {
+  readonly subtasks: readonly SubtaskSuggestion[];
+  readonly reasoning: string;
+}
+
+export interface ScheduleSlotResponse {
+  readonly taskId: string;
+  readonly suggestedStart: string;
+  readonly suggestedEnd: string;
+  readonly reason: string;
+}
+
+export interface ScheduleResponse {
+  readonly schedule: readonly ScheduleSlotResponse[];
+  readonly insights: string;
+}
+
 // ── Type Exports ────────────────────────────────────────────────────────
 
 export type SuggestionsQuery = z.infer<typeof suggestionsQuerySchema>;
 export type PatternsQuery = z.infer<typeof patternsQuerySchema>;
+export type ChatRequest = z.infer<typeof chatRequestSchema>;
+export type DecomposeRequest = z.infer<typeof decomposeRequestSchema>;
+export type ScheduleRequest = z.infer<typeof scheduleRequestSchema>;

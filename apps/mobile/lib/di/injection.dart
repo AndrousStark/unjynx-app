@@ -1,3 +1,4 @@
+import 'package:feature_ai/feature_ai.dart';
 import 'package:feature_billing/feature_billing.dart';
 import 'package:feature_gamification/feature_gamification.dart';
 import 'package:feature_home/feature_home.dart';
@@ -127,7 +128,8 @@ Future<void> configureDependencies() async {
     // Secondary feature plugins (not in bottom nav)
     ..registerSingleton<NotificationPlugin>(NotificationPlugin())
     ..registerSingleton<GamificationPlugin>(GamificationPlugin())
-    ..registerSingleton<BillingPlugin>(BillingPlugin());
+    ..registerSingleton<BillingPlugin>(BillingPlugin())
+    ..registerSingleton<AiPlugin>(AiPlugin());
 
   // Incomplete features — gated behind compile-time flags
   if (AppConfig.featureTeam) {

@@ -7,9 +7,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///
 /// This provider should be overridden at app startup once the user's
 /// active mode is fetched from `GET /modes/active`.
-final vocabularyProvider = StateProvider<Map<String, String>>(
-  (ref) => const <String, String>{},
+final vocabularyProvider =
+    NotifierProvider<_VocabularyNotifier, Map<String, String>>(
+  _VocabularyNotifier.new,
 );
+
+class _VocabularyNotifier extends Notifier<Map<String, String>> {
+  @override
+  Map<String, String> build() => const <String, String>{};
+
+  /// Replace the entire vocabulary map.
+  void set(Map<String, String> vocab) => state = vocab;
+}
 
 /// Translates a UI label through the active industry mode vocabulary.
 ///

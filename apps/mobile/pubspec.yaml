@@ -11,6 +11,8 @@ environment:
 dependencies:
   dio: ^5.7.0
   drift: ^2.32.0
+  feature_ai:
+    path: ../../packages/feature_ai
   feature_billing:
     path: ../../packages/feature_billing
   feature_gamification:
