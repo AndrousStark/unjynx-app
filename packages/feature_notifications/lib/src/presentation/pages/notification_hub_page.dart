@@ -182,6 +182,25 @@ class NotificationHubPage extends ConsumerWidget {
                     ),
                   ),
                 ]
+              else if (channelsAsync.hasError)
+                ...[
+                  SliverToBoxAdapter(
+                    child: UnjynxErrorView(
+                      type: ErrorViewType.serverError,
+                      title: 'Failed to load channels',
+                      compact: true,
+                      onRetry: () => ref.invalidate(channelsProvider),
+                    ),
+                  ),
+                ]
+              else if (channels.isEmpty)
+                ...[
+                  SliverToBoxAdapter(
+                    child: UnjynxEmptyState(
+                      type: EmptyStateType.noNotifications,
+                    ),
+                  ),
+                ]
               else
                 ..._categories.entries.expand((entry) {
                   final categoryName = entry.key;

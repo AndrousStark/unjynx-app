@@ -250,5 +250,84 @@ void main() {
 
       expect(result.record.needsSync, isFalse);
     });
+
+    test('delete wins even when local has newer field edits', () {
+      // User edits title on device B at t3
+      final local = makeRecord(
+        fields: {'title': 'Edited on B', 'status': 'in_progress'},
+        timestamps: {'title': t3, 'status': t2},
+        updatedAt: t3,
+      );
+      // User deleted on device A at t2
+      final remote = makeRecord(
+        isDeleted: true,
+        updatedAt: t2,
+      );
+
+      final result = resolver.merge(local, remote);
+
+      // Delete propagation: remote delete wins regardless of field timestamps
+      expect(result.outcome, MergeOutcome.remoteWins);
+      expect(result.record.isDeleted, isTrue);
+    });
+
+    test('concurrent edits on different fields both survive', () {
+      // Device A edits title at t2, description unchanged at t1
+      final local = makeRecord(
+        fields: {'title': 'Device A title', 'description': 'original'},
+        timestamps: {'title': t2, 'description': t1},
+        updatedAt: t2,
+      );
+      // Device B edits description at t3, title unchanged at t1
+      final remote = makeRecord(
+        fields: {'title': 'original', 'description': 'Device B desc'},
+        timestamps: {'title': t1, 'description': t3},
+        updatedAt: t3,
+      );
+
+      final result = resolver.merge(local, remote);
+
+      // title: local wins (t2 > t1)
+      expect(result.record.fields['title'], 'Device A title');
+      // description: remote wins (t3 > t1)
+      expect(result.record.fields['description'], 'Device B desc');
+    });
+
+    test('merge with empty fields map produces valid record', () {
+      final local = makeRecord(
+        fields: const {},
+        timestamps: const {},
+        updatedAt: t1,
+      );
+      final remote = makeRecord(
+        fields: const {},
+        timestamps: const {},
+        updatedAt: t1,
+      );
+
+      final result = resolver.merge(local, remote);
+
+      expect(result.outcome, MergeOutcome.noConflict);
+      expect(result.record.fields, isEmpty);
+      expect(result.conflictedFields, isEmpty);
+    });
+
+    test('null field values are preserved through merge', () {
+      final local = makeRecord(
+        fields: {'title': 'Test', 'description': null},
+        timestamps: {'title': t1, 'description': t2},
+        updatedAt: t2,
+      );
+      final remote = makeRecord(
+        fields: {'title': 'Test', 'description': 'Has desc'},
+        timestamps: {'title': t1, 'description': t1},
+        updatedAt: t1,
+      );
+
+      final result = resolver.merge(local, remote);
+
+      // Local null description wins (t2 > t1)
+      expect(result.record.fields['description'], isNull);
+    });
   });
 }

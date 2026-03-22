@@ -26,12 +26,20 @@ import 'sync_status.dart';
 /// - The field with the later timestamp wins
 /// - Ties go to the server (remote authority)
 /// - Deletes propagate (if either side deletes, it's deleted)
+///
+/// **Retry:**
+/// - On network failure, retries with exponential backoff (1s, 2s, 4s)
+/// - Retries are per-entity-type, so a failure in one type does not
+///   block others
+/// - Data is never corrupted: local state is only updated after
+///   successful merge
 class SyncEngine {
   final SyncLocalPort _local;
   final SyncRemotePort _remote;
   final EventBus _eventBus;
   final LwwResolver _resolver;
   final List<String> _entityTypes;
+  final int _maxRetries;
 
   SyncStatus _status = SyncStatus.idle;
   Timer? _periodicTimer;
@@ -44,11 +52,13 @@ class SyncEngine {
     required EventBus eventBus,
     required List<String> entityTypes,
     LwwResolver resolver = const LwwResolver(),
+    int maxRetries = 3,
   })  : _local = local,
         _remote = remote,
         _eventBus = eventBus,
         _entityTypes = entityTypes,
-        _resolver = resolver;
+        _resolver = resolver,
+        _maxRetries = maxRetries;
 
   /// Current sync status.
   SyncStatus get status => _status;
@@ -164,7 +174,30 @@ class SyncEngine {
   }
 
   /// Sync a single entity type (push then pull then merge).
+  ///
+  /// Retries up to [_maxRetries] times on transient network failures
+  /// with exponential backoff (1s, 2s, 4s, ...). Local data is never
+  /// corrupted because saves only happen after successful remote calls.
   Future<_EntitySyncResult> _syncEntityType(String entityType) async {
+    var lastException = Exception('unknown');
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        return await _syncEntityTypeOnce(entityType);
+      } on Exception catch (e) {
+        lastException = e;
+        if (attempt < _maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s, ...
+          await Future<void>.delayed(
+            Duration(seconds: 1 << attempt),
+          );
+        }
+      }
+    }
+    throw lastException;
+  }
+
+  /// Single attempt to sync an entity type (push then pull then merge).
+  Future<_EntitySyncResult> _syncEntityTypeOnce(String entityType) async {
     var pushed = 0;
     var pulled = 0;
     var conflicts = 0;

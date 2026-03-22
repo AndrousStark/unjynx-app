@@ -3,10 +3,13 @@ import type {
   ChannelSendResult,
   RenderedMessage,
 } from "./channel-adapter.interface.js";
+import { logger } from "../../middleware/logger.js";
 
 // ── WhatsApp (Gupshup BSP) Adapter ─────────────────────────────────
 // Sends template messages via Gupshup HTTP API (cheapest for India).
 // When GUPSHUP_API_KEY is not set, runs in mock mode.
+
+const log = logger.child({ channel: "whatsapp" });
 
 const GUPSHUP_SEND_URL = "https://api.gupshup.io/wa/api/v1/msg";
 
@@ -24,7 +27,12 @@ async function send(
   message: RenderedMessage,
 ): Promise<ChannelSendResult> {
   if (isMockMode()) {
-    console.log(`[whatsapp:mock] -> ${recipient}: ${message.text}`);
+    log.info({
+      action: "mock_send",
+      recipient,
+      message: message.text.substring(0, 100),
+      timestamp: new Date().toISOString(),
+    }, "Would have sent WhatsApp message (mock mode)");
     return {
       success: true,
       providerMessageId: `mock_wa_${Date.now()}`,

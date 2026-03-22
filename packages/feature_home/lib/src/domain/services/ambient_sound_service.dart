@@ -24,7 +24,52 @@ enum AmbientSound {
   lofi('Lo-Fi', '$_soundBaseUrl/lofi.ogg'),
 
   /// White noise ambiance.
-  whiteNoise('White Noise', '$_soundBaseUrl/white_noise.ogg');
+  whiteNoise('White Noise', '$_soundBaseUrl/white_noise.ogg'),
+
+  /// Crackling fireplace.
+  fireplace('Fireplace', '$_soundBaseUrl/fireplace.ogg'),
+
+  /// Ocean waves.
+  ocean('Ocean Waves', '$_soundBaseUrl/ocean.ogg'),
+
+  /// Birdsong forest ambiance.
+  birds('Birds', '$_soundBaseUrl/birds.ogg'),
+
+  /// Distant thunder storm.
+  thunder('Thunder', '$_soundBaseUrl/thunder.ogg'),
+
+  /// Train rhythm ambiance.
+  train('Train', '$_soundBaseUrl/train.ogg'),
+
+  /// Very quiet library ambiance.
+  library('Library', '$_soundBaseUrl/library.ogg'),
+
+  /// Wind through trees.
+  wind('Wind', '$_soundBaseUrl/wind.ogg'),
+
+  /// Campfire crackling.
+  campfire('Campfire', '$_soundBaseUrl/campfire.ogg'),
+
+  /// Rushing waterfall.
+  waterfall('Waterfall', '$_soundBaseUrl/waterfall.ogg'),
+
+  /// Night crickets chirping.
+  crickets('Crickets', '$_soundBaseUrl/crickets.ogg'),
+
+  /// Keyboard typing sounds.
+  typing('Typing', '$_soundBaseUrl/typing.ogg'),
+
+  /// City rain with distant traffic.
+  cityRain('City Rain', '$_soundBaseUrl/city_rain.ogg'),
+
+  /// Warm jazz cafe ambiance.
+  jazz('Jazz Cafe', '$_soundBaseUrl/jazz.ogg'),
+
+  /// Deep space ambient drone.
+  space('Space', '$_soundBaseUrl/space.ogg'),
+
+  /// Morning birds with light breeze.
+  morning('Morning', '$_soundBaseUrl/morning.ogg');
 
   const AmbientSound(this.label, this.remoteUrl);
 

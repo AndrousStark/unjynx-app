@@ -28,7 +28,12 @@ class ProjectListPage extends ConsumerWidget {
           data: (projects) => projects.isEmpty
               ? ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [_EmptyState()],
+                  children: [
+                    UnjynxEmptyState(
+                      type: EmptyStateType.noProjects,
+                      onAction: () => _showCreateSheet(context),
+                    ),
+                  ],
                 )
               : ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -53,17 +58,15 @@ class ProjectListPage extends ConsumerWidget {
           loading: () => Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              children: List.generate(5, (i) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+              children: List.generate(5, (i) => const Padding(
+                padding: EdgeInsets.only(bottom: 12),
                 child: UnjynxShimmerBox(height: 80, borderRadius: 16),
               )),
             ),
           ),
-          error: (error, _) => Center(
-            child: Text(
-              'Failed to load projects: $error',
-              style: TextStyle(color: colorScheme.error),
-            ),
+          error: (error, _) => UnjynxErrorView(
+            type: ErrorViewType.serverError,
+            onRetry: () => ref.invalidate(projectListProvider),
           ),
         ),
       ),
@@ -94,54 +97,4 @@ class ProjectListPage extends ConsumerWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isLight = context.isLightMode;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colorScheme.primary.withValues(
-                alpha: isLight ? 0.1 : 0.15,
-              ),
-            ),
-            child: Icon(
-              Icons.folder_outlined,
-              size: 48,
-              color: colorScheme.primary.withValues(
-                alpha: isLight ? 0.7 : 0.6,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'No projects yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap + to create your first project',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Old _EmptyState replaced by UnjynxEmptyState from unjynx_core.

@@ -3,10 +3,13 @@ import type {
   ChannelSendResult,
   RenderedMessage,
 } from "./channel-adapter.interface.js";
+import { logger } from "../../middleware/logger.js";
 
 // ── Email (SendGrid) Adapter ─────────────────────────────────────────
 // Sends transactional email via SendGrid v3 API.
 // When SENDGRID_API_KEY is not set, runs in mock mode.
+
+const log = logger.child({ channel: "email" });
 
 const SENDGRID_SEND_URL = "https://api.sendgrid.com/v3/mail/send";
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? "noreply@unjynx.app";
@@ -27,7 +30,13 @@ async function send(
   message: RenderedMessage,
 ): Promise<ChannelSendResult> {
   if (isMockMode()) {
-    console.log(`[email:mock] -> ${email}: ${message.subject ?? "(no subject)"} | ${message.text}`);
+    log.info({
+      action: "mock_send",
+      recipient: email,
+      subject: message.subject ?? "(no subject)",
+      message: message.text.substring(0, 100),
+      timestamp: new Date().toISOString(),
+    }, "Would have sent email (mock mode)");
     return {
       success: true,
       providerMessageId: `mock_email_${Date.now()}`,

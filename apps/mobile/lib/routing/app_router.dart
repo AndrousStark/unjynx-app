@@ -11,9 +11,17 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:service_auth/service_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unjynx_core/core.dart';
 
 import 'package:unjynx_mobile/firebase/firebase_init.dart';
+import 'package:unjynx_mobile/providers/connectivity_provider.dart';
+
+/// Global navigator key used by GoRouter.
+///
+/// Exposed so that non-widget code (e.g. notification tap handlers) can
+/// push routes without needing a BuildContext.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Creates the app router by collecting routes from all registered plugins.
 ///
@@ -246,30 +254,21 @@ GoRouter createAppRouter(
 
   final defaultLocation = navRoutes.isNotEmpty ? navRoutes.first.path : '/';
 
-  return GoRouter(
+  final router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: isOnboardingComplete ? defaultLocation : '/onboarding',
     observers: [
       if (FirebaseInit.analytics != null)
         FirebaseAnalyticsObserver(analytics: FirebaseInit.analytics!),
     ],
     errorBuilder: (context, state) => Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Color(0xFFFFD700)),
-            const SizedBox(height: 16),
-            Text(
-              'Page not found',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => GoRouter.of(context).go(defaultLocation),
-              child: const Text('Go Home'),
-            ),
-          ],
-        ),
+      body: UnjynxErrorView(
+        type: ErrorViewType.emptyData,
+        icon: Icons.wrong_location_rounded,
+        title: 'Page not found',
+        subtitle: 'This route does not exist. Let us take you home.',
+        actionLabel: 'Go Home',
+        onRetry: () => GoRouter.of(context).go(defaultLocation),
       ),
     ),
     redirect: (context, state) {
@@ -278,6 +277,16 @@ GoRouter createAppRouter(
       final goingToLogin = path == '/login';
       final goingToForgotPassword = path == '/forgot-password';
       final goingToAuthFlow = goingToLogin || goingToForgotPassword;
+
+      // Deep link path mapping: unjynx://tasks/{id} -> /todos/{id}
+      // GoRouter receives the URI path directly from the deep link scheme.
+      if (path.startsWith('/tasks/')) {
+        final id = path.substring('/tasks/'.length);
+        return '/todos/$id';
+      }
+      if (path == '/tasks') {
+        return '/todos';
+      }
 
       // Onboarding guard (first priority)
       if (!isOnboardingComplete && !goingToOnboarding) {
@@ -299,10 +308,12 @@ GoRouter createAppRouter(
     },
     routes: routes,
   );
+
+  return router;
 }
 
-/// App shell with bottom navigation bar.
-class _AppShell extends StatelessWidget {
+/// App shell with bottom navigation bar and global connection banner.
+class _AppShell extends ConsumerWidget {
   const _AppShell({
     required this.pluginRoutes,
     required this.child,
@@ -312,9 +323,25 @@ class _AppShell extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connState = ref.watch(connectivityProvider);
+
     return Scaffold(
-      body: child,
+      body: Column(
+        children: [
+          // Global connectivity banner — sits above page content.
+          UnjynxConnectionBanner(
+            state: connState,
+            onAutoDismiss: () {
+              // The provider handles its own state transitions, but
+              // if the banner needs to trigger a dismiss we let the
+              // notifier recheck.
+              ref.read(connectivityProvider.notifier).recheck();
+            },
+          ),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: pluginRoutes.length > 1
           ? NavigationBar(
               destinations: [

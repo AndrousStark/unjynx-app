@@ -72,11 +72,22 @@ class _TodoListPageState extends ConsumerState<TodoListPage> {
               Expanded(
                 child: todosAsync.when(
                   data: (todos) => todos.isEmpty
-                      ? _EmptyState(
-                          isSearching: _isSearching,
-                          hasActiveFilter: _hasActiveFilter(filter),
-                          onClearFilters: _clearFilters,
-                        )
+                      ? _isSearching
+                          ? UnjynxEmptyState(
+                              type: EmptyStateType.searchEmpty,
+                            )
+                          : _hasActiveFilter(filter)
+                              ? UnjynxEmptyState(
+                                  type: EmptyStateType.searchEmpty,
+                                  title: 'No tasks match filters',
+                                  subtitle: 'Adjust or clear your filters',
+                                  actionLabel: 'Clear Filters',
+                                  onAction: _clearFilters,
+                                )
+                              : UnjynxEmptyState(
+                                  type: EmptyStateType.noTasks,
+                                  onAction: () => _showCreateSheet(context),
+                                )
                       : RefreshIndicator(
                           color: colorScheme.primary,
                           backgroundColor: colorScheme.surface,
@@ -107,8 +118,8 @@ class _TodoListPageState extends ConsumerState<TodoListPage> {
                       ),
                     ),
                   ),
-                  error: (error, _) => _ErrorState(
-                    error: error,
+                  error: (error, _) => UnjynxErrorView(
+                    type: ErrorViewType.serverError,
                     onRetry: () => ref.invalidate(todoListProvider),
                   ),
                 ),
@@ -700,150 +711,5 @@ class _SelectableWrapper extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// Empty state
-// =============================================================================
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    this.isSearching = false,
-    this.hasActiveFilter = false,
-    this.onClearFilters,
-  });
-
-  final bool isSearching;
-  final bool hasActiveFilter;
-  final VoidCallback? onClearFilters;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
-    final isLight = context.isLightMode;
-
-    final icon = isSearching
-        ? Icons.search_off
-        : hasActiveFilter
-            ? Icons.filter_list_off
-            : Icons.check_circle_outline;
-
-    final title = isSearching
-        ? 'No matching tasks'
-        : hasActiveFilter
-            ? 'No tasks match filters'
-            : 'No tasks yet';
-
-    final subtitle = isSearching
-        ? 'Try a different search term'
-        : hasActiveFilter
-            ? 'Adjust or clear your filters'
-            : 'Tap + to create your first task';
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 64,
-            // Light: higher opacity for visibility; Dark: subtle
-            color: isLight
-                ? colorScheme.onSurfaceVariant.withValues(alpha: 0.6)
-                : colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 14,
-              color: isLight
-                  ? ux.textTertiary
-                  : colorScheme.onSurfaceVariant,
-            ),
-          ),
-          if (hasActiveFilter && onClearFilters != null) ...[
-            const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: onClearFilters,
-              icon: const Icon(Icons.clear_all, size: 18),
-              label: const Text('Clear all filters'),
-              style: TextButton.styleFrom(
-                foregroundColor: colorScheme.primary,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// Error state
-// =============================================================================
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.error,
-    required this.onRetry,
-  });
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: colorScheme.error,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Failed to load tasks',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$error',
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// Old _EmptyState and _ErrorState replaced by UnjynxEmptyState / UnjynxErrorView
+// from unjynx_core.

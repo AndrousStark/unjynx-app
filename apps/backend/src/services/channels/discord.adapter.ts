@@ -3,10 +3,13 @@ import type {
   ChannelSendResult,
   RenderedMessage,
 } from "./channel-adapter.interface.js";
+import { logger } from "../../middleware/logger.js";
 
 // ── Discord Bot API Adapter ─────────────────────────────────────────
 // Sends messages via Discord Bot API to a channel or DM channel.
 // When DISCORD_BOT_TOKEN is not set, runs in mock mode.
+
+const log = logger.child({ channel: "discord" });
 
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 
@@ -32,7 +35,12 @@ async function send(
   message: RenderedMessage,
 ): Promise<ChannelSendResult> {
   if (isMockMode()) {
-    console.log(`[discord:mock] -> ${channelId}: ${message.text}`);
+    log.info({
+      action: "mock_send",
+      recipient: channelId,
+      message: message.text.substring(0, 100),
+      timestamp: new Date().toISOString(),
+    }, "Would have sent Discord message (mock mode)");
     return {
       success: true,
       providerMessageId: `mock_discord_${Date.now()}`,

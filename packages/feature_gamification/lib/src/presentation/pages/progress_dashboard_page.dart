@@ -293,24 +293,12 @@ class _ChartError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return SizedBox(
       height: 200,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 8),
-            Text(
-              'Failed to load chart',
-              style: textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+      child: UnjynxErrorView(
+        type: ErrorViewType.serverError,
+        title: 'Failed to load chart',
+        compact: true,
       ),
     );
   }

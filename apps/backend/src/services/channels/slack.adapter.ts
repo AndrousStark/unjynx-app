@@ -3,10 +3,13 @@ import type {
   ChannelSendResult,
   RenderedMessage,
 } from "./channel-adapter.interface.js";
+import { logger } from "../../middleware/logger.js";
 
 // ── Slack Web API Adapter ───────────────────────────────────────────
 // Sends messages via Slack's chat.postMessage API.
 // When SLACK_BOT_TOKEN is not set, runs in mock mode.
+
+const log = logger.child({ channel: "slack" });
 
 const SLACK_POST_URL = "https://slack.com/api/chat.postMessage";
 
@@ -24,7 +27,12 @@ async function send(
   message: RenderedMessage,
 ): Promise<ChannelSendResult> {
   if (isMockMode()) {
-    console.log(`[slack:mock] -> ${recipient}: ${message.text}`);
+    log.info({
+      action: "mock_send",
+      recipient,
+      message: message.text.substring(0, 100),
+      timestamp: new Date().toISOString(),
+    }, "Would have sent Slack message (mock mode)");
     return {
       success: true,
       providerMessageId: `mock_slack_${Date.now()}`,

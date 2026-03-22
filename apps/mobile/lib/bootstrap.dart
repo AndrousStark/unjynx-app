@@ -17,6 +17,7 @@ import 'package:unjynx_mobile/app.dart';
 import 'package:unjynx_mobile/config/app_config.dart';
 import 'package:unjynx_mobile/di/injection.dart';
 import 'package:unjynx_mobile/fcm/fcm_token_manager.dart';
+import 'package:unjynx_mobile/firebase/notification_tap_handler.dart';
 import 'package:unjynx_mobile/providers/gamification_overrides.dart';
 import 'package:unjynx_mobile/providers/home_api_overrides.dart';
 
@@ -126,6 +127,16 @@ Future<void> bootstrap() async {
       }
     } on Exception catch (e) {
       debugPrint('FCM initialization failed: $e');
+    }
+  }());
+
+  // Wire notification tap -> GoRouter navigation (deep link on tap).
+  // Must run after runApp so the GoRouter and rootNavigatorKey are ready.
+  unawaited(() async {
+    try {
+      await NotificationTapHandler.initialize();
+    } on Exception catch (e) {
+      debugPrint('NotificationTapHandler initialization failed: $e');
     }
   }());
 

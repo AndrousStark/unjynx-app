@@ -3,10 +3,13 @@ import type {
   ChannelSendResult,
   RenderedMessage,
 } from "./channel-adapter.interface.js";
+import { logger } from "../../middleware/logger.js";
 
 // ── SMS (MSG91) Adapter ─────────────────────────────────────────────
 // Sends transactional SMS via MSG91 API (cheapest for India).
 // When MSG91_AUTH_KEY is not set, runs in mock mode.
+
+const log = logger.child({ channel: "sms" });
 
 const MSG91_SEND_URL = "https://control.msg91.com/api/v5/flow/";
 
@@ -24,7 +27,12 @@ async function send(
   message: RenderedMessage,
 ): Promise<ChannelSendResult> {
   if (isMockMode()) {
-    console.log(`[sms:mock] -> ${recipient}: ${message.text}`);
+    log.info({
+      action: "mock_send",
+      recipient,
+      message: message.text.substring(0, 100),
+      timestamp: new Date().toISOString(),
+    }, "Would have sent SMS (mock mode)");
     return {
       success: true,
       providerMessageId: `mock_sms_${Date.now()}`,

@@ -3,10 +3,13 @@ import type {
   ChannelSendResult,
   RenderedMessage,
 } from "./channel-adapter.interface.js";
+import { logger } from "../../middleware/logger.js";
 
 // ── Telegram Bot API Adapter ─────────────────────────────────────────
 // Sends messages via the Telegram Bot API (direct HTTP, no grammy).
 // When TELEGRAM_BOT_TOKEN is not set, runs in mock mode.
+
+const log = logger.child({ channel: "telegram" });
 
 function getBotToken(): string | undefined {
   return process.env.TELEGRAM_BOT_TOKEN;
@@ -47,7 +50,12 @@ async function send(
   message: RenderedMessage,
 ): Promise<ChannelSendResult> {
   if (isMockMode()) {
-    console.log(`[telegram:mock] -> ${chatId}: ${message.text}`);
+    log.info({
+      action: "mock_send",
+      recipient: chatId,
+      message: message.text.substring(0, 100),
+      timestamp: new Date().toISOString(),
+    }, "Would have sent Telegram message (mock mode)");
     return {
       success: true,
       providerMessageId: `mock_tg_${Date.now()}`,
@@ -105,7 +113,11 @@ async function validateConnection(identifier: string): Promise<boolean> {
 
 async function disconnect(chatId: string): Promise<void> {
   if (isMockMode()) {
-    console.log(`[telegram:mock] Goodbye sent to ${chatId}`);
+    log.info({
+      action: "mock_disconnect",
+      recipient: chatId,
+      timestamp: new Date().toISOString(),
+    }, "Would have sent Telegram goodbye message (mock mode)");
     return;
   }
 

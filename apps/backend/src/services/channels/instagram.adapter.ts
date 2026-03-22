@@ -3,12 +3,15 @@ import type {
   ChannelSendResult,
   RenderedMessage,
 } from "./channel-adapter.interface.js";
+import { logger } from "../../middleware/logger.js";
 
 // ── Instagram Messenger API Adapter ─────────────────────────────────
 // Sends DMs via the Instagram Messenger API (Facebook Graph API).
 // Uses "Friend First" approach: send follow request from official page,
 // user accepts, then we can message within the 24h window.
 // When INSTAGRAM_ACCESS_TOKEN is not set, runs in mock mode.
+
+const log = logger.child({ channel: "instagram" });
 
 function isMockMode(): boolean {
   return !process.env.INSTAGRAM_ACCESS_TOKEN;
@@ -29,7 +32,12 @@ async function send(
   message: RenderedMessage,
 ): Promise<ChannelSendResult> {
   if (isMockMode()) {
-    console.log(`[instagram:mock] -> ${recipient}: ${message.text}`);
+    log.info({
+      action: "mock_send",
+      recipient,
+      message: message.text.substring(0, 100),
+      timestamp: new Date().toISOString(),
+    }, "Would have sent Instagram DM (mock mode)");
     return {
       success: true,
       providerMessageId: `mock_ig_${Date.now()}`,

@@ -33,7 +33,7 @@ class DayTaskList extends ConsumerWidget {
 
         // Task cards or empty state
         if (tasks.isEmpty)
-          const _EmptyDayState()
+          const UnjynxEmptyState(type: EmptyStateType.noCalendarTasks)
         else
           _TaskCardList(tasks: tasks),
       ],
@@ -254,56 +254,4 @@ class _CalendarTaskCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
-class _EmptyDayState extends StatelessWidget {
-  const _EmptyDayState();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isLight = context.isLightMode;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-      decoration: BoxDecoration(
-        color: isLight ? Colors.white : colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-        border: isLight
-            ? Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.08),
-              )
-            : null,
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.event_available_rounded,
-            size: 36,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'No tasks for this day',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Tap + to add one',
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Old _EmptyDayState replaced by UnjynxEmptyState from unjynx_core.

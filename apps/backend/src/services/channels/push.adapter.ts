@@ -3,10 +3,13 @@ import type {
   ChannelSendResult,
   RenderedMessage,
 } from "./channel-adapter.interface.js";
+import { logger } from "../../middleware/logger.js";
 
 // ── Push (FCM) Adapter ───────────────────────────────────────────────
 // In production, sends via Firebase Cloud Messaging HTTP v1 API.
 // When FCM_SERVICE_ACCOUNT_KEY is not set, runs in mock mode.
+
+const log = logger.child({ channel: "push" });
 
 const FCM_SEND_URL =
   "https://fcm.googleapis.com/v1/projects/{PROJECT_ID}/messages:send";
@@ -25,7 +28,13 @@ async function send(
   message: RenderedMessage,
 ): Promise<ChannelSendResult> {
   if (isMockMode()) {
-    console.log(`[push:mock] -> ${recipient}: ${message.text}`);
+    log.info({
+      action: "mock_send",
+      recipient: recipient.substring(0, 20) + "...",
+      subject: message.subject ?? "UNJYNX",
+      message: message.text.substring(0, 100),
+      timestamp: new Date().toISOString(),
+    }, "Would have sent push notification (mock mode)");
     return {
       success: true,
       providerMessageId: `mock_push_${Date.now()}`,

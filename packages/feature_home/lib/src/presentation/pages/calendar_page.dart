@@ -233,46 +233,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   }
 
   Widget _buildErrorState(Object error) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: 48,
-              color: colorScheme.error,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Failed to load calendar',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '$error',
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () =>
-                  ref.invalidate(calendarTasksProvider(_currentMonth)),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
+    return UnjynxErrorView(
+      type: ErrorViewType.serverError,
+      title: 'Failed to load calendar',
+      onRetry: () => ref.invalidate(calendarTasksProvider(_currentMonth)),
     );
   }
 

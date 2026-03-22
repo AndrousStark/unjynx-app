@@ -22,6 +22,7 @@ import {
   type UserPrefs,
 } from "./scheduler.service.js";
 import { dispatchBatch } from "./notification-dispatcher.js";
+import { runContentDelivery } from "./content-scheduler.js";
 
 const log = logger.child({ module: "cron-scheduler" });
 
@@ -30,6 +31,7 @@ const log = logger.child({ module: "cron-scheduler" });
 const REMINDER_WINDOW_MINUTES = 2;
 const OVERDUE_CHECK_INTERVAL_MS = 5 * 60_000; // 5 minutes
 const REMINDER_CHECK_INTERVAL_MS = 60_000; // 1 minute
+const CONTENT_DELIVERY_INTERVAL_MS = 30 * 60_000; // 30 minutes
 const INSTAGRAM_REENGAGEMENT_INTERVAL_MS = 15 * 60_000; // 15 minutes
 const INSTAGRAM_WINDOW_HOURS = 24;
 
@@ -473,6 +475,16 @@ export function startCronJobs(): void {
   }, DIGEST_CHECK_INTERVAL_MS);
   activeIntervals.push(digestInterval);
 
+  // Every 30 minutes: run daily content delivery cycle
+  // Content scheduler checks per-user delivery time windows internally,
+  // so running frequently ensures content arrives within each user's window.
+  const contentInterval = setInterval(() => {
+    runContentDelivery().catch((error) => {
+      log.error({ error }, "Unhandled error in content delivery");
+    });
+  }, CONTENT_DELIVERY_INTERVAL_MS);
+  activeIntervals.push(contentInterval);
+
   // Every 15 minutes: check Instagram 24h windows
   const instagramInterval = setInterval(() => {
     checkInstagramWindows().catch((error) => {
@@ -486,6 +498,7 @@ export function startCronJobs(): void {
       reminderIntervalMs: REMINDER_CHECK_INTERVAL_MS,
       overdueIntervalMs: OVERDUE_CHECK_INTERVAL_MS,
       digestCheckIntervalMs: DIGEST_CHECK_INTERVAL_MS,
+      contentDeliveryIntervalMs: CONTENT_DELIVERY_INTERVAL_MS,
       instagramIntervalMs: INSTAGRAM_REENGAGEMENT_INTERVAL_MS,
     },
     "All cron jobs started",
