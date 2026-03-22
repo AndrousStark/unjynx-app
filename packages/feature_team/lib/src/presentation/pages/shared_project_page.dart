@@ -421,9 +421,13 @@ class _CommentSection extends StatelessWidget {
                   ),
                   onPressed: () {
                     HapticFeedback.lightImpact();
+                    final text = controller.text.trim();
+                    if (text.isEmpty) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('Comments coming soon'),
+                        content: const Text(
+                          'Tap a task to add comments. Project-level discussions coming in v2.',
+                        ),
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),

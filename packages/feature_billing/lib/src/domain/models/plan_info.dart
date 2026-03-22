@@ -136,7 +136,7 @@ class PlanInfo {
       'Admin panel',
       'Daily standups',
       'Team analytics',
-      'SSO (coming soon)',
+      'SSO & SAML (Enterprise)',
     ],
   );
 

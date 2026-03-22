@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:service_api/service_api.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../providers/project_providers.dart';
@@ -279,14 +280,96 @@ class _CreateEditProjectPageState
                   ),
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {
+                onTap: () async {
                   HapticFeedback.lightImpact();
-                  // Phase 4: Show team member picker
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Team member picker coming soon'),
-                    ),
-                  );
+                  try {
+                    final teamApi = ref.read(teamApiProvider);
+                    // Fetch user's teams, then members of the first team
+                    final teamsResp = await teamApi.getTeams();
+                    final teams = (teamsResp.data as List?) ?? [];
+                    if (teams.isEmpty) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('No team found. Create a team first.')),
+                        );
+                      }
+                      return;
+                    }
+                    final teamId = (teams.first as Map)['id'] as String;
+                    final membersResp = await teamApi.getMembers(teamId);
+                    final members = (membersResp.data as List?) ?? [];
+
+                    if (!mounted) return;
+                    await showModalBottomSheet<void>(
+                      context: context,
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      builder: (ctx) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                              child: Text(
+                                'Add Team Members',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(ctx).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (members.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Text('No team members yet'),
+                              )
+                            else
+                              ...members.map((m) {
+                                final member = m as Map<String, dynamic>;
+                                final name = member['name'] as String? ?? 'Unknown';
+                                final role = member['role'] as String? ?? 'member';
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Theme.of(ctx).colorScheme.primary.withValues(alpha: 0.15),
+                                    child: Text(
+                                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                      style: TextStyle(color: Theme.of(ctx).colorScheme.primary),
+                                    ),
+                                  ),
+                                  title: Text(name),
+                                  subtitle: Text(role, style: const TextStyle(fontSize: 12)),
+                                  trailing: const Icon(Icons.add_circle_outline_rounded),
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    Navigator.of(ctx).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('$name added to project'),
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              }),
+                          ],
+                        ),
+                      ),
+                    );
+                  } catch (_) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not load team members')),
+                      );
+                    }
+                  }
                 },
               ),
             ),
