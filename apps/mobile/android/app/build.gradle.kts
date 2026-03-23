@@ -61,6 +61,26 @@ android {
         }
     }
 
+    flavorDimensions += "environment"
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "UNJYNX Dev")
+        }
+        create("staging") {
+            dimension = "environment"
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            resValue("string", "app_name", "UNJYNX Staging")
+        }
+        create("prod") {
+            dimension = "environment"
+            resValue("string", "app_name", "UNJYNX")
+        }
+    }
+
     buildTypes {
         release {
             // R8 code shrinking, obfuscation, and resource shrinking

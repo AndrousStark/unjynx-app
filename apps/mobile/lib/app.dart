@@ -9,6 +9,10 @@ import 'package:unjynx_core/core.dart';
 import 'package:unjynx_mobile/routing/app_router.dart';
 
 /// Root widget for the UNJYNX application.
+///
+/// Uses a single [MaterialApp.router] with a splash overlay that fades
+/// out once auth state resolves. This avoids the jarring full-tree rebuild
+/// caused by switching between two separate [MaterialApp] widgets.
 class UnjynxApp extends ConsumerStatefulWidget {
   const UnjynxApp({required this.registry, super.key});
 
@@ -21,8 +25,11 @@ class UnjynxApp extends ConsumerStatefulWidget {
 class _UnjynxAppState extends ConsumerState<UnjynxApp> {
   late GoRouter _router;
   bool _lastOnboarding = false;
-  bool _lastAuth = true;
-  bool _initialized = false;
+  bool _lastAuth = false;
+  bool _routerInitialized = false;
+
+  /// Whether the splash overlay has been dismissed.
+  bool _splashDismissed = false;
 
   GoRouter _buildRouter({
     required bool isOnboardingComplete,
@@ -30,7 +37,7 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
   }) {
     _lastOnboarding = isOnboardingComplete;
     _lastAuth = isAuthenticated;
-    _initialized = true;
+    _routerInitialized = true;
     return createAppRouter(
       widget.registry,
       isOnboardingComplete: isOnboardingComplete,
@@ -46,24 +53,19 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
     // Watch auth state reactively. MockAuthPort always returns true,
     // LogtoAuthPort will return actual state when wired.
     final authAsync = ref.watch(isAuthenticatedProvider);
+    final isLoading = authAsync.isLoading;
 
-    // Show branded splash while auth state resolves to avoid
-    // flashing authenticated UI to unauthenticated users.
-    if (authAsync.isLoading) {
-      return MaterialApp(
-        title: 'UNJYNX',
-        debugShowCheckedModeBanner: false,
-        theme: UnjynxTheme.light,
-        darkTheme: UnjynxTheme.dark,
-        themeMode: themeMode,
-        home: const UnjynxSplash(),
-      );
+    // Default to unauthenticated while loading — the splash overlay
+    // covers the screen so the underlying route is not visible.
+    final isAuthenticated = authAsync.valueOrNull ?? false;
+
+    // Dismiss splash once auth resolves (one-way transition).
+    if (!isLoading && !_splashDismissed) {
+      _splashDismissed = true;
     }
 
-    final isAuthenticated = authAsync.value ?? false;
-
-    // Rebuild router if onboarding or auth state changed
-    if (!_initialized ||
+    // Rebuild router if onboarding or auth state changed.
+    if (!_routerInitialized ||
         _lastOnboarding != isComplete ||
         _lastAuth != isAuthenticated) {
       _router = _buildRouter(
@@ -79,6 +81,32 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
       darkTheme: UnjynxTheme.dark,
       themeMode: themeMode,
       routerConfig: _router,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            // The real app content (router)
+            if (child != null) child,
+
+            // Branded splash overlay — fades out once auth resolves.
+            // AnimatedOpacity + IgnorePointer ensure no interaction during
+            // the fade and the overlay is removed from the tree after
+            // the animation completes.
+            if (!_splashDismissed || isLoading)
+              AnimatedOpacity(
+                opacity: _splashDismissed ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+                onEnd: () {
+                  // Force rebuild to remove splash from tree entirely.
+                  if (_splashDismissed) setState(() {});
+                },
+                child: const IgnorePointer(
+                  child: UnjynxSplash(),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

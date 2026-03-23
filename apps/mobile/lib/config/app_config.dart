@@ -16,6 +16,8 @@ class AppConfig {
   );
 
   static bool get isProduction => env == 'production';
+  static bool get isStaging => env == 'staging';
+  static bool get isDevelopment => env == 'development';
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
@@ -35,12 +37,6 @@ class AppConfig {
   /// Sentry DSN for crash reporting (from sentry.io project settings).
   static const String sentryDsn = String.fromEnvironment(
     'SENTRY_DSN',
-    defaultValue: '',
-  );
-
-  /// RevenueCat public API key (from RevenueCat dashboard).
-  static const String revenueCatApiKey = String.fromEnvironment(
-    'REVENUECAT_API_KEY',
     defaultValue: '',
   );
 

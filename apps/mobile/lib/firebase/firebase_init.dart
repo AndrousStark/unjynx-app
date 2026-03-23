@@ -33,20 +33,10 @@ class FirebaseInit {
     }
 
     // --- Crashlytics ---
-    if (!kDebugMode) {
-      // Pass Flutter framework errors to Crashlytics.
-      FlutterError.onError = (details) {
-        FlutterError.presentError(details);
-        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
-      };
-
-      // Pass async errors to Crashlytics.
-      PlatformDispatcher.instance.onError = (error, stack) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-        return true;
-      };
-    } else {
-      // Disable Crashlytics collection in debug mode.
+    // Error handlers (FlutterError.onError, PlatformDispatcher.instance.onError)
+    // are configured in main.dart so they can forward to BOTH Crashlytics AND
+    // Sentry. We only toggle collection here.
+    if (kDebugMode) {
       await FirebaseCrashlytics.instance
           .setCrashlyticsCollectionEnabled(false);
     }

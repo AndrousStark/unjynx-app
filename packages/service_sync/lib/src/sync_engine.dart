@@ -98,6 +98,12 @@ class SyncEngine {
     });
   }
 
+  /// Trigger an immediate sync cycle.
+  ///
+  /// Convenience alias for [sync] — use from UI pull-to-refresh or after
+  /// a mutation when you want to bypass the 2-second debounce.
+  Future<SyncSummary> syncNow() => sync();
+
   /// Perform a full sync cycle for all entity types.
   ///
   /// Returns a [SyncSummary] with the results.

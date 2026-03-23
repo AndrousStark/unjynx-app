@@ -88,6 +88,7 @@ echo ""
 # --dart-define=ENV    : Compile-time environment flag
 COMMON_FLAGS=(
   --release
+  --flavor prod
   --obfuscate
   "--split-debug-info=${SYMBOLS_DIR}"
   --tree-shake-icons
@@ -107,7 +108,7 @@ build_aab() {
 
   "${FLUTTER}" build appbundle "${COMMON_FLAGS[@]}" 2>&1
 
-  AAB_PATH="${MOBILE_DIR}/build/app/outputs/bundle/release/app-release.aab"
+  AAB_PATH="${MOBILE_DIR}/build/app/outputs/bundle/prodRelease/app-prod-release.aab"
 
   echo ""
   if [[ -f "${AAB_PATH}" ]]; then
@@ -138,7 +139,7 @@ build_apk() {
 
   local found=0
   for abi in arm64-v8a armeabi-v7a x86_64; do
-    APK_FILE="${APK_DIR}/app-${abi}-release.apk"
+    APK_FILE="${APK_DIR}/app-prod-${abi}-release.apk"
     if [[ -f "${APK_FILE}" ]]; then
       APK_SIZE=$(stat -c%s "${APK_FILE}" 2>/dev/null || wc -c < "${APK_FILE}" | tr -d ' ')
       echo "  ${abi}:  $(human_size "${APK_SIZE}")  ${APK_FILE}"

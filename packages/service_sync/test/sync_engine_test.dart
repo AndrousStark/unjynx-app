@@ -307,6 +307,34 @@ void main() {
       // Should not throw
       expect(engine.status, SyncStatus.idle);
     });
+
+    test('syncNow() delegates to sync()', () async {
+      await local.save(makeRecord(id: 'task-now', needsSync: true));
+
+      final summary = await engine.syncNow();
+
+      expect(summary.isSuccess, isTrue);
+      expect(summary.pushed, 1);
+    });
+
+    test('event-driven sync triggers after data mutation', () async {
+      engine.startPeriodicSync(
+        interval: const Duration(minutes: 99), // disable periodic
+      );
+
+      await local.save(makeRecord(id: 'task-evt', needsSync: true));
+
+      // Emit a TaskCreated event to trigger debounced sync
+      eventBus.publish(TaskCreated(taskId: 'task-evt', title: 'Test'));
+
+      // Wait for the 2-second debounce + processing
+      await Future<void>.delayed(const Duration(seconds: 3));
+
+      final record = await local.getById('task', 'task-evt');
+      expect(record, isNotNull);
+      // After event-driven sync, the record should be marked as synced
+      expect(record!.needsSync, isFalse);
+    });
   });
 
   group('SyncEngine - edge cases', () {

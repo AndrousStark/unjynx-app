@@ -23,6 +23,7 @@ import 'package:unjynx_core/core.dart';
 import 'package:unjynx_mobile/config/app_config.dart';
 import 'package:unjynx_mobile/sync/api_sync_remote_adapter.dart';
 import 'package:unjynx_mobile/sync/drift_sync_local_adapter.dart';
+import 'package:unjynx_mobile/sync/sync_manager.dart';
 
 /// Global GetIt instance.
 final getIt = GetIt.instance;
@@ -108,10 +109,12 @@ Future<void> configureDependencies() async {
     eventBus: eventBus,
     entityTypes: const ['task', 'project'],
   );
+  final syncManager = SyncManager(engine: syncEngine);
   getIt
     ..registerSingleton<SyncLocalPort>(syncLocal)
     ..registerSingleton<SyncRemotePort>(syncRemote)
-    ..registerSingleton<SyncEngine>(syncEngine);
+    ..registerSingleton<SyncEngine>(syncEngine)
+    ..registerSingleton<SyncManager>(syncManager);
 
   getIt
     ..registerSingleton<TodoRepository>(todoRepository)

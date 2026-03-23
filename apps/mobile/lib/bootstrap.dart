@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:service_api/service_api.dart';
 import 'package:service_database/service_database.dart';
-import 'package:service_sync/service_sync.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unjynx_core/core.dart';
 import 'package:unjynx_mobile/app.dart';
@@ -20,6 +19,7 @@ import 'package:unjynx_mobile/fcm/fcm_token_manager.dart';
 import 'package:unjynx_mobile/firebase/notification_tap_handler.dart';
 import 'package:unjynx_mobile/providers/gamification_overrides.dart';
 import 'package:unjynx_mobile/providers/home_api_overrides.dart';
+import 'package:unjynx_mobile/sync/sync_manager.dart';
 
 /// Loads the cached vocabulary map from SharedPreferences.
 ///
@@ -40,16 +40,20 @@ Map<String, String> _loadCachedVocabulary(SharedPreferences prefs) {
 
 /// Bootstrap the UNJYNX application.
 ///
-/// Initializes dependency injection, plugin system, database,
-/// and starts the app. Non-critical initialization (notification
-/// permission, FCM, RevenueCat) runs AFTER runApp to avoid grey screen.
+/// Called after main.dart has already painted the branded splash screen
+/// via an early runApp(). This function runs DI setup, plugin registration,
+/// and then replaces the splash with the real app via a second runApp() call.
+///
+/// Non-critical work (notifications, FCM, in-app purchases, sync) is
+/// deferred to post-frame callbacks so the authenticated/onboarding UI
+/// appears as quickly as possible.
 Future<void> bootstrap() async {
+  // ── Phase 1: Dependency injection (DB + SharedPreferences in parallel) ──
   await configureDependencies();
 
   final registry = getIt<PluginRegistry>();
 
-  // Register all plugins in parallel — isolate failures so one
-  // bad plugin doesn't crash the app
+  // ── Phase 2: Plugin registration (parallel, fault-isolated) ──
   await Future.wait(
     [...allPlugins, ...utilityPlugins].map((plugin) async {
       try {
@@ -68,6 +72,9 @@ Future<void> bootstrap() async {
   // Load cached vocabulary from SharedPreferences for instant mode display.
   final cachedVocab = _loadCachedVocabulary(getIt<SharedPreferences>());
 
+  // ── Phase 3: Replace splash with the real app ──
+  // This second runApp() call replaces the splash that main.dart painted.
+  // Flutter handles the swap cleanly — no frame gap.
   runApp(
     ProviderScope(
       overrides: [
@@ -97,8 +104,8 @@ Future<void> bootstrap() async {
     ),
   );
 
-  // --- Post-runApp initialization (non-blocking) ---
-  // These run after the first frame so the user sees the app immediately.
+  // ── Phase 4: Post-runApp initialization (non-blocking) ──
+  // These run after the first real frame so the user sees the app immediately.
 
   // Initialize industry mode vocabulary from API (with SharedPreferences cache)
   unawaited(() async {
@@ -131,11 +138,6 @@ Future<void> bootstrap() async {
               }
             }
 
-            // Update the vocabulary provider in the running ProviderScope.
-            // This is a fire-and-forget operation; the provider is a
-            // StateProvider so setting it from outside the widget tree is
-            // fine via the ProviderContainer (accessed through getIt).
-
             // Cache for offline access.
             await prefs.setString('unjynx_active_mode_slug', slug);
             final vocabEntries = vocab.entries
@@ -155,10 +157,12 @@ Future<void> bootstrap() async {
     }
   }());
 
-  // Start background sync engine (deferred to avoid blocking first frame)
+  // Start sync manager: periodic sync (every 5 min), event-driven sync
+  // (debounced 2 s after mutations), and app-resume sync. Deferred to
+  // avoid blocking the first frame.
   unawaited(Future<void>.delayed(const Duration(seconds: 2), () {
-    final syncEngine = getIt<SyncEngine>();
-    syncEngine.startPeriodicSync();
+    final syncManager = getIt<SyncManager>();
+    syncManager.start();
   }));
 
   // Initialize notification port + request permission (deferred from DI)
@@ -219,20 +223,12 @@ Future<void> bootstrap() async {
     }
   }());
 
-  // Initialize RevenueCat (gracefully skips if no API key)
+  // Initialize in-app purchases (store billing)
   unawaited(() async {
     try {
-      if (AppConfig.revenueCatApiKey.isNotEmpty) {
-        await RevenueCatManager.initialize(
-          apiKey: AppConfig.revenueCatApiKey,
-        );
-        final userId = await getIt<AuthPort>().getUserId();
-        if (userId != null) {
-          await RevenueCatManager.logIn(userId);
-        }
-      }
+      await PurchaseManager.instance.initialize();
     } on Exception catch (e) {
-      debugPrint('RevenueCat initialization failed: $e');
+      debugPrint('PurchaseManager initialization failed: $e');
     }
   }());
 }
