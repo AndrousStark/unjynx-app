@@ -56,9 +56,16 @@ final commentsProvider =
 /// Notifier that manages comment CRUD operations for a specific task.
 ///
 /// Provides optimistic UI updates with rollback on failure.
-class CommentActionsNotifier extends AutoDisposeFamilyAsyncNotifier<void, String> {
+/// In Riverpod 3, `AutoDisposeFamilyAsyncNotifier` was removed. The family
+/// arg is passed via the constructor; `build()` takes no parameters.
+class CommentActionsNotifier extends AsyncNotifier<void> {
+  /// The task ID this notifier operates on, injected by the family factory.
+  CommentActionsNotifier(this._taskId);
+
+  final String _taskId;
+
   @override
-  Future<void> build(String arg) async {
+  Future<void> build() async {
     // No-op; this notifier is used for side effects only.
   }
 
@@ -71,11 +78,11 @@ class CommentActionsNotifier extends AutoDisposeFamilyAsyncNotifier<void, String
 
     try {
       final response = await api.createComment(
-        arg,
+        _taskId,
         content: content,
       );
       if (response.success && response.data != null) {
-        ref.invalidate(commentsProvider(arg));
+        ref.invalidate(commentsProvider(_taskId));
         return TaskComment.fromJson(response.data!);
       }
       return null;
@@ -95,12 +102,12 @@ class CommentActionsNotifier extends AutoDisposeFamilyAsyncNotifier<void, String
 
     try {
       final response = await api.updateComment(
-        arg,
+        _taskId,
         commentId,
         content: content,
       );
       if (response.success) {
-        ref.invalidate(commentsProvider(arg));
+        ref.invalidate(commentsProvider(_taskId));
         return true;
       }
       return false;
@@ -119,9 +126,9 @@ class CommentActionsNotifier extends AutoDisposeFamilyAsyncNotifier<void, String
     if (api == null) return false;
 
     try {
-      final response = await api.deleteComment(arg, commentId);
+      final response = await api.deleteComment(_taskId, commentId);
       if (response.success) {
-        ref.invalidate(commentsProvider(arg));
+        ref.invalidate(commentsProvider(_taskId));
         return true;
       }
       return false;

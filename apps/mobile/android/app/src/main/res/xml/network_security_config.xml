@@ -34,16 +34,21 @@
         <domain includeSubdomains="false">10.0.2.2</domain>
     </domain-config>
 
-    <!-- Production API: certificate pinning -->
+    <!--
+      Production API: certificate pinning DISABLED.
+
+      Let's Encrypt certs rotate every 90 days. Pinning leaf SPKI hashes
+      causes silent DioException [unknown]: null when the server cert
+      rotates and the app still has stale pins baked in.
+
+      Re-enable once the app ships with OTA pin updates (Shorebird) or
+      switch to pinning only the root/intermediate CA (longer-lived).
+
+      See: https://github.com/AndrousStark/unjynx-app/issues/16
+    -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.unjynx.me</domain>
         <domain includeSubdomains="true">auth.unjynx.me</domain>
-        <pin-set expiration="2027-06-01">
-            <!-- Primary pin: SHA-256 of the leaf certificate's SPKI -->
-            <pin digest="SHA-256">9WU70+kePZ7zIW1TPwYKzWR9dR9Q5XTbTo3N3UT2ZeE=</pin>
-            <!-- Backup pin: SHA-256 of Let's Encrypt E7 intermediate SPKI -->
-            <pin digest="SHA-256">y7xVm0TVJNahMr2sZydE2jQH8SquXV9yLF9seROHHHU=</pin>
-        </pin-set>
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

@@ -8,13 +8,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// This provider should be overridden at app startup once the user's
 /// active mode is fetched from `GET /modes/active`.
 final vocabularyProvider =
-    NotifierProvider<_VocabularyNotifier, Map<String, String>>(
-  _VocabularyNotifier.new,
+    NotifierProvider<VocabularyNotifier, Map<String, String>>(
+  VocabularyNotifier.new,
 );
 
-class _VocabularyNotifier extends Notifier<Map<String, String>> {
+class VocabularyNotifier extends Notifier<Map<String, String>> {
+  /// Optional initial vocabulary, used when overriding at app startup.
+  VocabularyNotifier({Map<String, String>? initial}) : _initial = initial;
+
+  final Map<String, String>? _initial;
+
   @override
-  Map<String, String> build() => const <String, String>{};
+  Map<String, String> build() => _initial ?? const <String, String>{};
 
   /// Replace the entire vocabulary map.
   void set(Map<String, String> vocab) => state = vocab;

@@ -42,6 +42,8 @@ class AuthNotifier extends Notifier<AsyncValue<bool>> {
     state = const AsyncLoading();
     try {
       await ref.read(authPortProvider).signIn();
+      ref.invalidate(isAuthenticatedProvider);
+      ref.invalidate(currentUserProvider);
       state = const AsyncData(true);
     } on Exception catch (e, st) {
       state = AsyncError(e, st);
@@ -58,6 +60,8 @@ class AuthNotifier extends Notifier<AsyncValue<bool>> {
             provider: provider,
             idToken: idToken,
           );
+      ref.invalidate(isAuthenticatedProvider);
+      ref.invalidate(currentUserProvider);
       state = const AsyncData(true);
     } on Exception catch (e, st) {
       state = AsyncError(e, st);
@@ -68,6 +72,8 @@ class AuthNotifier extends Notifier<AsyncValue<bool>> {
     state = const AsyncLoading();
     try {
       await ref.read(authPortProvider).signOut();
+      ref.invalidate(isAuthenticatedProvider);
+      ref.invalidate(currentUserProvider);
       state = const AsyncData(false);
     } on Exception catch (e, st) {
       state = AsyncError(e, st);

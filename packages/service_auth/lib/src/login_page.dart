@@ -100,11 +100,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
       throw Exception('Google sign-in was cancelled');
     }
 
-    final authPort = ref.read(authPortProvider);
-    await authPort.signInWithSocial(
-      provider: 'google',
-      idToken: idToken,
-    );
+    // Route through AuthNotifier so isAuthenticatedProvider and
+    // currentUserProvider are invalidated after sign-in completes.
+    await ref.read(authNotifierProvider.notifier).signInWithSocial(
+          provider: 'google',
+          idToken: idToken,
+        );
   }
 
   @override

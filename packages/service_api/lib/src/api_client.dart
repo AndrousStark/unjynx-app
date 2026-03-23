@@ -196,6 +196,25 @@ class AuthInterceptor extends Interceptor {
 class ErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    // Provide a descriptive message for connection-level failures that
+    // would otherwise surface as "DioException [unknown]: null".
+    if (err.response == null && err.type != DioExceptionType.cancel) {
+      final uri = err.requestOptions.uri;
+      final detail = err.error?.toString() ?? err.message ?? 'no details';
+      handler.reject(
+        DioException(
+          requestOptions: err.requestOptions,
+          type: err.type,
+          error: ApiException(
+            statusCode: 0,
+            message: 'Cannot reach $uri — $detail',
+            type: 'network_error',
+          ),
+        ),
+      );
+      return;
+    }
+
     final response = err.response;
     if (response != null) {
       final data = response.data;

@@ -91,7 +91,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     );
 
     // Resolve ghost events (empty list on loading/error).
-    final ghostEvents = ghostEventsAsync.valueOrNull ?? const [];
+    final ghostEvents = ghostEventsAsync.value ?? const [];
 
     return Scaffold(
       body: SafeArea(

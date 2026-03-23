@@ -21,9 +21,9 @@ class FutureSelfProjection extends ConsumerWidget {
     final ringsAsync = ref.watch(homeProgressRingsProvider);
 
     // Need all three to compute projection.
-    final personalBests = personalBestsAsync.valueOrNull;
-    final streak = streakAsync.valueOrNull;
-    final rings = ringsAsync.valueOrNull;
+    final personalBests = personalBestsAsync.value;
+    final streak = streakAsync.value;
+    final rings = ringsAsync.value;
 
     if (personalBests == null || streak == null || rings == null) {
       return const SizedBox.shrink();

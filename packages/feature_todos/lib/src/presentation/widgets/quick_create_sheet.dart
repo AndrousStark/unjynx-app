@@ -577,22 +577,49 @@ class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet>
       dueDate: scheduledAt,
     );
 
-    // Schedule notification if due date is set and in the future
-    if (scheduledAt != null && scheduledAt.isAfter(DateTime.now())) {
-      unawaited(result.when(
-        ok: (todo) async {
-          final notificationPort = ref.read(notificationPortProvider);
-          await notificationPort.schedule(
-            id: todo.id,
-            title: 'Task reminder',
-            body: todo.title,
-            scheduledAt: scheduledAt!,
-            payload: {'todo_id': todo.id},
-          );
-        },
-        err: (_, __) {},
-      ));
-    }
+    // Schedule notifications after successful task creation.
+    result.when(
+      ok: (todo) {
+        final notificationPort = ref.read(notificationPortProvider);
+
+        // 1. Immediate confirmation notification for every task.
+        unawaited(notificationPort.schedule(
+          id: '${todo.id}-confirm',
+          title: 'Task added',
+          body: todo.title,
+          scheduledAt: DateTime.now().add(const Duration(seconds: 1)),
+          payload: {'todo_id': todo.id},
+        ));
+
+        // 2. Reminder notification at due date minus 15 min offset.
+        if (scheduledAt != null) {
+          const defaultReminderOffset = Duration(minutes: 15);
+          final dueDate = scheduledAt;
+          final reminderTime =
+              dueDate.subtract(defaultReminderOffset);
+          if (reminderTime.isAfter(DateTime.now())) {
+            unawaited(notificationPort.schedule(
+              id: todo.id,
+              title: 'Upcoming task',
+              body: todo.title,
+              scheduledAt: reminderTime,
+              payload: {'todo_id': todo.id},
+            ));
+          } else if (dueDate.isAfter(DateTime.now())) {
+            // Offset already passed but due date is still future —
+            // schedule at the due date itself.
+            unawaited(notificationPort.schedule(
+              id: todo.id,
+              title: 'Task reminder',
+              body: todo.title,
+              scheduledAt: dueDate,
+              payload: {'todo_id': todo.id},
+            ));
+          }
+        }
+      },
+      err: (_, __) {},
+    );
 
     ref.invalidate(todoListProvider);
 

@@ -187,7 +187,7 @@ class _StatsGrid extends StatelessWidget {
       loading: () => const _StatsShimmer(),
       error: (_, __) => const _StatsShimmer(),
       data: (rings) {
-        final streak = streakAsync.valueOrNull;
+        final streak = streakAsync.value;
         return _buildGrid(context, rings, streak);
       },
     );
@@ -263,7 +263,7 @@ class _StatCard extends StatelessWidget {
     final ux = context.unjynx;
 
     return PressableScale(
-      onPressed: onTap,
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(

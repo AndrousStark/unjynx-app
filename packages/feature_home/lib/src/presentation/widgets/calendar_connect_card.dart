@@ -71,8 +71,8 @@ class _CalendarConnectCardState extends ConsumerState<CalendarConnectCard> {
     final googleConnectedAsync = ref.watch(calendarConnectedProvider);
 
     // Determine connected providers from the providers list
-    final providers = providersAsync.valueOrNull ?? const [];
-    final googleConnected = googleConnectedAsync.valueOrNull ?? false;
+    final providers = providersAsync.value ?? const [];
+    final googleConnected = googleConnectedAsync.value ?? false;
     final appleConnected =
         providers.any((p) => p['provider'] == 'apple');
     final outlookConnected =

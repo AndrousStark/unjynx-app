@@ -86,7 +86,7 @@ Future<void> bootstrap() async {
         apiConfigProvider.overrideWithValue(AppConfig.apiConfig),
         // Wire industry mode vocabulary from cache (updated async later)
         vocabularyProvider.overrideWith(
-          (ref) => cachedVocab,
+          () => VocabularyNotifier(initial: cachedVocab),
         ),
         // Wire all home-screen providers to real API + Drift data
         ...homeApiOverrides(),

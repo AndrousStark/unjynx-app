@@ -91,6 +91,11 @@ class _GhostModePageState extends ConsumerState<GhostModePage>
     // Haptic feedback on task completion.
     HapticFeedback.lightImpact();
 
+    // Persist the completion via the toggle callback (same as home screen).
+    final task = tasks[_currentIndex];
+    final toggle = ref.read(toggleTaskCompletionCallbackProvider);
+    unawaited(toggle(task.id, completed: true));
+
     // Play shimmer.
     await _shimmerController.forward();
 

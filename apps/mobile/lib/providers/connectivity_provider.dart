@@ -15,21 +15,25 @@ import 'package:unjynx_core/core.dart' show UnjynxConnectionState;
 /// briefly emits [UnjynxConnectionState.backOnline] before settling to
 /// [UnjynxConnectionState.online].
 final connectivityProvider =
-    StateNotifierProvider<ConnectivityNotifier, UnjynxConnectionState>(
+    NotifierProvider<ConnectivityNotifier, UnjynxConnectionState>(
   ConnectivityNotifier.new,
 );
 
-class ConnectivityNotifier extends StateNotifier<UnjynxConnectionState> {
-  ConnectivityNotifier(this._ref) : super(UnjynxConnectionState.online) {
-    _startPolling();
-  }
-
-  final Ref _ref;
+class ConnectivityNotifier extends Notifier<UnjynxConnectionState> {
   Timer? _pollTimer;
   bool _wasOffline = false;
 
   static const _pollInterval = Duration(seconds: 5);
   static const _backOnlineDisplay = Duration(seconds: 2);
+
+  @override
+  UnjynxConnectionState build() {
+    _startPolling();
+    ref.onDispose(() {
+      _pollTimer?.cancel();
+    });
+    return UnjynxConnectionState.online;
+  }
 
   void _startPolling() {
     // Check immediately on creation.
@@ -40,8 +44,6 @@ class ConnectivityNotifier extends StateNotifier<UnjynxConnectionState> {
   Future<void> _check() async {
     final isOnline = await _probe();
 
-    if (!mounted) return;
-
     if (!isOnline) {
       _wasOffline = true;
       state = UnjynxConnectionState.offline;
@@ -50,7 +52,11 @@ class ConnectivityNotifier extends StateNotifier<UnjynxConnectionState> {
       _wasOffline = false;
       state = UnjynxConnectionState.backOnline;
       Future.delayed(_backOnlineDisplay, () {
-        if (mounted) state = UnjynxConnectionState.online;
+        try {
+          state = UnjynxConnectionState.online;
+        } catch (_) {
+          // Notifier already disposed.
+        }
       });
     } else {
       state = UnjynxConnectionState.online;
@@ -58,26 +64,30 @@ class ConnectivityNotifier extends StateNotifier<UnjynxConnectionState> {
   }
 
   /// Probes DNS to determine connectivity. Returns true when online.
+  ///
+  /// Tries multiple domains for reliability — some ISPs/networks fail to
+  /// resolve certain domains (e.g. `example.com` on Jio India). We fall
+  /// through to the next host on failure, so a single DNS miss does not
+  /// cause a false-offline state.
+  static const _probeHosts = ['google.com', 'cloudflare.com', 'one.one.one.one'];
+  static const _probeTimeout = Duration(seconds: 2);
+
   static Future<bool> _probe() async {
-    try {
-      final results = await InternetAddress.lookup('example.com')
-          .timeout(const Duration(seconds: 3));
-      return results.isNotEmpty && results.first.rawAddress.isNotEmpty;
-    } on SocketException {
-      return false;
-    } on TimeoutException {
-      return false;
-    } catch (_) {
-      return false;
+    for (final host in _probeHosts) {
+      try {
+        final results = await InternetAddress.lookup(host)
+            .timeout(_probeTimeout);
+        if (results.isNotEmpty && results.first.rawAddress.isNotEmpty) {
+          return true;
+        }
+      } catch (_) {
+        // Try the next host.
+        continue;
+      }
     }
+    return false;
   }
 
   /// Manually trigger a connectivity check (e.g. from a retry button).
   Future<void> recheck() => _check();
-
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    super.dispose();
-  }
 }

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,11 +62,9 @@ class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
       );
       await file.writeAsBytes(bytes);
       if (!mounted) return;
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          text: 'UNJYNX Team Report - ${period.displayName}',
-        ),
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'UNJYNX Team Report - ${period.displayName}',
       );
     } on DioException catch (e) {
       if (!mounted) return;
@@ -100,11 +99,9 @@ class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
       );
       await file.writeAsString(csvText);
       if (!mounted) return;
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          text: 'UNJYNX Team Report - ${period.displayName}',
-        ),
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'UNJYNX Team Report - ${period.displayName}',
       );
     } on DioException catch (e) {
       if (!mounted) return;
