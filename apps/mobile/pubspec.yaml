@@ -10,7 +10,7 @@ environment:
 
 dependencies:
   dio: ^5.7.0
-  drift: ^2.32.0
+  drift: ^2.31.0
   feature_ai:
     path: ../../packages/feature_ai
   feature_billing:
@@ -70,7 +70,7 @@ dev_dependencies:
     sdk: flutter
   injectable_generator: ^2.12.1
   very_good_analysis: ^7.0.0
-  # riverpod_generator: ^4.0.3  # BLOCKED: needs analyzer ^9.0.0, but drift_dev 2.32 needs ^10.0.0
+  riverpod_generator: ^4.0.3
 
 flutter:
   uses-material-design: true
