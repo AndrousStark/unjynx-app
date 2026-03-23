@@ -1,0 +1,69 @@
+# ---------------------------------------------------------------------------
+# UNJYNX Web Client - Vercel Deployment
+# ---------------------------------------------------------------------------
+# Deploys the Next.js web client to Vercel on push to main.
+#
+# Required GitHub Secrets:
+#   VERCEL_TOKEN      - Vercel personal access token
+#   VERCEL_ORG_ID     - Vercel org/team ID
+#   VERCEL_PROJECT_ID - Vercel project ID
+#
+# To set up:
+#   1. Create a Vercel project for the web client
+#   2. Add CNAME record: app.unjynx.me -> cname.vercel-dns.com
+#   3. Configure custom domain in Vercel dashboard
+#   4. Add secrets to GitHub repo settings
+# ---------------------------------------------------------------------------
+
+name: Deploy Web Client to Vercel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web-client/**'
+  workflow_dispatch:
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel environment
+        working-directory: apps/web-client
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build for Vercel
+        working-directory: apps/web-client
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel
+        working-directory: apps/web-client
+        run: |
+          DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "Deployed to: $DEPLOY_URL"
+          echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_ENV
+
+      - name: Verify deployment
+        run: |
+          echo "Web client deployed to: ${{ env.DEPLOY_URL }}"
+          echo "Custom domain: https://app.unjynx.me"

@@ -117,6 +117,6 @@ export function moveTask(id: string, payload: MoveTaskPayload): Promise<Task> {
 
 export function getCalendarTasks(filter: CalendarTasksFilter): Promise<readonly Task[]> {
   return apiClient.get<readonly Task[]>('/api/v1/tasks/calendar', {
-    params: filter as Record<string, string | number | boolean | undefined>,
+    params: filter as unknown as Record<string, string | number | boolean | undefined>,
   });
 }

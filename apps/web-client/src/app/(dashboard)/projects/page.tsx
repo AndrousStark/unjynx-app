@@ -88,7 +88,7 @@ function CreateProjectForm({
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState(PROJECT_COLORS[0]);
+  const [color, setColor] = useState<string>(PROJECT_COLORS[0]);
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useMutation({

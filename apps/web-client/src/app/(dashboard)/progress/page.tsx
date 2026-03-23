@@ -92,9 +92,9 @@ function LargeProgressRing({
           x={center}
           y={center + 16}
           textAnchor="middle"
-          className="fill-[var(--muted-foreground)]"
+          className="fill-[var(--muted-foreground)] uppercase"
           fontSize="10"
-          textTransform="uppercase"
+          style={{ textTransform: 'uppercase' }}
         >
           {label}
         </text>

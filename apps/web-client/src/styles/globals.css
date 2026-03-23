@@ -207,7 +207,9 @@
 
   /* Focus ring consistent with brand */
   .focus-ring {
-    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)];
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    --tw-ring-color: rgba(108, 60, 224, 0.5);
+    --tw-ring-offset-color: var(--background);
   }
 
   /* Gold underline for active tabs */

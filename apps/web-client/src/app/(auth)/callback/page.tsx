@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { handleCallback, storeTokens } from '@/lib/api/auth';
 import { cn } from '@/lib/utils/cn';
@@ -14,6 +14,27 @@ import { Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 // ---------------------------------------------------------------------------
 
 export default function CallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center">
+          <div className="flex justify-center mb-5">
+            <div className="w-14 h-14 rounded-full bg-unjynx-violet/15 flex items-center justify-center">
+              <Loader2 size={28} className="text-unjynx-violet animate-spin" />
+            </div>
+          </div>
+          <h2 className="font-outfit text-xl font-bold text-[var(--foreground)] mb-2">
+            Loading...
+          </h2>
+        </div>
+      }
+    >
+      <CallbackContent />
+    </Suspense>
+  );
+}
+
+function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
