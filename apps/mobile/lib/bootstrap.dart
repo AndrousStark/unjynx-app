@@ -19,6 +19,7 @@ import 'package:unjynx_mobile/fcm/fcm_token_manager.dart';
 import 'package:unjynx_mobile/firebase/notification_tap_handler.dart';
 import 'package:unjynx_mobile/providers/gamification_overrides.dart';
 import 'package:unjynx_mobile/providers/home_api_overrides.dart';
+import 'package:service_notification/service_notification.dart';
 import 'package:unjynx_mobile/sync/sync_manager.dart';
 
 /// Loads the cached vocabulary map from SharedPreferences.
@@ -173,6 +174,16 @@ Future<void> bootstrap() async {
       if (!isPermitted) {
         await notificationPort.requestPermission();
       }
+      // Wire notification COMPLETE action to task repository
+      AwesomeNotificationPort.onComplete = (todoId) async {
+        try {
+          final repo = getIt<TodoRepository>();
+          await repo.complete(todoId);
+          debugPrint('Notification: completed todo $todoId');
+        } on Exception catch (e) {
+          debugPrint('Notification complete failed: $e');
+        }
+      };
     } on Exception catch (e) {
       debugPrint('Notification initialization failed: $e');
     }

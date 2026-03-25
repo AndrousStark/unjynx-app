@@ -57,7 +57,7 @@ class MockAuthPort implements AuthPort {
 
   @override
   Future<AuthUser?> getUserProfile() async {
-    if (!_authenticated) return _defaultUser;
+    if (!_authenticated) return null;
     return AuthUser(
       id: _defaultUser.id,
       email: _email ?? _defaultUser.email,

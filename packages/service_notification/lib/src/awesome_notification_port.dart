@@ -4,12 +4,18 @@ import 'package:unjynx_core/contracts/notification_port.dart';
 
 import 'notification_channels.dart';
 
+/// Callback type for handling task completion from notification action buttons.
+typedef NotificationCompleteCallback = Future<void> Function(String todoId);
+
 /// [awesome_notifications] implementation of [NotificationPort].
 ///
 /// Handles local notification scheduling, cancellation,
 /// and permission management for UNJYNX.
 class AwesomeNotificationPort implements NotificationPort {
   final AwesomeNotifications _notifications;
+
+  /// Static callback set from bootstrap so notification actions can complete tasks.
+  static NotificationCompleteCallback? onComplete;
 
   AwesomeNotificationPort({
     AwesomeNotifications? notifications,
@@ -107,8 +113,11 @@ class AwesomeNotificationPort implements NotificationPort {
 
     switch (receivedAction.buttonKeyPressed) {
       case 'COMPLETE':
-        // Complete the todo — will be wired to repository via EventBus
-        debugPrint('Notification action: complete todo $todoId');
+        debugPrint('Notification action: completing todo $todoId');
+        await AwesomeNotifications().cancel(receivedAction.id!);
+        if (onComplete != null) {
+          await onComplete!(todoId);
+        }
       case 'SNOOZE':
         // Reschedule 10 minutes from now
         final snoozeTime = DateTime.now().add(const Duration(minutes: 10));

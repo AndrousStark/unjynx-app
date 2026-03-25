@@ -560,7 +560,7 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
     final targetProjectId = selected == '__none__' ? null : selected;
     try {
       final api = ref.read(taskApiProvider);
-      await api.moveTask(todo.id, targetProjectId ?? '');
+      await api.moveTask(todo.id, projectId: targetProjectId);
       ref.invalidate(todoByIdProvider(todo.id));
       ref.invalidate(todoListProvider);
       HapticFeedback.mediumImpact();
@@ -573,7 +573,7 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
           ),
         );
       }
-      _logActivity(todo.id, 'moved', 'Moved to project');
+      _logActivity(todoId: todo.id, type: ActivityType.moved, description: 'Moved to project');
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -676,7 +676,7 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
           ),
         );
       }
-      _logActivity(todo.id, 'ritual', 'Added to $selected ritual');
+      _logActivity(todoId: todo.id, type: ActivityType.updated, description: 'Added to $selected ritual');
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -707,18 +707,18 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
             Navigator.of(context).pop();
             HapticFeedback.mediumImpact();
             final updateTodo = ref.read(updateTodoProvider);
-            await updateTodo(todo.id, {'rrule': rrule});
+            await updateTodo(todo.copyWith(rrule: rrule, updatedAt: DateTime.now()));
             ref.invalidate(todoByIdProvider(todo.id));
-            _logActivity(todo.id, 'recurrence', 'Set recurrence: $rrule');
+            _logActivity(todoId: todo.id, type: ActivityType.updated, description: 'Set recurrence: $rrule');
           },
           onRemove: todo.rrule != null
               ? () async {
                   Navigator.of(context).pop();
                   HapticFeedback.mediumImpact();
                   final updateTodo = ref.read(updateTodoProvider);
-                  await updateTodo(todo.id, {'rrule': null});
+                  await updateTodo(todo.copyWith(rrule: null, updatedAt: DateTime.now()));
                   ref.invalidate(todoByIdProvider(todo.id));
-                  _logActivity(todo.id, 'recurrence', 'Removed recurrence');
+                  _logActivity(todoId: todo.id, type: ActivityType.updated, description: 'Removed recurrence');
                 }
               : null,
         ),

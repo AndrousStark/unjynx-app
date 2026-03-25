@@ -5,6 +5,7 @@ import 'package:unjynx_core/core.dart';
 
 import 'auth_providers.dart';
 import 'google_sign_in_helper.dart';
+import 'mock_auth_port.dart';
 
 /// Login screen (A2) - Logto OIDC sign-in flow.
 ///
@@ -27,6 +28,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
   late final Animation<double> _fadeAnimation;
   bool _isSigningIn = false;
   String? _activeProvider;
+  bool _showEmailForm = false;
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -45,7 +50,18 @@ class _LoginPageState extends ConsumerState<LoginPage>
   @override
   void dispose() {
     _fadeController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleEmailSignIn() async {
+    if (!_formKey.currentState!.validate()) return;
+    final auth = ref.read(authPortProvider);
+    if (auth is MockAuthPort) {
+      auth.setCredentials(email: _emailController.text.trim());
+    }
+    await _handleSignIn(provider: 'email');
   }
 
   Future<void> _handleSignIn({String? provider}) async {
@@ -170,38 +186,112 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
                   const SizedBox(height: 12),
 
-                  _SignInButton(
-                    label: 'Continue with Email',
-                    icon: Icons.email_outlined,
-                    color: colorScheme.primary,
-                    textColor: Colors.white,
-                    onTap: () => _handleSignIn(),
-                    isLoading: _isSigningIn && _activeProvider == null,
-                  ),
+                  if (!_showEmailForm) ...[
+                    _SignInButton(
+                      label: 'Continue with Email',
+                      icon: Icons.email_outlined,
+                      color: colorScheme.primary,
+                      textColor: Colors.white,
+                      onTap: () => setState(() => _showEmailForm = true),
+                      isLoading: false,
+                    ),
+                  ] else ...[
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.surfaceContainerLow,
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Email is required';
+                              if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.surfaceContainerLow,
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Password is required';
+                              if (v.length < 6) return 'At least 6 characters';
+                              return null;
+                            },
+                            onFieldSubmitted: (_) => _handleEmailSignIn(),
+                          ),
+                          const SizedBox(height: 16),
+                          _SignInButton(
+                            label: 'Sign In',
+                            icon: Icons.login,
+                            color: colorScheme.primary,
+                            textColor: Colors.white,
+                            onTap: _handleEmailSignIn,
+                            isLoading: _isSigningIn && _activeProvider == 'email',
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () => setState(() => _showEmailForm = false),
+                            child: Text(
+                              'Back to sign-in options',
+                              style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 16),
 
-                  // Forgot password
-                  TextButton(
-                    onPressed: () => context.push('/forgot-password'),
-                    child: Text(
-                      'Forgot password?',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.primary
-                            .withValues(alpha: isLight ? 0.8 : 0.7),
+                  if (!_showEmailForm) ...[
+                    // Forgot password
+                    TextButton(
+                      onPressed: () => context.push('/forgot-password'),
+                      child: Text(
+                        'Forgot password?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.primary
+                              .withValues(alpha: isLight ? 0.8 : 0.7),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
 
                   const SizedBox(height: 8),
 
                   // Skip for now (dev mode)
                   TextButton(
-                    onPressed: () {
-                      context.go(widget.redirectTo ?? '/');
-                    },
+                    onPressed: _isSigningIn
+                        ? null
+                        : () async {
+                            await ref
+                                .read(authNotifierProvider.notifier)
+                                .signIn();
+                            if (mounted) {
+                              context.go(widget.redirectTo ?? '/');
+                            }
+                          },
                     child: Text(
                       'Skip for now',
                       style: TextStyle(

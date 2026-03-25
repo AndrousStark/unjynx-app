@@ -57,7 +57,7 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
 
     // Default to unauthenticated while loading — the splash overlay
     // covers the screen so the underlying route is not visible.
-    final isAuthenticated = authAsync.valueOrNull ?? false;
+    final isAuthenticated = authAsync.value ?? false;
 
     // Dismiss splash once auth resolves (one-way transition).
     if (!isLoading && !_splashDismissed) {

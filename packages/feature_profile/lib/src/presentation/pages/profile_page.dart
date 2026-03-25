@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:service_auth/service_auth.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../providers/profile_providers.dart';
@@ -231,8 +232,7 @@ class ProfilePage extends ConsumerWidget {
       ),
     ).then((confirmed) async {
       if (confirmed == true) {
-        final auth = ref.read(authPortProvider);
-        await auth.signOut();
+        await ref.read(authNotifierProvider.notifier).signOut();
         if (context.mounted) {
           GoRouter.of(context).go('/login');
         }
