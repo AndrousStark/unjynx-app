@@ -6,7 +6,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import type { StatsOverview, CompletionDataPoint, DailyContent, AiSuggestion, Channel } from '@/lib/types';
+import type { CompletionDataPoint, DailyContent, AiSuggestion, Channel } from '@/lib/types';
 
 // ---------------------------------------------------------------------------
 // Query Keys
@@ -14,7 +14,8 @@ import type { StatsOverview, CompletionDataPoint, DailyContent, AiSuggestion, Ch
 
 export const dashboardKeys = {
   all: ['dashboard'] as const,
-  stats: () => [...dashboardKeys.all, 'stats'] as const,
+  rings: () => [...dashboardKeys.all, 'rings'] as const,
+  streak: () => [...dashboardKeys.all, 'streak'] as const,
   trend: (days: number) => [...dashboardKeys.all, 'trend', days] as const,
   content: () => [...dashboardKeys.all, 'content'] as const,
   suggestions: () => [...dashboardKeys.all, 'suggestions'] as const,
@@ -22,15 +23,38 @@ export const dashboardKeys = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// API functions
+// Types matching backend response shapes
 // ---------------------------------------------------------------------------
 
-function getStats(): Promise<StatsOverview> {
-  return apiClient.get<StatsOverview>('/api/v1/progress/stats');
+interface ProgressRings {
+  readonly todayCompleted: number;
+  readonly todayTotal: number;
+  readonly weekCompleted: number;
+  readonly weekTotal: number;
+  readonly monthCompleted: number;
+  readonly monthTotal: number;
+}
+
+interface StreakInfo {
+  readonly currentStreak: number;
+  readonly bestStreak: number;
+  readonly lastActiveDate: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// API functions — mapped to REAL backend endpoints
+// ---------------------------------------------------------------------------
+
+function getProgressRings(): Promise<ProgressRings> {
+  return apiClient.get<ProgressRings>('/api/v1/progress/rings');
+}
+
+function getStreak(): Promise<StreakInfo> {
+  return apiClient.get<StreakInfo>('/api/v1/progress/streak');
 }
 
 function getCompletionTrend(days: number): Promise<readonly CompletionDataPoint[]> {
-  return apiClient.get<readonly CompletionDataPoint[]>('/api/v1/progress/trend', {
+  return apiClient.get<readonly CompletionDataPoint[]>('/api/v1/progress/completion-trend', {
     params: { days },
   });
 }
@@ -51,10 +75,18 @@ function getChannels(): Promise<readonly Channel[]> {
 // Hooks
 // ---------------------------------------------------------------------------
 
-export function useStats() {
+export function useProgressRings() {
   return useQuery({
-    queryKey: dashboardKeys.stats(),
-    queryFn: getStats,
+    queryKey: dashboardKeys.rings(),
+    queryFn: getProgressRings,
+    staleTime: 60_000,
+  });
+}
+
+export function useStreak() {
+  return useQuery({
+    queryKey: dashboardKeys.streak(),
+    queryFn: getStreak,
     staleTime: 60_000,
   });
 }
@@ -71,7 +103,7 @@ export function useDailyContent() {
   return useQuery({
     queryKey: dashboardKeys.content(),
     queryFn: getDailyContent,
-    staleTime: 3_600_000, // 1 hour
+    staleTime: 3_600_000,
   });
 }
 
@@ -79,7 +111,7 @@ export function useAiSuggestions() {
   return useQuery({
     queryKey: dashboardKeys.suggestions(),
     queryFn: getAiSuggestions,
-    staleTime: 300_000, // 5 min
+    staleTime: 300_000,
   });
 }
 

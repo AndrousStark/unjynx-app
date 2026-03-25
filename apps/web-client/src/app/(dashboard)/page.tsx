@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/lib/hooks/use-auth';
-import { useStats, useCompletionTrend, useAiSuggestions, useChannels } from '@/lib/hooks/use-dashboard';
+import { useProgressRings, useStreak, useCompletionTrend, useAiSuggestions, useChannels } from '@/lib/hooks/use-dashboard';
 import { getGreeting } from '@/lib/utils/greeting';
 import { formatHours } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
@@ -175,24 +175,15 @@ function ChannelStatusCard() {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { data: stats, isLoading: statsLoading } = useStats();
+  const { data: rings, isLoading: ringsLoading } = useProgressRings();
+  const { data: streak } = useStreak();
   const { data: trend, isLoading: trendLoading } = useCompletionTrend(30);
 
   const greeting = getGreeting();
   const displayName = user?.displayName?.split(' ')[0] ?? 'there';
 
-  // Fallback trend data
-  const trendData: readonly CompletionDataPoint[] = trend?.length
-    ? trend
-    : Array.from({ length: 30 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (29 - i));
-        return {
-          date: date.toISOString().split('T')[0],
-          completed: Math.floor(Math.random() * 8) + 2,
-          created: Math.floor(Math.random() * 6) + 3,
-        };
-      });
+  // Use real trend data or empty array (no fake data)
+  const trendData: readonly CompletionDataPoint[] = trend?.length ? trend : [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -207,37 +198,36 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      {statsLoading ? (
+      {ringsLoading ? (
         <StatsShimmer />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             icon={<CheckCircle2 size={20} className="text-unjynx-gold" />}
-            value={stats?.tasksToday ?? 12}
+            value={rings?.todayCompleted ?? 0}
             label="Tasks Today"
-            delta={stats?.tasksTodayDelta ?? 15}
+            delta={rings?.todayTotal ? Math.round((rings.todayCompleted / rings.todayTotal) * 100) : 0}
             accentClass="bg-unjynx-gold/15"
           />
           <StatsCard
             icon={<Flame size={20} className="text-unjynx-violet" />}
-            value={stats?.streak ?? 7}
+            value={streak?.currentStreak ?? 0}
             label="Day Streak"
-            delta={stats?.streakDelta ?? 100}
+            delta={0}
             accentClass="bg-unjynx-violet/15"
           />
           <StatsCard
             icon={<Timer size={20} className="text-unjynx-emerald" />}
-            value={stats?.focusHours ?? 4.5}
-            label="Focus Hours"
-            delta={stats?.focusHoursDelta ?? 12}
+            value={rings?.weekCompleted ?? 0}
+            label="This Week"
+            delta={rings?.weekTotal ? Math.round((rings.weekCompleted / rings.weekTotal) * 100) : 0}
             accentClass="bg-unjynx-emerald/15"
-            format={formatHours}
           />
           <StatsCard
             icon={<Zap size={20} className="text-unjynx-amber" />}
-            value={stats?.xp ?? 2840}
-            label="Total XP"
-            delta={stats?.xpDelta ?? 8}
+            value={rings?.monthCompleted ?? 0}
+            label="This Month"
+            delta={rings?.monthTotal ? Math.round((rings.monthCompleted / rings.monthTotal) * 100) : 0}
             accentClass="bg-unjynx-amber/15"
           />
         </div>
@@ -249,7 +239,11 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-4 lg:space-y-6">
           {/* Progress Rings + Chart */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ProgressRings tasks={75} focus={60} habits={45} />
+            <ProgressRings
+              tasks={rings?.todayTotal ? Math.round((rings.todayCompleted / rings.todayTotal) * 100) : 0}
+              focus={rings?.weekTotal ? Math.round((rings.weekCompleted / rings.weekTotal) * 100) : 0}
+              habits={rings?.monthTotal ? Math.round((rings.monthCompleted / rings.monthTotal) * 100) : 0}
+            />
             {trendLoading ? (
               <div className="glass-card p-5">
                 <Shimmer className="h-4 w-28 mb-4" />

@@ -8,7 +8,7 @@ import {
   type ProductivityStats,
   type HeatmapData,
 } from '@/lib/api/progress';
-import { useCompletionTrend, useStats } from '@/lib/hooks/use-dashboard';
+import { useCompletionTrend, useProgressRings, useStreak } from '@/lib/hooks/use-dashboard';
 import { cn } from '@/lib/utils/cn';
 import { Shimmer, StatsShimmer } from '@/components/ui/shimmer';
 import { Badge } from '@/components/ui/badge';
@@ -362,7 +362,8 @@ function StreakHistoryCard({ stats }: { readonly stats: ProductivityStats | unde
 // ---------------------------------------------------------------------------
 
 export default function ProgressPage() {
-  const { data: overviewStats, isLoading: overviewLoading } = useStats();
+  const { data: rings, isLoading: overviewLoading } = useProgressRings();
+  const { data: streakInfo } = useStreak();
   const { data: trend, isLoading: trendLoading } = useCompletionTrend(30);
 
   const today = new Date();

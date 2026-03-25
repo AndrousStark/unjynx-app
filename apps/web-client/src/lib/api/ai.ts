@@ -81,8 +81,74 @@ export function getChatHistory(params?: {
   });
 }
 
-export function sendChatMessage(message: string): Promise<AiChatMessage> {
-  return apiClient.post<AiChatMessage>('/api/v1/ai/chat', { message });
+/**
+ * Send a chat message and consume the SSE stream, returning the full response.
+ *
+ * Backend streams SSE events: "text" (content chunks), "usage", "done".
+ * We collect all text chunks into a single AiChatMessage.
+ */
+export async function sendChatMessage(message: string): Promise<AiChatMessage> {
+  const BASE_URL =
+    typeof window !== 'undefined'
+      ? (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.unjynx.me')
+      : 'https://api.unjynx.me';
+
+  const token =
+    typeof window !== 'undefined'
+      ? (document.cookie.match(/(?:^|;\s*)unjynx_token=([^;]*)/)?.[1]
+          ? decodeURIComponent(document.cookie.match(/(?:^|;\s*)unjynx_token=([^;]*)/)![1])
+          : localStorage.getItem('unjynx_token'))
+      : null;
+
+  const res = await fetch(`${BASE_URL}/api/v1/ai/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ message }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `AI chat failed: ${res.status}`);
+  }
+
+  // Collect SSE text chunks
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let content = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    for (const line of chunk.split('\n')) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.text) content += data.text;
+          if (data.content) content += data.content;
+        } catch {
+          // Non-JSON data line, might be raw text
+          const raw = line.slice(6).trim();
+          if (raw && raw !== '[DONE]') content += raw;
+        }
+      }
+    }
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    role: 'assistant',
+    content: content || 'AI service is currently unavailable. Please try again later.',
+    metadata: null,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 export function getInsights(): Promise<readonly AiInsight[]> {
