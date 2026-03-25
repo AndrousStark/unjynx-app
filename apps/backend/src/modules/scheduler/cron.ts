@@ -7,7 +7,7 @@
 // In production (Redis available), uses BullMQ Worker + Queue repeatables.
 
 import { eq, and, lte, gte, isNotNull, ne } from "drizzle-orm";
-import { db } from "../../db/index.js";
+import { db, contentDb } from "../../db/index.js";
 import {
   tasks,
   notificationPreferences,

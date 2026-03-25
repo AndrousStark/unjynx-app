@@ -8,7 +8,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { db } from "../../db/index.js";
+import { contentDb as db } from "../../db/index.js";
 import {
   dailyContent,
   userContentPrefs,

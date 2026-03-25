@@ -1,5 +1,5 @@
 import { eq, and, count, desc, gte, sql } from "drizzle-orm";
-import { db } from "../../db/index.js";
+import { contentDb as db } from "../../db/index.js";
 import {
   notifications,
   type Notification,

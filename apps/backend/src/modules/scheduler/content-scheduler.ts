@@ -6,7 +6,7 @@
 // content in a category has been shown.
 
 import { eq, and, notInArray, sql, count } from "drizzle-orm";
-import { db } from "../../db/index.js";
+import { contentDb as db } from "../../db/index.js";
 import {
   dailyContent,
   userContentPrefs,
