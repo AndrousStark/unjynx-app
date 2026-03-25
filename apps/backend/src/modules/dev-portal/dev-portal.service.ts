@@ -4,7 +4,7 @@
 // channel providers, and data pipeline status.
 
 import crypto from "node:crypto";
-import { db } from "../../db/index.js";
+import { db, contentDb } from "../../db/index.js";
 import { sql, gte, eq, desc, count } from "drizzle-orm";
 import {
   deliveryAttempts,
@@ -571,8 +571,8 @@ export async function getNotificationInfraHealth(): Promise<readonly ChannelHeal
   const dayAgo = new Date(Date.now() - 86_400_000);
 
   try {
-    // Aggregate delivery stats by channel for last 24h
-    const stats = await db
+    // Aggregate delivery stats by channel for last 24h (VPS contentDb)
+    const stats = await contentDb
       .select({
         channel: deliveryAttempts.channel,
         total: count(),
@@ -783,7 +783,7 @@ export async function getChannelProviderStatuses(): Promise<readonly ProviderSta
   // Fetch real 24h message counts per channel from delivery_attempts
   let channelCounts: Record<string, { total: number; failed: number }> = {};
   try {
-    const stats = await db
+    const stats = await contentDb
       .select({
         channel: deliveryAttempts.channel,
         total: count(),

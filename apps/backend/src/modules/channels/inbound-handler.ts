@@ -4,7 +4,7 @@
 // confirmation reply back through the channel adapter.
 
 import { eq, and } from "drizzle-orm";
-import { db } from "../../db/index.js";
+import { contentDb as db } from "../../db/index.js";
 import { notificationChannels } from "../../db/schema/index.js";
 import { getAdapter } from "../../services/channels/adapter-registry.js";
 import * as taskService from "../tasks/tasks.service.js";

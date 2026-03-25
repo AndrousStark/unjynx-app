@@ -1,5 +1,5 @@
 import { eq, and, desc, asc, count, ilike, or, gte, lte, sql, sum, isNull, isNotNull, ne, lt } from "drizzle-orm";
-import { db } from "../../db/index.js";
+import { db, contentDb } from "../../db/index.js";
 import {
   profiles,
   dailyContent,
@@ -289,14 +289,14 @@ export async function findContent(
     : undefined;
 
   const [items, [{ total }]] = await Promise.all([
-    db
+    contentDb
       .select()
       .from(dailyContent)
       .where(conditions)
       .orderBy(desc(dailyContent.createdAt))
       .limit(limit)
       .offset(offset),
-    db.select({ total: count() }).from(dailyContent).where(conditions),
+    contentDb.select({ total: count() }).from(dailyContent).where(conditions),
   ]);
 
   return { items, total };
@@ -341,7 +341,7 @@ export async function bulkInsertContent(
   data: NewDailyContentItem[],
 ): Promise<DailyContentItem[]> {
   if (data.length === 0) return [];
-  return db.insert(dailyContent).values(data).returning();
+  return contentDb.insert(dailyContent).values(data).returning();
 }
 
 // ── Feature Flags ─────────────────────────────────────────────────────
@@ -706,7 +706,7 @@ export async function findFailedNotifications(
       .orderBy(desc(deliveryAttempts.failedAt))
       .limit(limit)
       .offset(offset),
-    db.select({ total: count() }).from(deliveryAttempts).where(condition),
+    contentDb.select({ total: count() }).from(deliveryAttempts).where(condition),
   ]);
 
   return { items, total };

@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { db } from "../../db/index.js";
+import { contentDb as db } from "../../db/index.js";
 import {
   notificationChannels,
   type NotificationChannel,
