@@ -272,3 +272,44 @@ export async function scheduleAccountDeletion(
       `After this period, all data will be permanently removed and cannot be recovered.`,
   };
 }
+
+// ── Hard Delete Expired Accounts (Cron Job) ──────────────────────────
+// GDPR Article 17 / India DPDP Act 2023: permanently remove all user
+// data after the 30-day grace period following soft deletion.
+//
+// The profile row is deleted and PostgreSQL CASCADE foreign keys
+// automatically remove all child records (tasks, projects, subtasks,
+// tags, comments, notifications, channels, gamification, team
+// memberships, subscriptions, etc.). The audit_log userId is SET NULL,
+// preserving an anonymised audit trail.
+
+export interface HardDeleteResult {
+  readonly deletedCount: number;
+  readonly failedIds: readonly string[];
+}
+
+export async function hardDeleteExpiredAccounts(): Promise<HardDeleteResult> {
+  const expiredProfiles = await importExportRepo.findExpiredDeletedProfiles(30);
+
+  if (expiredProfiles.length === 0) {
+    return { deletedCount: 0, failedIds: [] };
+  }
+
+  let deletedCount = 0;
+  const failedIds: string[] = [];
+
+  for (const profile of expiredProfiles) {
+    try {
+      const deleted = await importExportRepo.hardDeleteUser(profile.id);
+      if (deleted) {
+        deletedCount++;
+      } else {
+        failedIds.push(profile.id);
+      }
+    } catch {
+      failedIds.push(profile.id);
+    }
+  }
+
+  return { deletedCount, failedIds };
+}

@@ -6,6 +6,7 @@ import { getProjects, type Project } from '@/lib/api/projects';
 import { cn } from '@/lib/utils/cn';
 import { Shimmer } from '@/components/ui/shimmer';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 import {
   Briefcase,
   ChevronDown,
@@ -14,6 +15,7 @@ import {
   Clock,
   AlertTriangle,
   TrendingUp,
+  Plus,
 } from 'lucide-react';
 import {
   format,
@@ -134,8 +136,14 @@ export default function PortfolioPage() {
         <h2 className="font-outfit text-lg font-bold text-[var(--foreground)] mb-4">Portfolio</h2>
         <EmptyState
           icon={<Briefcase size={32} className="text-unjynx-gold" />}
-          title="No projects in portfolio"
-          description="Create projects to see a cross-project timeline overview."
+          title="Create your first team project"
+          description="Projects you create will appear here with completion stats and a timeline overview. Get started by creating a project."
+          action={
+            <Button variant="default" onClick={() => { window.location.href = '/projects'; }}>
+              <Plus size={16} />
+              Go to Projects
+            </Button>
+          }
         />
       </div>
     );

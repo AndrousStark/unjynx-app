@@ -1,4 +1,4 @@
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, lte, like } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   tasks,
@@ -452,4 +452,43 @@ export async function findAllUserDataForGdpr(
     auditLog: allAuditLog,
     syncMetadata: allSyncMetadata,
   };
+}
+
+// ── Hard Delete (GDPR grace period expired) ─────────────────────────
+
+/**
+ * Finds profiles that were soft-deleted more than 30 days ago.
+ * Soft-deleted profiles have name starting with '[DELETED_'.
+ */
+export async function findExpiredDeletedProfiles(
+  gracePeriodDays: number = 30,
+): Promise<{ id: string; name: string | null }[]> {
+  const cutoff = new Date(
+    Date.now() - gracePeriodDays * 24 * 60 * 60 * 1000,
+  );
+
+  return db
+    .select({ id: profiles.id, name: profiles.name })
+    .from(profiles)
+    .where(
+      and(
+        like(profiles.name, "[DELETED_%"),
+        lte(profiles.updatedAt, cutoff),
+      ),
+    );
+}
+
+/**
+ * Permanently deletes a user profile row. All child records are
+ * removed via PostgreSQL ON DELETE CASCADE foreign keys. The audit_log
+ * userId column is set to NULL (ON DELETE SET NULL) preserving the
+ * anonymised audit trail.
+ */
+export async function hardDeleteUser(userId: string): Promise<boolean> {
+  const [deleted] = await db
+    .delete(profiles)
+    .where(eq(profiles.id, userId))
+    .returning({ id: profiles.id });
+
+  return !!deleted;
 }

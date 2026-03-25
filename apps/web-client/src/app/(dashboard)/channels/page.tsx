@@ -1,7 +1,8 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { getChannels, type Channel, type ChannelType } from '@/lib/api/channels';
+import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getChannels, addChannel, type Channel, type ChannelType, type AddChannelPayload } from '@/lib/api/channels';
 import { cn } from '@/lib/utils/cn';
 import { Shimmer } from '@/components/ui/shimmer';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -22,6 +23,9 @@ import {
   Clock,
   ExternalLink,
   Settings,
+  X,
+  Info,
+  Copy,
 } from 'lucide-react';
 
 // ─── Channel Config ─────────────────────────────────────────────
@@ -128,14 +132,296 @@ function StatusIndicator({ status }: { readonly status: Channel['status'] | 'not
   );
 }
 
+// ─── Connect Dialog ─────────────────────────────────────────────
+
+interface ConnectDialogProps {
+  readonly channelType: ChannelType | null;
+  readonly channelName: string;
+  readonly onClose: () => void;
+  readonly onSubmit: (payload: AddChannelPayload) => void;
+  readonly isSubmitting: boolean;
+}
+
+function ConnectDialog({ channelType, channelName, onClose, onSubmit, isSubmitting }: ConnectDialogProps) {
+  const [identifier, setIdentifier] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  if (!channelType) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!identifier.trim()) return;
+    onSubmit({ type: channelType, identifier: identifier.trim() });
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Channel-specific content
+  const renderContent = () => {
+    switch (channelType) {
+      case 'push':
+        return (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-4 rounded-lg bg-unjynx-gold/10 border border-unjynx-gold/20">
+              <Info size={18} className="text-unjynx-gold flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-[var(--foreground)]">Auto-connected via mobile app</p>
+                <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                  Push notifications are automatically enabled when you install the UNJYNX mobile app.
+                  Download it from the App Store or Google Play to receive push reminders.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'telegram':
+        return (
+          <div className="space-y-4">
+            <p className="text-sm text-[var(--muted-foreground)]">
+              Connect Telegram in 3 steps:
+            </p>
+            <ol className="space-y-3 text-sm text-[var(--foreground)]">
+              <li className="flex gap-2">
+                <span className="font-semibold text-unjynx-violet">1.</span>
+                Open Telegram and search for{' '}
+                <button
+                  onClick={() => handleCopy('@UnjynxBot')}
+                  className="font-mono text-unjynx-violet hover:underline inline-flex items-center gap-1"
+                >
+                  @UnjynxBot <Copy size={12} />
+                </button>
+                {copied && <span className="text-xs text-unjynx-emerald">Copied!</span>}
+              </li>
+              <li className="flex gap-2">
+                <span className="font-semibold text-unjynx-violet">2.</span>
+                <span>Send <code className="px-1 py-0.5 rounded bg-[var(--background-surface)] font-mono text-xs">/start</code> to the bot</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-semibold text-unjynx-violet">3.</span>
+                <span>The bot will link your account automatically</span>
+              </li>
+            </ol>
+            <a
+              href="https://t.me/UnjynxBot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#0088CC] text-white text-sm font-medium hover:bg-[#0088CC]/90 transition-colors"
+            >
+              <Send size={16} />
+              Open @UnjynxBot
+              <ExternalLink size={14} />
+            </a>
+          </div>
+        );
+
+      case 'instagram':
+        return (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-4 rounded-lg bg-pink-500/10 border border-pink-500/20">
+              <Info size={18} className="text-pink-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-[var(--foreground)]">Friend First Approach</p>
+                <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                  Instagram restricts automated messages. Here is how we work around it:
+                </p>
+              </div>
+            </div>
+            <ol className="space-y-2 text-sm text-[var(--foreground)]">
+              <li className="flex gap-2">
+                <span className="font-semibold text-unjynx-violet">1.</span>
+                <span>We send a follow request from our official Instagram page <strong>@unjynx_app</strong></span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-semibold text-unjynx-violet">2.</span>
+                <span>Accept the follow request on Instagram</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-semibold text-unjynx-violet">3.</span>
+                <span>Once connected, we can send you DM reminders</span>
+              </li>
+            </ol>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <label className="block">
+                <span className="text-xs font-medium text-[var(--foreground)]">Your Instagram username</span>
+                <input
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="@yourusername"
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background-surface)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-unjynx-violet/40"
+                />
+              </label>
+              <Button type="submit" variant="default" size="sm" className="w-full" disabled={!identifier.trim() || isSubmitting}>
+                {isSubmitting ? 'Connecting...' : 'Send Follow Request'}
+              </Button>
+            </form>
+          </div>
+        );
+
+      case 'email':
+        return (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block">
+              <span className="text-xs font-medium text-[var(--foreground)]">Email address</span>
+              <input
+                type="email"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background-surface)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-unjynx-violet/40"
+              />
+            </label>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              We will send a verification code to confirm your email.
+            </p>
+            <Button type="submit" variant="default" size="sm" className="w-full" disabled={!identifier.trim() || isSubmitting}>
+              {isSubmitting ? 'Connecting...' : 'Connect Email'}
+            </Button>
+          </form>
+        );
+
+      case 'whatsapp':
+        return (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block">
+              <span className="text-xs font-medium text-[var(--foreground)]">Phone number (with country code)</span>
+              <input
+                type="tel"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="+91 98765 43210"
+                required
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background-surface)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-unjynx-violet/40"
+              />
+            </label>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              We will send a verification code via WhatsApp to confirm your number.
+            </p>
+            <Button type="submit" variant="default" size="sm" className="w-full" disabled={!identifier.trim() || isSubmitting}>
+              {isSubmitting ? 'Connecting...' : 'Connect WhatsApp'}
+            </Button>
+          </form>
+        );
+
+      case 'sms':
+        return (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block">
+              <span className="text-xs font-medium text-[var(--foreground)]">Phone number (with country code)</span>
+              <input
+                type="tel"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="+91 98765 43210"
+                required
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background-surface)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-unjynx-violet/40"
+              />
+            </label>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              We will send a verification code via SMS to confirm your number.
+            </p>
+            <Button type="submit" variant="default" size="sm" className="w-full" disabled={!identifier.trim() || isSubmitting}>
+              {isSubmitting ? 'Connecting...' : 'Connect SMS'}
+            </Button>
+          </form>
+        );
+
+      case 'slack':
+        return (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block">
+              <span className="text-xs font-medium text-[var(--foreground)]">Slack Incoming Webhook URL</span>
+              <input
+                type="url"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="https://hooks.slack.com/services/T.../B.../..."
+                required
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background-surface)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-unjynx-violet/40 font-mono text-xs"
+              />
+            </label>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              Create an incoming webhook in your Slack workspace settings under Apps &gt; Incoming Webhooks.
+            </p>
+            <Button type="submit" variant="default" size="sm" className="w-full" disabled={!identifier.trim() || isSubmitting}>
+              {isSubmitting ? 'Connecting...' : 'Connect Slack'}
+            </Button>
+          </form>
+        );
+
+      case 'discord':
+        return (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block">
+              <span className="text-xs font-medium text-[var(--foreground)]">Discord Webhook URL</span>
+              <input
+                type="url"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="https://discord.com/api/webhooks/..."
+                required
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background-surface)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-unjynx-violet/40 font-mono text-xs"
+              />
+            </label>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              In your Discord server, go to Channel Settings &gt; Integrations &gt; Webhooks &gt; New Webhook.
+            </p>
+            <Button type="submit" variant="default" size="sm" className="w-full" disabled={!identifier.trim() || isSubmitting}>
+              {isSubmitting ? 'Connecting...' : 'Connect Discord'}
+            </Button>
+          </form>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Dialog */}
+      <div className="relative w-full max-w-md mx-4 rounded-2xl bg-[var(--background)] border border-[var(--border)] shadow-2xl p-6 animate-fade-in">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[var(--background-surface)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+        >
+          <X size={18} />
+        </button>
+
+        {/* Title */}
+        <h2 className="font-outfit font-bold text-lg text-[var(--foreground)] mb-1">
+          Connect {channelName}
+        </h2>
+        <p className="text-xs text-[var(--muted-foreground)] mb-5">
+          Set up {channelName} to receive task reminders
+        </p>
+
+        {renderContent()}
+      </div>
+    </div>
+  );
+}
+
 // ─── Channel Card ───────────────────────────────────────────────
 
 function ChannelCard({
   info,
   channel,
+  onConnect,
 }: {
   readonly info: ChannelInfo;
   readonly channel: Channel | null;
+  readonly onConnect: (type: ChannelType) => void;
 }) {
   const isConnected = channel?.status === 'active';
 
@@ -193,7 +479,7 @@ function ChannelCard({
             </Button>
           </>
         ) : (
-          <Button variant="default" size="sm" className="w-full">
+          <Button variant="default" size="sm" className="w-full" onClick={() => onConnect(info.type)}>
             <Plus size={14} />
             Connect
           </Button>
@@ -206,11 +492,37 @@ function ChannelCard({
 // ─── Channels Page ──────────────────────────────────────────────
 
 export default function ChannelsPage() {
+  const queryClient = useQueryClient();
+  const [connectingType, setConnectingType] = useState<ChannelType | null>(null);
+
   const { data: channels, isLoading } = useQuery({
     queryKey: ['channels'],
     queryFn: getChannels,
     staleTime: 60_000,
   });
+
+  const addChannelMutation = useMutation({
+    mutationFn: (payload: AddChannelPayload) => addChannel(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+      setConnectingType(null);
+    },
+  });
+
+  const handleOpenConnect = useCallback((type: ChannelType) => {
+    setConnectingType(type);
+  }, []);
+
+  const handleCloseConnect = useCallback(() => {
+    setConnectingType(null);
+  }, []);
+
+  const handleSubmitChannel = useCallback(
+    (payload: AddChannelPayload) => {
+      addChannelMutation.mutate(payload);
+    },
+    [addChannelMutation],
+  );
 
   // Map channels by type
   const channelMap = new Map<ChannelType, Channel>();
@@ -221,6 +533,7 @@ export default function ChannelsPage() {
   }
 
   const connectedCount = channels?.filter((c) => c.status === 'active').length ?? 0;
+  const connectingInfo = CHANNEL_INFO.find((i) => i.type === connectingType);
 
   if (isLoading) {
     return (
@@ -255,6 +568,7 @@ export default function ChannelsPage() {
             key={info.type}
             info={info}
             channel={channelMap.get(info.type) ?? null}
+            onConnect={handleOpenConnect}
           />
         ))}
       </div>
@@ -276,6 +590,17 @@ export default function ChannelsPage() {
           </div>
         </div>
       </div>
+
+      {/* Connect Dialog */}
+      {connectingType && (
+        <ConnectDialog
+          channelType={connectingType}
+          channelName={connectingInfo?.name ?? connectingType}
+          onClose={handleCloseConnect}
+          onSubmit={handleSubmitChannel}
+          isSubmitting={addChannelMutation.isPending}
+        />
+      )}
     </div>
   );
 }

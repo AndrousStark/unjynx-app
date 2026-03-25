@@ -110,10 +110,9 @@ importExportRoutes.post("/data/request", async (c) => {
 // DELETE /data/account - Delete account (soft delete, 30-day grace)
 // Returns 202 Accepted per GDPR Article 17 — deletion is scheduled,
 // not immediate. User has 30-day grace period to cancel.
-// TODO: Implement cron job for hard-delete after 30-day grace period.
-//   The cron should: find profiles where name starts with '[DELETED_'
-//   and updatedAt < now - 30 days, then CASCADE delete all user data
-//   or anonymize (replace userId with a random UUID in audit_log).
+// Hard-delete cron registered in scheduler/cron.ts — runs daily,
+// finds profiles with name '[DELETED_*' and updatedAt > 30 days ago,
+// then deletes the profile row (PostgreSQL CASCADE removes all child data).
 importExportRoutes.delete("/data/account", async (c) => {
   const auth = c.get("auth");
 

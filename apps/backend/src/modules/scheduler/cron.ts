@@ -27,6 +27,7 @@ import {
   runCalendarSync,
   CALENDAR_SYNC_INTERVAL_MS,
 } from "../calendar/calendar.sync-worker.js";
+import { hardDeleteExpiredAccounts } from "../import-export/import-export.service.js";
 
 const log = logger.child({ module: "cron-scheduler" });
 
@@ -40,6 +41,7 @@ const INSTAGRAM_REENGAGEMENT_INTERVAL_MS = 15 * 60_000; // 15 minutes
 const INSTAGRAM_WINDOW_HOURS = 24;
 const INACTIVITY_CHECK_INTERVAL_MS = 6 * 60 * 60_000; // 6 hours
 const INACTIVITY_THRESHOLD_HOURS = 48;
+const HARD_DELETE_CHECK_INTERVAL_MS = 24 * 60 * 60_000; // 24 hours
 
 // ── Active interval handles (for graceful shutdown) ─────────────────
 
@@ -593,6 +595,23 @@ export function startCronJobs(): void {
   }, CALENDAR_SYNC_INTERVAL_MS);
   activeIntervals.push(calendarSyncInterval);
 
+  // Every 24 hours: hard-delete accounts past 30-day grace period (GDPR Art.17)
+  const hardDeleteInterval = setInterval(() => {
+    hardDeleteExpiredAccounts()
+      .then((result) => {
+        if (result.deletedCount > 0 || result.failedIds.length > 0) {
+          log.info(
+            { deleted: result.deletedCount, failed: result.failedIds.length },
+            "GDPR hard-delete sweep complete",
+          );
+        }
+      })
+      .catch((error) => {
+        log.error({ error }, "Unhandled error in GDPR hard-delete sweep");
+      });
+  }, HARD_DELETE_CHECK_INTERVAL_MS);
+  activeIntervals.push(hardDeleteInterval);
+
   log.info(
     {
       reminderIntervalMs: REMINDER_CHECK_INTERVAL_MS,
@@ -602,6 +621,7 @@ export function startCronJobs(): void {
       instagramIntervalMs: INSTAGRAM_REENGAGEMENT_INTERVAL_MS,
       inactivityIntervalMs: INACTIVITY_CHECK_INTERVAL_MS,
       calendarSyncIntervalMs: CALENDAR_SYNC_INTERVAL_MS,
+      hardDeleteIntervalMs: HARD_DELETE_CHECK_INTERVAL_MS,
     },
     "All cron jobs started",
   );

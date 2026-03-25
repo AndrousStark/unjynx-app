@@ -113,19 +113,7 @@ function ChannelStatusCard() {
     );
   }
 
-  // Fallback channels if API not connected
-  const channelList = channels?.length
-    ? channels
-    : [
-        { id: '1', type: 'whatsapp' as const, status: 'active' as const, label: 'WhatsApp', identifier: '', isVerified: true, isPrimary: true, lastUsedAt: null, createdAt: '', updatedAt: '' },
-        { id: '2', type: 'telegram' as const, status: 'active' as const, label: 'Telegram', identifier: '', isVerified: true, isPrimary: false, lastUsedAt: null, createdAt: '', updatedAt: '' },
-        { id: '3', type: 'sms' as const, status: 'pending' as const, label: 'SMS', identifier: '', isVerified: false, isPrimary: false, lastUsedAt: null, createdAt: '', updatedAt: '' },
-        { id: '4', type: 'email' as const, status: 'active' as const, label: 'Email', identifier: '', isVerified: true, isPrimary: false, lastUsedAt: null, createdAt: '', updatedAt: '' },
-        { id: '5', type: 'instagram' as const, status: 'disabled' as const, label: 'Instagram', identifier: '', isVerified: false, isPrimary: false, lastUsedAt: null, createdAt: '', updatedAt: '' },
-        { id: '6', type: 'slack' as const, status: 'disabled' as const, label: 'Slack', identifier: '', isVerified: false, isPrimary: false, lastUsedAt: null, createdAt: '', updatedAt: '' },
-        { id: '7', type: 'discord' as const, status: 'disabled' as const, label: 'Discord', identifier: '', isVerified: false, isPrimary: false, lastUsedAt: null, createdAt: '', updatedAt: '' },
-        { id: '8', type: 'push' as const, status: 'active' as const, label: 'Push', identifier: '', isVerified: true, isPrimary: false, lastUsedAt: null, createdAt: '', updatedAt: '' },
-      ];
+  const channelList = channels ?? [];
 
   return (
     <div className="glass-card p-5">
@@ -144,28 +132,41 @@ function ChannelStatusCard() {
         </a>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        {channelList.map((ch) => {
-          const isActive = ch.status === 'active';
-          return (
-            <div
-              key={ch.id}
-              className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[var(--background-surface)]"
-            >
-              <span className="text-sm">{CHANNEL_ICONS[ch.type] ?? '📡'}</span>
-              <span className="text-xs text-[var(--foreground)] capitalize flex-1 truncate">
-                {ch.type}
-              </span>
-              <span
-                className={cn(
-                  'w-2 h-2 rounded-full flex-shrink-0',
-                  isActive ? 'bg-unjynx-emerald' : 'bg-unjynx-rose/60',
-                )}
-              />
-            </div>
-          );
-        })}
-      </div>
+      {channelList.length === 0 ? (
+        <div className="text-center py-6">
+          <Radio size={24} className="text-[var(--muted-foreground)] mx-auto mb-2" />
+          <p className="text-sm text-[var(--muted-foreground)] mb-2">No channels connected</p>
+          <a
+            href="/channels"
+            className="text-xs text-unjynx-violet hover:text-unjynx-violet-hover transition-colors font-medium inline-flex items-center gap-1"
+          >
+            Connect a channel <ArrowRight size={12} />
+          </a>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          {channelList.map((ch) => {
+            const isActive = ch.status === 'connected';
+            return (
+              <div
+                key={ch.id}
+                className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[var(--background-surface)]"
+              >
+                <span className="text-sm">{CHANNEL_ICONS[ch.type] ?? '📡'}</span>
+                <span className="text-xs text-[var(--foreground)] capitalize flex-1 truncate">
+                  {ch.type}
+                </span>
+                <span
+                  className={cn(
+                    'w-2 h-2 rounded-full flex-shrink-0',
+                    isActive ? 'bg-unjynx-emerald' : 'bg-unjynx-rose/60',
+                  )}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useTasks, useMoveTask, useCreateTask } from '@/lib/hooks/use-tasks';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTasks, useUpdateTask, useCreateTask, taskKeys } from '@/lib/hooks/use-tasks';
 import { cn } from '@/lib/utils/cn';
 import { TaskCard } from '@/components/tasks/task-card';
 import { BoardShimmer } from '@/components/ui/shimmer';
@@ -119,24 +120,37 @@ function BoardColumn({
 
 export default function BoardPage() {
   const { data: tasks, isLoading } = useTasks();
-  const moveMutation = useMoveTask();
+  const queryClient = useQueryClient();
+  const updateMutation = useUpdateTask();
   const createMutation = useCreateTask();
 
   const handleDrop = useCallback(
     (taskId: string, newStatus: Task['status']) => {
-      // We use the update mutation via move for status changes
-      moveMutation.mutate({
-        id: taskId,
-        payload: {},
-      });
-      // Actually update status
-      // Since moveTask doesn't update status, we use updateTask indirectly
-      // For now, we'll use the API directly
-      import('@/lib/api/tasks').then(({ updateTask }) => {
-        updateTask(taskId, { status: newStatus });
-      });
+      // Optimistic update: immediately move the task in the list cache
+      const previousTasks = queryClient.getQueryData<Task[]>(taskKeys.list());
+
+      if (previousTasks) {
+        queryClient.setQueryData<Task[]>(
+          taskKeys.list(),
+          previousTasks.map((t) =>
+            t.id === taskId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t,
+          ),
+        );
+      }
+
+      updateMutation.mutate(
+        { id: taskId, payload: { status: newStatus } },
+        {
+          onError: () => {
+            // Revert optimistic update on failure
+            if (previousTasks) {
+              queryClient.setQueryData(taskKeys.list(), previousTasks);
+            }
+          },
+        },
+      );
     },
-    [moveMutation],
+    [queryClient, updateMutation],
   );
 
   const handleAddTask = useCallback(

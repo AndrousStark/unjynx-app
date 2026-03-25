@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useThemeStore } from '@/lib/store/theme-store';
+import { useFontSizeStore } from '@/lib/store/font-size-store';
 import { deleteAccount } from '@/lib/api/auth';
+import { getChannels, addChannel, removeChannel, type Channel, type ChannelType } from '@/lib/api/channels';
+import { getTasks, type Task } from '@/lib/api/tasks';
 import { cn } from '@/lib/utils/cn';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +27,8 @@ import {
   Shield,
   Briefcase,
   AlertTriangle,
+  Check,
+  Loader2,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -129,7 +135,8 @@ function ToggleSwitch({
 function AppearanceSection() {
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
-  const [fontSize, setFontSize] = useState<'small' | 'default' | 'large'>('default');
+  const fontSize = useFontSizeStore((s) => s.fontSize);
+  const setFontSize = useFontSizeStore((s) => s.setFontSize);
 
   return (
     <div className="space-y-6">
@@ -194,12 +201,81 @@ function AppearanceSection() {
 // Section: Notifications
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Notification channel toggle config
+// ---------------------------------------------------------------------------
+
+interface ChannelToggleConfig {
+  readonly type: ChannelType;
+  readonly label: string;
+  readonly description: string;
+  readonly identifier: string;
+}
+
+const CHANNEL_TOGGLES: readonly ChannelToggleConfig[] = [
+  { type: 'push', label: 'Push Notifications', description: 'Browser and in-app push alerts', identifier: 'browser' },
+  { type: 'email', label: 'Email Notifications', description: 'Task reminders and weekly digests', identifier: 'default' },
+  { type: 'whatsapp', label: 'WhatsApp Reminders', description: 'Receive reminders via WhatsApp', identifier: 'default' },
+  { type: 'telegram', label: 'Telegram Reminders', description: 'Receive reminders via Telegram bot', identifier: 'default' },
+];
+
 function NotificationsSection() {
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
-  const [telegramEnabled, setTelegramEnabled] = useState(false);
+  const queryClient = useQueryClient();
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('unjynx-sound-enabled') !== 'false';
+  });
+  const [mutatingChannel, setMutatingChannel] = useState<ChannelType | null>(null);
+
+  const { data: channels = [], isLoading: channelsLoading } = useQuery({
+    queryKey: ['channels'],
+    queryFn: getChannels,
+    staleTime: 60_000,
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: (cfg: ChannelToggleConfig) =>
+      addChannel({ type: cfg.type, identifier: cfg.identifier }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+    onSettled: () => setMutatingChannel(null),
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: (channelId: string) => removeChannel(channelId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+    onSettled: () => setMutatingChannel(null),
+  });
+
+  const isChannelActive = (type: ChannelType): boolean =>
+    channels.some((ch) => ch.type === type && (ch.status === 'active' || ch.status === 'pending'));
+
+  const findChannel = (type: ChannelType): Channel | undefined =>
+    channels.find((ch) => ch.type === type);
+
+  const handleChannelToggle = (cfg: ChannelToggleConfig, enabled: boolean) => {
+    setMutatingChannel(cfg.type);
+    if (enabled) {
+      connectMutation.mutate(cfg);
+    } else {
+      const existing = findChannel(cfg.type);
+      if (existing) {
+        disconnectMutation.mutate(existing.id);
+      } else {
+        setMutatingChannel(null);
+      }
+    }
+  };
+
+  const handleSoundToggle = (enabled: boolean) => {
+    setSoundEnabled(enabled);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('unjynx-sound-enabled', String(enabled));
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -212,38 +288,37 @@ function NotificationsSection() {
         </p>
       </div>
 
-      <div className="space-y-1 divide-y divide-[var(--border)]">
-        <ToggleSwitch
-          label="Push Notifications"
-          description="Browser and in-app push alerts"
-          checked={pushEnabled}
-          onChange={setPushEnabled}
-        />
-        <ToggleSwitch
-          label="Email Notifications"
-          description="Task reminders and weekly digests"
-          checked={emailEnabled}
-          onChange={setEmailEnabled}
-        />
-        <ToggleSwitch
-          label="Sound Effects"
-          description="Play sounds for completed tasks and alerts"
-          checked={soundEnabled}
-          onChange={setSoundEnabled}
-        />
-        <ToggleSwitch
-          label="WhatsApp Reminders"
-          description="Receive reminders via WhatsApp"
-          checked={whatsappEnabled}
-          onChange={setWhatsappEnabled}
-        />
-        <ToggleSwitch
-          label="Telegram Reminders"
-          description="Receive reminders via Telegram bot"
-          checked={telegramEnabled}
-          onChange={setTelegramEnabled}
-        />
-      </div>
+      {channelsLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 5 }, (_, i) => (
+            <Shimmer key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-1 divide-y divide-[var(--border)]">
+          {CHANNEL_TOGGLES.map((cfg) => (
+            <div key={cfg.type} className="relative">
+              <ToggleSwitch
+                label={cfg.label}
+                description={cfg.description}
+                checked={isChannelActive(cfg.type)}
+                onChange={(enabled) => handleChannelToggle(cfg, enabled)}
+              />
+              {mutatingChannel === cfg.type && (
+                <div className="absolute right-14 top-1/2 -translate-y-1/2">
+                  <Loader2 size={14} className="animate-spin text-unjynx-violet" />
+                </div>
+              )}
+            </div>
+          ))}
+          <ToggleSwitch
+            label="Sound Effects"
+            description="Play sounds for completed tasks and alerts"
+            checked={soundEnabled}
+            onChange={handleSoundToggle}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -254,6 +329,10 @@ function NotificationsSection() {
 
 function AccountSection() {
   const { user } = useAuth();
+
+  const handleChangePassword = () => {
+    window.location.href = '/forgot-password';
+  };
 
   return (
     <div className="space-y-6">
@@ -279,7 +358,7 @@ function AccountSection() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" disabled>
           Change
         </Button>
       </div>
@@ -297,7 +376,7 @@ function AccountSection() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={handleChangePassword}>
           Change
         </Button>
       </div>
@@ -312,6 +391,9 @@ function AccountSection() {
 function DataSection() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [importBanner, setImportBanner] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
   const { logout } = useAuth();
 
   const handleDeleteAccount = useCallback(async () => {
@@ -325,6 +407,51 @@ function DataSection() {
     }
   }, [logout]);
 
+  const handleImport = useCallback(() => {
+    setImportBanner(true);
+    setTimeout(() => setImportBanner(false), 3000);
+  }, []);
+
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    setExportSuccess(false);
+    try {
+      const tasks = await getTasks({ limit: 10000 });
+      const headers = ['id', 'title', 'description', 'priority', 'status', 'dueDate', 'dueTime', 'projectId', 'labels', 'createdAt'];
+      const csvRows = [
+        headers.join(','),
+        ...tasks.map((t) =>
+          headers
+            .map((h) => {
+              const value = t[h as keyof Task];
+              if (value === null || value === undefined) return '';
+              if (Array.isArray(value)) return `"${(value as readonly string[]).join(';')}"`;
+              const str = String(value);
+              return str.includes(',') || str.includes('"') || str.includes('\n')
+                ? `"${str.replace(/"/g, '""')}"`
+                : str;
+            })
+            .join(','),
+        ),
+      ];
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `unjynx-tasks-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 3000);
+    } catch {
+      // Export failed silently — user can retry
+    } finally {
+      setIsExporting(false);
+    }
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -336,28 +463,56 @@ function DataSection() {
         </p>
       </div>
 
+      {/* Inline banners */}
+      {importBanner && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-unjynx-gold/10 border border-unjynx-gold/20 text-sm text-unjynx-gold">
+          <AlertTriangle size={16} />
+          Import is coming soon. Stay tuned!
+        </div>
+      )}
+      {exportSuccess && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-unjynx-emerald/10 border border-unjynx-emerald/20 text-sm text-unjynx-emerald">
+          <Check size={16} />
+          Export downloaded successfully.
+        </div>
+      )}
+
       {/* Import / Export */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button className="flex items-center gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--background-surface)] hover:bg-[var(--background-elevated)] transition-colors text-left">
+        <button
+          onClick={handleImport}
+          className="flex items-center gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--background-surface)] hover:bg-[var(--background-elevated)] transition-colors text-left"
+        >
           <div className="w-10 h-10 rounded-lg bg-unjynx-emerald/15 flex items-center justify-center">
             <Upload size={18} className="text-unjynx-emerald" />
           </div>
           <div>
-            <p className="text-sm font-medium text-[var(--foreground)]">Import Data</p>
+            <p className="text-sm font-medium text-[var(--foreground)]">
+              Import Data
+              <Badge variant="gold" size="sm" className="ml-2">Soon</Badge>
+            </p>
             <p className="text-xs text-[var(--muted-foreground)]">
               Import from Todoist, Notion, CSV
             </p>
           </div>
         </button>
 
-        <button className="flex items-center gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--background-surface)] hover:bg-[var(--background-elevated)] transition-colors text-left">
+        <button
+          onClick={handleExport}
+          disabled={isExporting}
+          className="flex items-center gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--background-surface)] hover:bg-[var(--background-elevated)] transition-colors text-left disabled:opacity-60"
+        >
           <div className="w-10 h-10 rounded-lg bg-unjynx-violet/15 flex items-center justify-center">
-            <Download size={18} className="text-unjynx-violet" />
+            {isExporting ? (
+              <Loader2 size={18} className="text-unjynx-violet animate-spin" />
+            ) : (
+              <Download size={18} className="text-unjynx-violet" />
+            )}
           </div>
           <div>
             <p className="text-sm font-medium text-[var(--foreground)]">Export Data</p>
             <p className="text-xs text-[var(--muted-foreground)]">
-              Download all your data as JSON
+              Download all your tasks as CSV
             </p>
           </div>
         </button>
@@ -444,13 +599,15 @@ function IndustryModeSection() {
       <div>
         <h3 className="font-outfit font-semibold text-base text-[var(--foreground)] mb-1">
           Industry Mode
+          <Badge variant="gold" size="sm" className="ml-2">Coming Soon</Badge>
         </h3>
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
           Select your industry to customize task templates, labels, and AI suggestions.
+          Industry modes will be available in a future update.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 opacity-60 pointer-events-none">
         {INDUSTRY_MODES.map((mode) => (
           <button
             key={mode.id}

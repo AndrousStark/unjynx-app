@@ -43,14 +43,12 @@ function TeamStatCard({
 
 // ─── Team Activity Feed ─────────────────────────────────────────
 
-function ActivityFeed() {
-  const activities = [
-    { id: '1', user: 'Alex', action: 'completed', target: 'Design system review', time: '2m ago' },
-    { id: '2', user: 'Sarah', action: 'created', target: 'API migration plan', time: '15m ago' },
-    { id: '3', user: 'Mike', action: 'commented on', target: 'Sprint retro notes', time: '1h ago' },
-    { id: '4', user: 'Emma', action: 'moved', target: 'User onboarding flow', time: '2h ago' },
-    { id: '5', user: 'James', action: 'completed', target: 'Database optimization', time: '3h ago' },
-  ];
+function ActivityFeed({ members }: { readonly members: readonly TeamMember[] }) {
+  // Derive recent activity from member lastActiveAt — real activity
+  const recentMembers = [...members]
+    .filter((m) => m.lastActiveAt !== null)
+    .sort((a, b) => new Date(b.lastActiveAt!).getTime() - new Date(a.lastActiveAt!).getTime())
+    .slice(0, 5);
 
   return (
     <div className="glass-card p-5">
@@ -58,62 +56,92 @@ function ActivityFeed() {
         <Activity size={16} className="text-unjynx-violet" />
         <h3 className="font-outfit font-semibold text-sm text-[var(--foreground)]">Recent Activity</h3>
       </div>
-      <div className="space-y-3">
-        {activities.map((a) => (
-          <div key={a.id} className="flex items-start gap-3">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-unjynx-violet/30 to-unjynx-gold/30 flex items-center justify-center text-[10px] font-bold text-[var(--foreground)] flex-shrink-0 mt-0.5">
-              {a.user[0]}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-[var(--foreground)]">
-                <span className="font-medium">{a.user}</span>{' '}
-                <span className="text-[var(--muted-foreground)]">{a.action}</span>{' '}
-                <span className="font-medium">{a.target}</span>
-              </p>
-              <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">{a.time}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {recentMembers.length === 0 ? (
+        <p className="text-xs text-[var(--muted-foreground)] py-4 text-center">
+          No recent activity yet. Activity will appear as team members complete tasks.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {recentMembers.map((m) => {
+            const lastActive = m.lastActiveAt ? new Date(m.lastActiveAt) : null;
+            const ago = lastActive ? formatTimeAgo(lastActive) : '';
+            return (
+              <div key={m.id} className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-unjynx-violet/30 to-unjynx-gold/30 flex items-center justify-center text-[10px] font-bold text-[var(--foreground)] flex-shrink-0 mt-0.5">
+                  {m.displayName[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-[var(--foreground)]">
+                    <span className="font-medium">{m.displayName}</span>{' '}
+                    <span className="text-[var(--muted-foreground)]">was active</span>{' '}
+                    <span className="font-medium">{m.role}</span>
+                  </p>
+                  <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">{ago}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 // ─── Top Contributors ───────────────────────────────────────────
 
-function TopContributors() {
-  const contributors = [
-    { name: 'Sarah', tasks: 24, streak: 12 },
-    { name: 'Alex', tasks: 21, streak: 8 },
-    { name: 'Emma', tasks: 18, streak: 15 },
-    { name: 'Mike', tasks: 15, streak: 6 },
-    { name: 'James', tasks: 12, streak: 4 },
-  ];
+function TopContributors({ members }: { readonly members: readonly TeamMember[] }) {
+  // Sort members by most recently active as a proxy for contribution
+  const sorted = [...members]
+    .sort((a, b) => {
+      const aTime = a.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
+      const bTime = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
+      return bTime - aTime;
+    })
+    .slice(0, 5);
 
   return (
     <div className="glass-card p-5">
       <div className="flex items-center gap-2 mb-4">
         <Crown size={16} className="text-unjynx-gold" />
-        <h3 className="font-outfit font-semibold text-sm text-[var(--foreground)]">Top Contributors</h3>
+        <h3 className="font-outfit font-semibold text-sm text-[var(--foreground)]">Team Members</h3>
       </div>
-      <div className="space-y-2.5">
-        {contributors.map((c, i) => (
-          <div key={c.name} className="flex items-center gap-3">
-            <span className="text-xs font-bold text-[var(--muted-foreground)] w-4">{i + 1}</span>
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-unjynx-violet/30 to-unjynx-gold/30 flex items-center justify-center text-[10px] font-bold text-[var(--foreground)]">
-              {c.name[0]}
+      {sorted.length === 0 ? (
+        <p className="text-xs text-[var(--muted-foreground)] py-4 text-center">
+          No members yet. Invite people to your team to get started.
+        </p>
+      ) : (
+        <div className="space-y-2.5">
+          {sorted.map((m, i) => (
+            <div key={m.id} className="flex items-center gap-3">
+              <span className="text-xs font-bold text-[var(--muted-foreground)] w-4">{i + 1}</span>
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-unjynx-violet/30 to-unjynx-gold/30 flex items-center justify-center text-[10px] font-bold text-[var(--foreground)]">
+                {m.displayName[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-[var(--foreground)]">{m.displayName}</p>
+                <p className="text-[10px] text-[var(--muted-foreground)]">{m.role} · {m.email}</p>
+              </div>
+              {m.lastActiveAt && (
+                <div className="flex items-center gap-1 text-unjynx-gold">
+                  <TrendingUp size={12} />
+                  <span className="text-[10px] font-medium">{formatTimeAgo(new Date(m.lastActiveAt))}</span>
+                </div>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-[var(--foreground)]">{c.name}</p>
-              <p className="text-[10px] text-[var(--muted-foreground)]">{c.tasks} tasks this week</p>
-            </div>
-            <div className="flex items-center gap-1 text-unjynx-gold">
-              <TrendingUp size={12} />
-              <span className="text-[10px] font-medium">{c.streak}d</span>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -124,6 +152,15 @@ export default function TeamPage() {
   const { data: teams, isLoading } = useQuery({
     queryKey: ['teams'],
     queryFn: getTeams,
+    staleTime: 60_000,
+  });
+
+  const team = teams?.[0];
+
+  const { data: members = [], isLoading: membersLoading } = useQuery({
+    queryKey: ['team-members', team?.id],
+    queryFn: () => getMembers(team!.id),
+    enabled: !!team,
     staleTime: 60_000,
   });
 
@@ -140,8 +177,6 @@ export default function TeamPage() {
     );
   }
 
-  const team = teams?.[0];
-
   if (!team) {
     return (
       <EmptyState
@@ -157,6 +192,16 @@ export default function TeamPage() {
       />
     );
   }
+
+  // Derive stats from real member data
+  const activeMembers = members.filter((m) => {
+    if (!m.lastActiveAt) return false;
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return new Date(m.lastActiveAt).getTime() > sevenDaysAgo;
+  });
+  const activeRatio = members.length > 0
+    ? `${Math.round((activeMembers.length / members.length) * 100)}%`
+    : '0%';
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -179,35 +224,42 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <TeamStatCard
           icon={<Users size={18} className="text-unjynx-violet" />}
-          value={team.memberCount}
+          value={members.length}
           label="Team Members"
           accent="bg-unjynx-violet/15"
         />
         <TeamStatCard
           icon={<CheckCircle2 size={18} className="text-unjynx-emerald" />}
-          value={47}
-          label="Completed This Week"
+          value={activeMembers.length}
+          label="Active This Week"
           accent="bg-unjynx-emerald/15"
         />
         <TeamStatCard
           icon={<Clock size={18} className="text-unjynx-amber" />}
-          value="2.4h"
-          label="Avg Completion Time"
+          value={team.plan}
+          label="Team Plan"
           accent="bg-unjynx-amber/15"
         />
         <TeamStatCard
           icon={<BarChart3 size={18} className="text-unjynx-gold" />}
-          value="87%"
-          label="Completion Rate"
+          value={activeRatio}
+          label="Activity Rate"
           accent="bg-unjynx-gold/15"
         />
       </div>
 
       {/* Activity + Contributors */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-        <ActivityFeed />
-        <TopContributors />
-      </div>
+      {membersLoading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          <Shimmer variant="card" className="h-[250px]" />
+          <Shimmer variant="card" className="h-[250px]" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          <ActivityFeed members={members} />
+          <TopContributors members={members} />
+        </div>
+      )}
     </div>
   );
 }

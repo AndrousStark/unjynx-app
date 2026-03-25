@@ -22,6 +22,7 @@ class ProfilePage extends ConsumerWidget {
     final isLight = context.isLightMode;
     final userAsync = ref.watch(currentUserProvider);
     final statsAsync = ref.watch(userStatsProvider);
+    final heatmapAsync = ref.watch(profileActivityHeatmapProvider);
 
     return Scaffold(
       body: CustomScrollView(
@@ -88,7 +89,11 @@ class ProfilePage extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          const ActivityHeatmap(),  // Pass activityData when wired to API
+                          heatmapAsync.when(
+                            data: (data) => ActivityHeatmap(activityData: data),
+                            loading: () => const ActivityHeatmap(),
+                            error: (_, __) => const ActivityHeatmap(),
+                          ),
                         ],
                       ),
                     ),
