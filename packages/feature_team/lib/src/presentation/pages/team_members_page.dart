@@ -12,6 +12,8 @@ import '../widgets/team_member_card.dart';
 ///
 /// Searchable member list with role management, invite flow,
 /// and member removal confirmation.
+///
+/// Shows a "Create Team" prompt when no team exists.
 class TeamMembersPage extends ConsumerWidget {
   const TeamMembersPage({super.key});
 
@@ -20,8 +22,26 @@ class TeamMembersPage extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final isLight = context.isLightMode;
+    final team = ref.watch(currentTeamValueProvider);
     final filteredMembers = ref.watch(filteredMembersProvider);
     final searchQuery = ref.watch(memberSearchQueryProvider);
+
+    // No team state
+    if (team == null) {
+      final teamLoaded = ref.watch(teamLoadedProvider);
+      return Scaffold(
+        appBar: AppBar(title: const Text('Team Members')),
+        body: Center(
+          child: teamLoaded
+              ? _NoTeamEmptyState()
+              : const UnjynxShimmerBox(
+                  height: 200,
+                  width: 200,
+                  borderRadius: 16,
+                ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -76,20 +96,26 @@ class TeamMembersPage extends ConsumerWidget {
           Expanded(
             child: filteredMembers.isEmpty
                 ? _EmptyState(hasSearch: searchQuery.isNotEmpty)
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filteredMembers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final member = filteredMembers[index];
-                      return TeamMemberCard(
-                        member: member,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          _showMemberActions(context, ref, member);
-                        },
-                      );
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(membersProvider);
                     },
+                    color: colorScheme.primary,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filteredMembers.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final member = filteredMembers[index];
+                        return TeamMemberCard(
+                          member: member,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _showMemberActions(context, ref, member);
+                          },
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
@@ -261,11 +287,9 @@ class TeamMembersPage extends ConsumerWidget {
       ),
     ).then((newRole) {
       if (newRole != null && newRole != member.role) {
-        final teamId = ref.read(currentTeamProvider)?.id;
         ref.read(membersProvider.notifier).updateRole(
               member.id,
               newRole,
-              teamId: teamId,
             );
       }
     });
@@ -303,13 +327,60 @@ class TeamMembersPage extends ConsumerWidget {
       ),
     ).then((confirmed) {
       if (confirmed == true) {
-        final teamId = ref.read(currentTeamProvider)?.id;
-        ref.read(membersProvider.notifier).removeMember(
-              member.id,
-              teamId: teamId,
-            );
+        ref.read(membersProvider.notifier).removeMember(member.id);
       }
     });
+  }
+}
+
+/// Shown when team is loaded but the user has no team.
+class _NoTeamEmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final isLight = context.isLightMode;
+
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.primary.withValues(
+                alpha: isLight ? 0.1 : 0.12,
+              ),
+            ),
+            child: Icon(
+              Icons.groups_outlined,
+              size: 40,
+              color: colorScheme.primary.withValues(
+                alpha: isLight ? 0.6 : 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No team found',
+            style: textTheme.titleMedium?.copyWith(
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Create a team from the Team Dashboard to start collaborating.',
+            textAlign: TextAlign.center,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

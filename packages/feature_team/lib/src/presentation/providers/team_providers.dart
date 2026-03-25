@@ -28,21 +28,101 @@ T? _tryRead<T>(Ref ref, Provider<T> provider) {
 // Team
 // ---------------------------------------------------------------------------
 
-/// Current active team. Override from app shell via ProviderScope.
-class _CurrentTeamNotifier extends Notifier<Team?> {
+/// Whether the initial team fetch has completed (success or failure).
+///
+/// Used to distinguish "loading" from "no team found" in the UI.
+class _TeamLoadedNotifier extends Notifier<bool> {
   @override
-  Team? build() => null;
-  void set(Team? value) => state = value;
+  bool build() => false;
+  void set(bool value) => state = value;
+}
+
+final teamLoadedProvider = NotifierProvider<_TeamLoadedNotifier, bool>(
+  _TeamLoadedNotifier.new,
+);
+
+/// Current active team, fetched from the API on first access.
+///
+/// Override from app shell via ProviderScope for testing.
+class CurrentTeamNotifier extends AsyncNotifier<Team?> {
+  @override
+  Future<Team?> build() async {
+    final api = _tryRead(ref, teamApiProvider);
+    if (api == null) {
+      ref.read(teamLoadedProvider.notifier).set(true);
+      return null;
+    }
+
+    try {
+      final response = await api.getTeams();
+      ref.read(teamLoadedProvider.notifier).set(true);
+
+      if (response.success && response.data != null && response.data!.isNotEmpty) {
+        // Use the first team the user belongs to.
+        final teamJson = response.data!.first as Map<String, dynamic>;
+        return Team.fromJson(teamJson);
+      }
+    } on DioException {
+      // Network error -- treat as "no team" rather than crashing.
+      ref.read(teamLoadedProvider.notifier).set(true);
+    } on ApiException {
+      ref.read(teamLoadedProvider.notifier).set(true);
+    }
+
+    return null;
+  }
+
+  /// Sets the team directly (e.g. after creating a new team).
+  void set(Team? value) {
+    state = AsyncData(value);
+    ref.read(teamLoadedProvider.notifier).set(true);
+  }
+
+  /// Creates a new team via the API and sets it as the current team.
+  ///
+  /// Returns the created [Team] on success, or null on failure.
+  Future<Team?> createTeam({
+    required String name,
+    String? idempotencyKey,
+  }) async {
+    final api = _tryRead(ref, teamApiProvider);
+    if (api == null) return null;
+
+    try {
+      final response = await api.createTeam(
+        {'name': name},
+        idempotencyKey: idempotencyKey,
+      );
+      if (response.success && response.data != null) {
+        final team = Team.fromJson(response.data!);
+        state = AsyncData(team);
+        ref.read(teamLoadedProvider.notifier).set(true);
+        return team;
+      }
+    } on DioException {
+      // Network error.
+    } on ApiException {
+      // API error.
+    }
+    return null;
+  }
 }
 
 final currentTeamProvider =
-    NotifierProvider<_CurrentTeamNotifier, Team?>(
-  _CurrentTeamNotifier.new,
+    AsyncNotifierProvider<CurrentTeamNotifier, Team?>(
+  CurrentTeamNotifier.new,
 );
+
+/// Convenience provider for synchronous access to the current team.
+///
+/// Returns null while loading or on error.
+final currentTeamValueProvider = Provider<Team?>((ref) {
+  return ref.watch(currentTeamProvider).valueOrNull;
+});
 
 /// Whether the user has an active team subscription.
 final hasTeamPlanProvider = Provider<bool>((ref) {
-  final team = ref.watch(currentTeamProvider);
+  final team = ref.watch(currentTeamValueProvider);
   return team != null && team.plan != 'free';
 });
 
@@ -63,38 +143,32 @@ final memberSearchQueryProvider =
 );
 
 /// Manages the team member list with async API operations.
+///
+/// Automatically loads members when the current team changes.
 class MembersNotifier extends AsyncNotifier<List<TeamMember>> {
   @override
-  Future<List<TeamMember>> build() async => const [];
+  Future<List<TeamMember>> build() async {
+    final team = ref.watch(currentTeamValueProvider);
+    if (team == null) return const [];
 
-  /// Loads members from the team API.
-  ///
-  /// Falls back to an empty list when the API is unavailable or errors.
-  Future<void> loadMembers(String teamId) async {
-    state = const AsyncLoading();
     final api = _tryRead(ref, teamApiProvider);
-    if (api == null) {
-      state = const AsyncData([]);
-      return;
-    }
+    if (api == null) return const [];
 
     try {
-      final response = await api.getMembers(teamId);
+      final response = await api.getMembers(team.id);
       if (response.success && response.data != null) {
         final members = response.data!
-            .map((e) =>
-                TeamMember.fromJson(e as Map<String, dynamic>))
+            .map((e) => TeamMember.fromJson(e as Map<String, dynamic>))
             .toList();
-        state = AsyncData(List.unmodifiable(members));
-      } else {
-        state = AsyncError(
-          response.error ?? 'Failed to load members',
-          StackTrace.current,
-        );
+        return List.unmodifiable(members);
       }
-    } on DioException catch (e, st) {
-      state = AsyncError(e.message ?? 'Network error', st);
+    } on DioException {
+      // Network error -- return empty list rather than throwing.
+    } on ApiException {
+      // API error -- return empty list rather than throwing.
     }
+
+    return const [];
   }
 
   /// Adds a new member optimistically.
@@ -104,15 +178,16 @@ class MembersNotifier extends AsyncNotifier<List<TeamMember>> {
   }
 
   /// Removes a member by ID, syncing with the API.
-  Future<void> removeMember(String memberId, {String? teamId}) async {
+  Future<void> removeMember(String memberId) async {
     final current = state.value ?? [];
     final removed = current.where((m) => m.id != memberId).toList();
     state = AsyncData(List.unmodifiable(removed));
 
+    final team = ref.read(currentTeamValueProvider);
     final api = _tryRead(ref, teamApiProvider);
-    if (api != null && teamId != null) {
+    if (api != null && team != null) {
       try {
-        final response = await api.removeMember(teamId, memberId);
+        final response = await api.removeMember(team.id, memberId);
         if (!response.success) {
           // Rollback on failure.
           state = AsyncData(List.unmodifiable(current));
@@ -125,22 +200,19 @@ class MembersNotifier extends AsyncNotifier<List<TeamMember>> {
   }
 
   /// Updates a member's role, syncing with the API.
-  Future<void> updateRole(
-    String memberId,
-    TeamRole newRole, {
-    String? teamId,
-  }) async {
+  Future<void> updateRole(String memberId, TeamRole newRole) async {
     final current = state.value ?? [];
     final updated = current
         .map((m) => m.id == memberId ? m.copyWith(role: newRole) : m)
         .toList();
     state = AsyncData(List.unmodifiable(updated));
 
+    final team = ref.read(currentTeamValueProvider);
     final api = _tryRead(ref, teamApiProvider);
-    if (api != null && teamId != null) {
+    if (api != null && team != null) {
       try {
         final response = await api.updateMemberRole(
-          teamId,
+          team.id,
           memberId,
           {'role': newRole.name},
         );
@@ -214,8 +286,7 @@ class InvitesNotifier extends AsyncNotifier<List<TeamInvite>> {
 
       if (response.success && response.data != null) {
         // Replace optimistic invite with server-confirmed invite.
-        final serverInvite =
-            TeamInvite.fromJson(response.data!);
+        final serverInvite = TeamInvite.fromJson(response.data!);
         final updated = state.value ?? [];
         final reconciled = updated
             .map((i) => i.id == optimisticInvite.id ? serverInvite : i)
@@ -262,28 +333,52 @@ final invitesProvider =
 // ---------------------------------------------------------------------------
 
 /// Manages async standup entries with API integration.
+///
+/// Automatically loads standup history when the current team changes.
 class StandupNotifier extends AsyncNotifier<List<StandupEntry>> {
   @override
-  Future<List<StandupEntry>> build() async => const [];
+  Future<List<StandupEntry>> build() async {
+    final team = ref.watch(currentTeamValueProvider);
+    if (team == null) return const [];
+
+    final api = _tryRead(ref, teamApiProvider);
+    if (api == null) return const [];
+
+    try {
+      final response = await api.getStandups(team.id);
+      if (response.success && response.data != null) {
+        final entries = response.data!
+            .map((e) => StandupEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return List.unmodifiable(entries);
+      }
+    } on DioException {
+      // Network error -- return empty list rather than throwing.
+    } on ApiException {
+      // API error -- return empty list rather than throwing.
+    }
+
+    return const [];
+  }
 
   /// Submits a standup entry with optimistic local add and API sync.
   ///
   /// On API failure, rolls back to the previous state.
-  Future<void> submitStandup(StandupEntry entry, {String? teamId}) async {
+  Future<void> submitStandup(StandupEntry entry) async {
     final current = state.value ?? [];
     // Optimistic: add to front of list.
     state = AsyncData(List.unmodifiable([entry, ...current]));
 
+    final team = ref.read(currentTeamValueProvider);
     final api = _tryRead(ref, teamApiProvider);
-    if (api == null || teamId == null) return;
+    if (api == null || team == null) return;
 
     try {
-      final response = await api.submitStandup(teamId, entry.toJson());
+      final response = await api.submitStandup(team.id, entry.toJson());
 
       if (response.success && response.data != null) {
         // Replace optimistic entry with server-confirmed entry.
-        final serverEntry =
-            StandupEntry.fromJson(response.data!);
+        final serverEntry = StandupEntry.fromJson(response.data!);
         final updated = state.value ?? [];
         final reconciled = updated
             .map((s) => s.id == entry.id ? serverEntry : s)
@@ -296,36 +391,6 @@ class StandupNotifier extends AsyncNotifier<List<StandupEntry>> {
     } on DioException {
       // Rollback on network error.
       state = AsyncData(List.unmodifiable(current));
-    }
-  }
-
-  /// Loads standup history from the API.
-  ///
-  /// Falls back to an empty list when the API is unavailable or errors.
-  Future<void> loadHistory(String teamId) async {
-    state = const AsyncLoading();
-    final api = _tryRead(ref, teamApiProvider);
-    if (api == null) {
-      state = const AsyncData([]);
-      return;
-    }
-
-    try {
-      final response = await api.getStandups(teamId);
-      if (response.success && response.data != null) {
-        final entries = response.data!
-            .map((e) =>
-                StandupEntry.fromJson(e as Map<String, dynamic>))
-            .toList();
-        state = AsyncData(List.unmodifiable(entries));
-      } else {
-        state = AsyncError(
-          response.error ?? 'Failed to load standups',
-          StackTrace.current,
-        );
-      }
-    } on DioException catch (e, st) {
-      state = AsyncError(e.message ?? 'Network error', st);
     }
   }
 }
@@ -365,9 +430,11 @@ final reportPeriodProvider =
 );
 
 /// Team report for the selected period, fetched from the API.
+///
+/// Returns an empty report when the API is unavailable or no team exists.
 final teamReportProvider = FutureProvider<TeamReport>((ref) async {
   final period = ref.watch(reportPeriodProvider);
-  final team = ref.watch(currentTeamProvider);
+  final team = ref.watch(currentTeamValueProvider);
   final api = _tryRead(ref, teamApiProvider);
 
   if (api == null || team == null) {
@@ -388,6 +455,8 @@ final teamReportProvider = FutureProvider<TeamReport>((ref) async {
     }
   } on DioException {
     // Fall through to empty report.
+  } on ApiException {
+    // Fall through to empty report.
   }
 
   return TeamReport(
@@ -403,9 +472,9 @@ final teamReportProvider = FutureProvider<TeamReport>((ref) async {
 
 /// Recent team activity items, fetched from the API.
 ///
-/// Returns an empty list when the API is unavailable or the team is null.
+/// Returns an empty list when the API is unavailable or no team exists.
 final teamActivityProvider = FutureProvider<List<TeamActivity>>((ref) async {
-  final team = ref.watch(currentTeamProvider);
+  final team = ref.watch(currentTeamValueProvider);
   final api = _tryRead(ref, teamApiProvider);
 
   if (api == null || team == null) return const [];
@@ -424,6 +493,8 @@ final teamActivityProvider = FutureProvider<List<TeamActivity>>((ref) async {
       }
     }
   } on DioException {
+    // Fall through to empty list.
+  } on ApiException {
     // Fall through to empty list.
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:service_api/service_api.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../../domain/models/ai_insight.dart';
@@ -37,10 +38,12 @@ class AiInsightsPage extends ConsumerWidget {
         },
         child: insightsAsync.when(
           loading: () => const _InsightsLoadingState(),
-          error: (error, _) => _InsightsErrorState(
-            error: error.toString(),
-            onRetry: () => ref.invalidate(aiInsightsProvider),
-          ),
+          error: (error, _) => error is AiUnavailableException
+              ? const _AiComingSoonState()
+              : _InsightsErrorState(
+                  error: error.toString(),
+                  onRetry: () => ref.invalidate(aiInsightsProvider),
+                ),
           data: (report) => _InsightsContent(report: report),
         ),
       ),
@@ -517,6 +520,65 @@ class _InsightsErrorState extends StatelessWidget {
         subtitle: error,
         actionLabel: 'Retry',
         onRetry: onRetry,
+      ),
+    );
+  }
+}
+
+/// State shown when the AI service is not yet configured (503).
+class _AiComingSoonState extends StatelessWidget {
+  const _AiComingSoonState();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
+    final unjynx = theme.extension<UnjynxCustomColors>()!;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: isLight
+                    ? unjynx.gold.withValues(alpha: 0.12)
+                    : unjynx.gold.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.insights_rounded,
+                size: 40,
+                color: unjynx.gold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'AI Insights Coming Soon',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'BebasNeue',
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'The AI service is being set up.\n'
+              'Weekly insights and patterns will be available soon!',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isLight
+                    ? UnjynxLightColors.textTertiary
+                    : UnjynxDarkColors.textTertiary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -8,8 +8,14 @@ class ContentApiService {
   const ContentApiService(this._client);
 
   /// Get today's content (quote, tip, etc.).
-  Future<ApiResponse<Map<String, dynamic>>> getTodayContent() {
-    return _client.get('/content/today');
+  ///
+  /// Optional [category] filters to a specific category.
+  Future<ApiResponse<Map<String, dynamic>>> getTodayContent({
+    String? category,
+  }) {
+    return _client.get('/content/today', queryParameters: {
+      if (category != null) 'category': category,
+    });
   }
 
   /// List all content categories.
@@ -20,6 +26,14 @@ class ContentApiService {
   /// Save/bookmark a content item.
   Future<ApiResponse<Map<String, dynamic>>> saveContent(String contentId) {
     return _client.post('/content/save', data: {'contentId': contentId});
+  }
+
+  /// Unsave/unbookmark a content item.
+  Future<ApiResponse<Map<String, dynamic>>> unsaveContent(String contentId) {
+    return _client.post('/content/save', data: {
+      'contentId': contentId,
+      'unsave': true,
+    });
   }
 
   /// Get user's content preferences.
@@ -42,7 +56,13 @@ class ContentApiService {
   }
 
   /// Get ritual completion history.
-  Future<ApiResponse<List<dynamic>>> getRitualHistory() {
-    return _client.get('/content/rituals/history');
+  Future<ApiResponse<List<dynamic>>> getRitualHistory({
+    int page = 1,
+    int limit = 10,
+  }) {
+    return _client.get('/content/rituals/history', queryParameters: {
+      'page': page,
+      'limit': limit,
+    });
   }
 }

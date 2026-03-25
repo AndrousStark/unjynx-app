@@ -36,6 +36,37 @@ class AuthApiService {
     });
   }
 
+  /// Register a new user via the backend (Logto Management API).
+  Future<ApiResponse<Map<String, dynamic>>> register({
+    required String email,
+    required String password,
+    required String name,
+  }) {
+    return _client.post('/auth/register', data: {
+      'email': email,
+      'password': password,
+      'name': name,
+    });
+  }
+
+  /// Request a password reset email.
+  Future<ApiResponse<Map<String, dynamic>>> forgotPassword(String email) {
+    return _client.post('/auth/forgot-password', data: {
+      'email': email,
+    });
+  }
+
+  /// Reset password with a verification token.
+  Future<ApiResponse<Map<String, dynamic>>> resetPassword({
+    required String token,
+    required String password,
+  }) {
+    return _client.post('/auth/reset-password', data: {
+      'token': token,
+      'password': password,
+    });
+  }
+
   /// Log out the current user.
   Future<ApiResponse<void>> logout() {
     return _client.post('/auth/logout');

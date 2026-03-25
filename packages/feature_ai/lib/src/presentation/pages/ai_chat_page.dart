@@ -57,6 +57,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
   Widget build(BuildContext context) {
     final messages = ref.watch(chatMessagesProvider);
     final isResponding = ref.watch(isAiRespondingProvider);
+    final isAiUnavailable = ref.watch(aiUnavailableProvider);
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
     final unjynx = theme.extension<UnjynxCustomColors>()!;
@@ -98,6 +99,10 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       ),
       body: Column(
         children: [
+          // AI unavailable banner
+          if (isAiUnavailable)
+            _AiComingSoonBanner(isLight: isLight, unjynx: unjynx),
+
           // Persona selector
           const Padding(
             padding: EdgeInsets.only(top: 4, bottom: 8),
@@ -211,6 +216,50 @@ class _EmptyChatState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Banner shown when the AI backend is not configured.
+class _AiComingSoonBanner extends StatelessWidget {
+  const _AiComingSoonBanner({
+    required this.isLight,
+    required this.unjynx,
+  });
+
+  final bool isLight;
+  final UnjynxCustomColors unjynx;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: isLight
+          ? unjynx.gold.withValues(alpha: 0.12)
+          : unjynx.gold.withValues(alpha: 0.08),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: unjynx.gold,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'AI features coming soon -- the service is being set up.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isLight
+                    ? UnjynxLightColors.textSecondary
+                    : UnjynxDarkColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

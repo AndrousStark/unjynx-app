@@ -17,6 +17,8 @@ import '../widgets/report_charts.dart';
 ///
 /// Period selector, productivity chart, contribution bar chart,
 /// project completion rates, overdue by assignee, and export buttons.
+///
+/// Shows an empty state when no team exists.
 class TeamReportsPage extends ConsumerStatefulWidget {
   const TeamReportsPage({super.key});
 
@@ -41,7 +43,7 @@ class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
   }
 
   Future<void> _exportPdf() async {
-    final team = ref.read(currentTeamProvider);
+    final team = ref.read(currentTeamValueProvider);
     final period = ref.read(reportPeriodProvider);
     final api = _tryReadApi();
 
@@ -78,7 +80,7 @@ class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
   }
 
   Future<void> _exportCsv() async {
-    final team = ref.read(currentTeamProvider);
+    final team = ref.read(currentTeamValueProvider);
     final period = ref.read(reportPeriodProvider);
     final api = _tryReadApi();
 
@@ -129,6 +131,9 @@ class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }
@@ -137,8 +142,59 @@ class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isLight = context.isLightMode;
+    final team = ref.watch(currentTeamValueProvider);
     final period = ref.watch(reportPeriodProvider);
     final reportAsync = ref.watch(teamReportProvider);
+
+    // No team state
+    if (team == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Team Reports')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.primary.withValues(
+                      alpha: isLight ? 0.1 : 0.12,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.analytics_outlined,
+                    size: 40,
+                    color: colorScheme.primary.withValues(
+                      alpha: isLight ? 0.6 : 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No team found',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Create a team to view productivity reports and analytics.',
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -183,7 +239,7 @@ class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
         ],
       ),
       body: RefreshIndicator(
-        color: Theme.of(context).colorScheme.primary,
+        color: colorScheme.primary,
         onRefresh: () async {
           ref.invalidate(teamReportProvider);
         },
@@ -298,10 +354,30 @@ class _TeamReportsPageState extends ConsumerState<TeamReportsPage> {
               ],
             ),
             error: (error, _) => Center(
-              child: Text(
-                'Failed to load report: $error',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.error,
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: 48,
+                      color: colorScheme.error.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Failed to load report',
+                      style: textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pull down to retry.',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

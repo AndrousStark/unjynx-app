@@ -28,6 +28,7 @@ class ExportPage extends ConsumerWidget {
     final isLight = context.isLightMode;
     final selectedFormat = ref.watch(exportFormatProvider);
     final isLoading = ref.watch(exportLoadingProvider);
+    final dateRange = ref.watch(exportDateRangeProvider);
     final projectFilter = ref.watch(exportProjectFilterProvider);
 
     return Scaffold(
@@ -89,13 +90,28 @@ class ExportPage extends ConsumerWidget {
               ),
               title: const Text('Date Range'),
               subtitle: Text(
-                'All time',
+                dateRange != null
+                    ? '${_formatDate(dateRange.start)} - ${_formatDate(dateRange.end)}'
+                    : 'All time',
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              trailing: const Icon(Icons.chevron_right_rounded),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (dateRange != null)
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      onPressed: () {
+                        ref.read(exportDateRangeProvider.notifier).set(null);
+                      },
+                      tooltip: 'Clear date filter',
+                    ),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
               onTap: () async {
                 final range = await showDateRangePicker(
                   context: context,
@@ -136,7 +152,20 @@ class ExportPage extends ConsumerWidget {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              trailing: const Icon(Icons.chevron_right_rounded),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (projectFilter != null)
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      onPressed: () {
+                        ref.read(exportProjectFilterProvider.notifier).set(null);
+                      },
+                      tooltip: 'Clear project filter',
+                    ),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
               onTap: () async {
                 final selected = await _showProjectPicker(context, ref);
                 if (selected != null) {
@@ -223,6 +252,11 @@ class ExportPage extends ConsumerWidget {
     );
   }
 
+  /// Formats a date for display in the filter subtitle.
+  static String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
   /// Builds a filename based on the export format and current date.
   String _exportFilename(ExportFormat format) {
     final date = DateTime.now().toIso8601String().split('T').first;
@@ -247,6 +281,7 @@ class ExportPage extends ConsumerWidget {
   /// Executes the export: calls the API, writes to a temp file, and shares it.
   Future<void> _startExport(BuildContext context, WidgetRef ref) async {
     ref.read(exportLoadingProvider.notifier).set(true);
+    ref.read(exportErrorProvider.notifier).set(null);
 
     try {
       // Invalidate previous result so the provider re-fetches

@@ -198,7 +198,7 @@ class ImportFlowNotifier extends Notifier<ImportStep> {
     final source =
         ref.read(importSourceProvider) ?? ImportSource.genericCsv;
 
-    // ── 1. Read and parse file locally ──
+    // -- 1. Read and parse file locally --
     final String content;
     try {
       content = await File(filePath).readAsString();
@@ -235,7 +235,7 @@ class ImportFlowNotifier extends Notifier<ImportStep> {
     // Take up to 5 sample rows for preview
     final sampleTasks = rows.length > 5 ? rows.sublist(0, 5) : rows;
 
-    // ── 2. Call previewImport API for server-side validation ──
+    // -- 2. Call previewImport API for server-side validation --
     final api = _tryRead(ref, importExportApiProvider);
     if (api != null) {
       try {
@@ -271,7 +271,7 @@ class ImportFlowNotifier extends Notifier<ImportStep> {
       }
     }
 
-    // ── 3. Fallback: client-side-only preview ──
+    // -- 3. Fallback: client-side-only preview --
     final preview = ImportPreview(
       totalRows: rows.length,
       source: source,
@@ -303,6 +303,22 @@ class ImportFlowNotifier extends Notifier<ImportStep> {
         ref.read(importSourceProvider) ?? ImportSource.genericCsv;
     final mapping = ref.read(columnMappingProvider);
     final rows = ref.read(_importParsedRowsProvider);
+
+    // Validate that at least one column is mapped to 'title'
+    final hasTitleMapping = mapping.values.contains(ImportTargetFields.title);
+    if (!hasTitleMapping) {
+      ref.read(importErrorProvider.notifier).set(
+        'Please map at least one column to "title" before importing.',
+      );
+      ref.read(importResultProvider.notifier).set(const ImportResult(
+        imported: 0,
+        skipped: 0,
+        duplicates: 0,
+        errors: 0,
+      ));
+      state = ImportStep.summary;
+      return;
+    }
 
     final api = _tryRead(ref, importExportApiProvider);
     if (api == null) {
@@ -461,6 +477,9 @@ final exportErrorProvider =
 
 /// Executes an export based on the selected format and filters.
 ///
+/// Uses `ref.watch` for all filter providers so it properly reacts to
+/// changes in format, date range, and project filter.
+///
 /// Returns the raw response data on success, or null on failure
 /// (sets [exportErrorProvider] with the error message).
 final exportProvider = FutureProvider.autoDispose<dynamic>((ref) async {
@@ -473,13 +492,12 @@ final exportProvider = FutureProvider.autoDispose<dynamic>((ref) async {
     return null;
   }
 
-  final dateRange = ref.read(exportDateRangeProvider);
-  final project = ref.read(exportProjectFilterProvider);
+  final dateRange = ref.watch(exportDateRangeProvider);
+  final project = ref.watch(exportProjectFilterProvider);
 
   final dateFrom = dateRange?.start.toIso8601String().split('T').first;
   final dateTo = dateRange?.end.toIso8601String().split('T').first;
 
-  ref.read(exportLoadingProvider.notifier).set(true);
   ref.read(exportErrorProvider.notifier).set(null);
 
   try {
@@ -502,8 +520,6 @@ final exportProvider = FutureProvider.autoDispose<dynamic>((ref) async {
         );
     }
 
-    ref.read(exportLoadingProvider.notifier).set(false);
-
     if (response.success) {
       return response.data;
     } else {
@@ -513,13 +529,11 @@ final exportProvider = FutureProvider.autoDispose<dynamic>((ref) async {
       return null;
     }
   } on DioException catch (e) {
-    ref.read(exportLoadingProvider.notifier).set(false);
     ref.read(exportErrorProvider.notifier).set(
       'Network error: ${e.message ?? 'Connection failed'}',
     );
     return null;
   } on ApiException catch (e) {
-    ref.read(exportLoadingProvider.notifier).set(false);
     ref.read(exportErrorProvider.notifier).set(e.message);
     return null;
   }
@@ -532,7 +546,7 @@ final exportProvider = FutureProvider.autoDispose<dynamic>((ref) async {
 /// Requests a GDPR-compliant full data export (processed within 72h).
 ///
 /// Returns the API response data on success (e.g. `{ "requestId": "..." }`),
-/// or throws on failure.
+/// or null on failure.
 final requestDataExportProvider =
     FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
   final api = _tryRead(ref, importExportApiProvider);

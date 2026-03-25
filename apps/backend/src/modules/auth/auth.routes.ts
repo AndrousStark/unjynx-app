@@ -12,6 +12,7 @@ import { uploadFile } from "../../services/storage.js";
 import {
   callbackSchema,
   refreshSchema,
+  registerSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   updateProfileSchema,
@@ -33,6 +34,23 @@ authRoutes.post(
       return c.json(ok(tokens));
     } catch (e) {
       const message = e instanceof Error ? e.message : "Token exchange failed";
+      return c.json(err(message), 400);
+    }
+  },
+);
+
+// POST /api/v1/auth/register - Create new account via Logto Management API
+authRoutes.post(
+  "/register",
+  zValidator("json", registerSchema),
+  async (c) => {
+    const input = c.req.valid("json");
+
+    try {
+      const result = await authService.registerUser(input);
+      return c.json(ok(result), 201);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Registration failed";
       return c.json(err(message), 400);
     }
   },

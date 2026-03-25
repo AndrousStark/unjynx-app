@@ -264,7 +264,7 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
       HapticFeedback.mediumImpact();
 
       try {
-        final team = ref.read(currentTeamProvider);
+        final team = ref.read(currentTeamValueProvider);
         if (team != null) {
           await ref.read(invitesProvider.notifier).sendInvite(
                 email: email,

@@ -4,12 +4,12 @@
 
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCurrentUser,
-  initiateLogin,
-  logout as apiLogout,
+  buildAuthorizationUrl,
+  apiLogout,
   storeTokens,
   clearTokens,
   isTokenExpired,
@@ -32,8 +32,9 @@ export const authKeys = {
 
 export function useAuth() {
   const queryClient = useQueryClient();
+  const refreshingRef = useRef(false);
 
-  // Fetch current user — only when we have a token
+  // Fetch current user — only when we have a non-expired token
   const {
     data: user,
     isLoading,
@@ -42,39 +43,63 @@ export function useAuth() {
   } = useQuery({
     queryKey: authKeys.user,
     queryFn: getCurrentUser,
-    staleTime: 5 * 60_000, // 5 minutes
+    staleTime: 5 * 60_000,
     retry: false,
     enabled: typeof window !== 'undefined' && !isTokenExpired(),
   });
 
-  // Token refresh on mount and when token is close to expiry
+  // Attempt to refresh tokens silently
+  const attemptRefresh = useCallback(async () => {
+    if (refreshingRef.current) return false;
+    refreshingRef.current = true;
+
+    try {
+      const stored = getStoredRefreshToken();
+      if (!stored) return false;
+
+      const tokens = await apiRefreshToken(stored);
+      storeTokens(tokens);
+      await refetch();
+      return true;
+    } catch {
+      clearTokens();
+      queryClient.setQueryData(authKeys.user, null);
+      return false;
+    } finally {
+      refreshingRef.current = false;
+    }
+  }, [refetch, queryClient]);
+
+  // Token refresh on mount (if expired)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isTokenExpired()) return;
 
-    const stored = getStoredRefreshToken();
-    if (!stored) return;
-
-    apiRefreshToken(stored)
-      .then((tokens) => {
-        storeTokens(tokens);
-        refetch();
-      })
-      .catch(() => {
-        clearTokens();
-        queryClient.setQueryData(authKeys.user, null);
-      });
+    attemptRefresh();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Login — redirects to Logto auth page
+  // Proactive token refresh — check every 60s
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const interval = setInterval(() => {
+      if (isTokenExpired()) {
+        attemptRefresh();
+      }
+    }, 60_000);
+
+    return () => clearInterval(interval);
+  }, [attemptRefresh]);
+
+  // Login — build Logto OIDC URL and redirect
   const login = useCallback(async () => {
     const redirectUri =
       typeof window !== 'undefined'
         ? `${window.location.origin}/callback`
         : 'http://localhost:3003/callback';
 
-    const { authorizationUrl } = await initiateLogin({ redirectUri });
-    window.location.href = authorizationUrl;
+    const url = await buildAuthorizationUrl(redirectUri);
+    window.location.href = url;
   }, []);
 
   // Logout — clears tokens and resets cache

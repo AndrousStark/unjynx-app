@@ -94,7 +94,12 @@ class _GhostModePageState extends ConsumerState<GhostModePage>
     // Persist the completion via the toggle callback (same as home screen).
     final task = tasks[_currentIndex];
     final toggle = ref.read(toggleTaskCompletionCallbackProvider);
-    unawaited(toggle(task.id, completed: true));
+    await toggle(task.id, completed: true);
+
+    // Invalidate today tasks and progress rings so the home screen reflects
+    // the completion when the user exits Ghost Mode.
+    ref.invalidate(homeTodayTasksProvider);
+    ref.invalidate(homeProgressRingsProvider);
 
     // Play shimmer.
     await _shimmerController.forward();

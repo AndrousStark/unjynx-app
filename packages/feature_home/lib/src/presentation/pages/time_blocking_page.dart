@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:feature_home/src/presentation/providers/home_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -121,12 +123,48 @@ class _TimeBlockingPageState extends ConsumerState<TimeBlockingPage> {
   @override
   void initState() {
     super.initState();
-    // Scroll to 8 AM on init
+    // Scroll to 8 AM on init, then load persisted blocks.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_timelineController.hasClients) {
         _timelineController.jumpTo(8 * _hourHeight);
       }
+      _loadPersistedBlocks();
     });
+  }
+
+  /// Load time blocks from the local Drift DB for the current date.
+  Future<void> _loadPersistedBlocks() async {
+    final date = ref.read(timeBlockDateProvider);
+    final loadBlocks = ref.read(timeBlockLoadCallbackProvider);
+    final unscheduled = ref.read(unscheduledTasksProvider);
+
+    try {
+      final persisted = await loadBlocks(date);
+      if (!mounted) return;
+
+      final blocks = persisted.map((p) {
+        // Try to find the matching task to get its title and priority.
+        final task = unscheduled
+            .where((t) => t.id == p.taskId)
+            .firstOrNull;
+        return TimeBlock(
+          id: p.id,
+          taskId: p.taskId,
+          title: task?.title ?? 'Task',
+          startHour: p.startHour,
+          startMinute: p.startMinute,
+          durationMinutes: p.durationMinutes,
+          color: task != null
+              ? unjynxPriorityColor(context, task.priority.name)
+              : null,
+          priority: task?.priority ?? HomeTaskPriority.none,
+        );
+      }).toList();
+
+      ref.read(timeBlocksProvider.notifier).set(blocks);
+    } catch (_) {
+      // Failed to load persisted blocks -- start empty.
+    }
   }
 
   @override
@@ -161,6 +199,17 @@ class _TimeBlockingPageState extends ConsumerState<TimeBlockingPage> {
     );
 
     ref.read(timeBlocksProvider.notifier).set([...blocks, newBlock]);
+
+    // Persist to local Drift DB.
+    final save = ref.read(timeBlockSaveCallbackProvider);
+    unawaited(save(
+      id: newBlock.id,
+      taskId: task.id,
+      blockDate: ref.read(timeBlockDateProvider),
+      startHour: time.hour,
+      startMinute: time.minute,
+      durationMinutes: 30,
+    ));
   }
 
   void _onBlockDragUpdate(TimeBlock block, double newDy) {
@@ -174,6 +223,17 @@ class _TimeBlockingPageState extends ConsumerState<TimeBlockingPage> {
       return b;
     }).toList();
     ref.read(timeBlocksProvider.notifier).set(updated);
+
+    // Persist updated position to local Drift DB.
+    final save = ref.read(timeBlockSaveCallbackProvider);
+    unawaited(save(
+      id: block.id,
+      taskId: block.taskId,
+      blockDate: ref.read(timeBlockDateProvider),
+      startHour: time.hour,
+      startMinute: time.minute,
+      durationMinutes: block.durationMinutes,
+    ));
   }
 
   void _removeBlock(String blockId) {
@@ -181,6 +241,10 @@ class _TimeBlockingPageState extends ConsumerState<TimeBlockingPage> {
     ref.read(timeBlocksProvider.notifier).set(
       blocks.where((b) => b.id != blockId).toList(),
     );
+
+    // Remove from local Drift DB.
+    final remove = ref.read(timeBlockRemoveCallbackProvider);
+    unawaited(remove(blockId));
   }
 
   @override
@@ -256,6 +320,8 @@ class _TimeBlockingPageState extends ConsumerState<TimeBlockingPage> {
     );
     if (picked != null) {
       ref.read(timeBlockDateProvider.notifier).set(picked);
+      // Reload persisted blocks for the new date.
+      unawaited(_loadPersistedBlocks());
     }
   }
 

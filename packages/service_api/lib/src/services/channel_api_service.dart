@@ -89,6 +89,6 @@ class ChannelApiService {
   /// Constructs the start link with the user's ID so the bot can
   /// associate the Telegram chat with the user's UNJYNX account.
   String getTelegramBotLink(String userId) {
-    return 'https://t.me/unjynx_bot?start=$userId';
+    return 'https://t.me/UnjynxBot?start=$userId';
   }
 }

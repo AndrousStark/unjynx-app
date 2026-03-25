@@ -1,11 +1,15 @@
 import 'package:feature_onboarding/feature_onboarding.dart';
 import 'package:feature_settings/feature_settings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:service_api/service_api.dart';
 import 'package:service_auth/service_auth.dart';
 import 'package:unjynx_core/core.dart';
 
+import 'package:unjynx_mobile/fcm/fcm_token_manager.dart';
 import 'package:unjynx_mobile/routing/app_router.dart';
 
 /// Root widget for the UNJYNX application.
@@ -45,6 +49,16 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
     );
   }
 
+  void _retryFcmRegistration() {
+    if (FcmTokenManager.isRegistered) return;
+    try {
+      final channelApi = ChannelApiService(GetIt.instance<ApiClient>());
+      FcmTokenManager.retryRegistration(channelApi: channelApi);
+    } on Exception catch (e) {
+      debugPrint('FCM retry after login failed: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isComplete = ref.watch(isOnboardingCompleteProvider);
@@ -62,6 +76,12 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
     // Dismiss splash once auth resolves (one-way transition).
     if (!isLoading && !_splashDismissed) {
       _splashDismissed = true;
+    }
+
+    // When user transitions from unauthenticated → authenticated, retry
+    // FCM token registration with the backend (fixes issue #23).
+    if (isAuthenticated && !_lastAuth && _routerInitialized) {
+      _retryFcmRegistration();
     }
 
     // Rebuild router if onboarding or auth state changed.

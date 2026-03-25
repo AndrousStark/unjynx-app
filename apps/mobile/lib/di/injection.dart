@@ -83,7 +83,10 @@ Future<void> configureDependencies() async {
   // 4. API client + services (real backend when auth is configured)
   final authPort = getIt<AuthPort>();
   final apiClient = ApiClient(auth: authPort, config: AppConfig.apiConfig);
-  getIt.registerSingleton<ApiClient>(apiClient);
+  getIt
+    ..registerSingleton<ApiClient>(apiClient)
+    // Register AuthApiService for forgot-password and other auth API calls
+    ..registerSingleton<AuthApiService>(AuthApiService(apiClient));
 
   final taskApi = TaskApiService(apiClient);
   final projectApi = ProjectApiService(apiClient);

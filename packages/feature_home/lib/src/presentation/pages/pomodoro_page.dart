@@ -211,6 +211,17 @@ class _PomodoroPageState extends ConsumerState<PomodoroPage>
 
     final focusMinutes = _totalFocusSeconds ~/ 60;
 
+    // Persist the completed session to local DB (and API when available).
+    final saveSession = ref.read(pomodoroSessionSaveCallbackProvider);
+    unawaited(saveSession(
+      sessionsCompleted: _completedSessions,
+      totalFocusSeconds: _totalFocusSeconds,
+      taskName: widget.taskName,
+    ));
+
+    // Invalidate progress rings so the home screen shows updated focus time.
+    ref.invalidate(homeProgressRingsProvider);
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,

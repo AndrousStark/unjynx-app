@@ -3,20 +3,29 @@ import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:service_api/service_api.dart';
+import 'package:unjynx_core/contracts/auth_port.dart';
 
 /// Manages the FCM device token lifecycle.
 ///
 /// Handles token acquisition, refresh monitoring, foreground message display,
 /// and backend registration via [ChannelApiService.connectPush].
+///
+/// Registration is deferred until the user is authenticated. If the user
+/// is not yet logged in, registration retries with exponential backoff
+/// (2s, 4s, 8s, 16s, 32s — max 5 attempts).
 class FcmTokenManager {
   FcmTokenManager._();
 
   static String? _currentToken;
   static StreamSubscription<String>? _tokenRefreshSub;
   static StreamSubscription<RemoteMessage>? _foregroundMsgSub;
+  static bool _registeredWithBackend = false;
 
   /// The current FCM device token (null until initialized).
   static String? get currentToken => _currentToken;
+
+  /// Whether the token has been successfully registered with the backend.
+  static bool get isRegistered => _registeredWithBackend;
 
   /// Initialize FCM: request permission and acquire the device token.
   ///
@@ -58,10 +67,14 @@ class FcmTokenManager {
 
   /// Start listening for token refreshes and sync new tokens to the backend.
   ///
-  /// Also registers the initial token with the backend.
-  static void startTokenSync({ChannelApiService? channelApi}) {
+  /// Registration is auth-aware: if the user is not yet authenticated, it
+  /// retries with exponential backoff until the user logs in.
+  static void startTokenSync({
+    ChannelApiService? channelApi,
+    AuthPort? authPort,
+  }) {
     if (_currentToken != null && channelApi != null) {
-      _registerTokenWithBackend(channelApi, _currentToken!);
+      _registerWithRetry(channelApi, authPort, _currentToken!);
     }
 
     _tokenRefreshSub?.cancel();
@@ -71,9 +84,10 @@ class FcmTokenManager {
         'FCM: token refreshed (${newToken.substring(0, 12)}...)',
       );
       _currentToken = newToken;
+      _registeredWithBackend = false;
 
       if (channelApi != null) {
-        _registerTokenWithBackend(channelApi, newToken);
+        _registerWithRetry(channelApi, authPort, newToken);
       }
     });
   }
@@ -106,12 +120,69 @@ class FcmTokenManager {
     }
   }
 
+  /// Retry FCM backend registration after the user logs in.
+  ///
+  /// Call this from the auth flow (e.g. after successful login) to ensure
+  /// the FCM token is registered with the backend.
+  static Future<void> retryRegistration({
+    required ChannelApiService channelApi,
+  }) async {
+    if (_registeredWithBackend || _currentToken == null) return;
+    await _registerTokenWithBackend(channelApi, _currentToken!);
+  }
+
   /// Clean up all stream subscriptions.
   static Future<void> dispose() async {
     await _tokenRefreshSub?.cancel();
     await _foregroundMsgSub?.cancel();
     _tokenRefreshSub = null;
     _foregroundMsgSub = null;
+  }
+
+  /// Register with exponential backoff, waiting for auth.
+  static Future<void> _registerWithRetry(
+    ChannelApiService channelApi,
+    AuthPort? authPort,
+    String token, {
+    int attempt = 0,
+    int maxAttempts = 5,
+  }) async {
+    if (_registeredWithBackend) return;
+
+    // Check if the user is authenticated before attempting registration.
+    if (authPort != null) {
+      try {
+        final isAuth = await authPort.isAuthenticated();
+        if (!isAuth) {
+          if (attempt < maxAttempts) {
+            final delay = Duration(seconds: 2 << attempt); // 2, 4, 8, 16, 32s
+            debugPrint(
+              'FCM: user not authenticated, retrying in ${delay.inSeconds}s '
+              '(attempt ${attempt + 1}/$maxAttempts)',
+            );
+            await Future<void>.delayed(delay);
+            return _registerWithRetry(
+              channelApi,
+              authPort,
+              token,
+              attempt: attempt + 1,
+              maxAttempts: maxAttempts,
+            );
+          } else {
+            debugPrint(
+              'FCM: skipping backend registration — user not authenticated '
+              'after $maxAttempts attempts. Will register on next login.',
+            );
+            return;
+          }
+        }
+      } on Exception catch (e) {
+        debugPrint('FCM: auth check failed: $e');
+        // Fall through and try anyway — the auth interceptor will handle 401
+      }
+    }
+
+    await _registerTokenWithBackend(channelApi, token);
   }
 
   /// Register or update the FCM token with the backend.
@@ -122,6 +193,7 @@ class FcmTokenManager {
     try {
       final response = await channelApi.connectPush(token);
       if (response.success) {
+        _registeredWithBackend = true;
         debugPrint('FCM: token registered with backend');
       } else {
         debugPrint('FCM: backend registration failed: ${response.error}');

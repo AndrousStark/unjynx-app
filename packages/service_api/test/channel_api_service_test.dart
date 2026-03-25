@@ -552,7 +552,7 @@ void main() {
 
       final link = service.getTelegramBotLink('user-123');
 
-      expect(link, 'https://t.me/unjynx_bot?start=user-123');
+      expect(link, 'https://t.me/UnjynxBot?start=user-123');
     });
 
     test('getTelegramBotLink encodes userId in URL', () async {
@@ -573,7 +573,7 @@ void main() {
       final link = service.getTelegramBotLink('abc-def-123');
 
       expect(link, contains('start=abc-def-123'));
-      expect(link, startsWith('https://t.me/unjynx_bot?'));
+      expect(link, startsWith('https://t.me/UnjynxBot?'));
     });
 
     // -----------------------------------------------------------------------

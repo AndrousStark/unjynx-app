@@ -6,13 +6,6 @@ import { handleCallback, storeTokens } from '@/lib/api/auth';
 import { cn } from '@/lib/utils/cn';
 import { Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 
-// ---------------------------------------------------------------------------
-// Callback Page
-// ---------------------------------------------------------------------------
-// Handles the Logto OIDC redirect. After the user authenticates with Logto
-// (Google / email), Logto redirects to /callback?code=XXX&state=YYY.
-// ---------------------------------------------------------------------------
-
 export default function CallbackPage() {
   return (
     <Suspense
@@ -48,14 +41,27 @@ function CallbackContent() {
       return;
     }
 
+    // Verify state matches (CSRF protection)
+    const savedState = sessionStorage.getItem('unjynx_auth_state');
+    if (savedState && state && savedState !== state) {
+      setError('Invalid state parameter. Please try signing in again.');
+      return;
+    }
+
     const redirectUri =
       typeof window !== 'undefined'
         ? `${window.location.origin}/callback`
         : 'http://localhost:3003/callback';
 
+    // Retrieve PKCE code_verifier
+    const codeVerifier = sessionStorage.getItem('unjynx_code_verifier') ?? '';
+
     handleCallback({ code, state: state ?? '', redirectUri })
       .then((tokens) => {
         storeTokens(tokens);
+        // Clean up PKCE state
+        sessionStorage.removeItem('unjynx_code_verifier');
+        sessionStorage.removeItem('unjynx_auth_state');
         router.replace('/');
       })
       .catch((err: unknown) => {
@@ -68,24 +74,17 @@ function CallbackContent() {
   if (error) {
     return (
       <div className="p-8 text-center">
-        {/* Error icon */}
         <div className="flex justify-center mb-5">
           <div className="w-14 h-14 rounded-full bg-unjynx-rose/15 flex items-center justify-center">
             <AlertCircle size={28} className="text-unjynx-rose" />
           </div>
         </div>
-
-        {/* Error heading */}
         <h2 className="font-outfit text-xl font-bold text-[var(--foreground)] mb-2">
           Sign-in failed
         </h2>
-
-        {/* Error message */}
         <p className="text-sm text-[var(--muted-foreground)] mb-6 max-w-sm mx-auto">
           {error}
         </p>
-
-        {/* Retry button */}
         <button
           onClick={() => {
             if (typeof window !== 'undefined') {
@@ -104,8 +103,6 @@ function CallbackContent() {
           <RotateCcw size={16} />
           <span>Try Again</span>
         </button>
-
-        {/* Troubleshooting hint */}
         <p className="mt-6 text-xs text-[var(--muted-foreground)]">
           If this keeps happening, clear your browser cookies and try again.
         </p>
@@ -115,7 +112,6 @@ function CallbackContent() {
 
   return (
     <div className="p-8 text-center">
-      {/* Loading spinner */}
       <div className="flex justify-center mb-5">
         <div className="relative">
           <div className="w-14 h-14 rounded-full bg-unjynx-violet/15 flex items-center justify-center">
@@ -124,16 +120,12 @@ function CallbackContent() {
           <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-unjynx-gold animate-pulse-gold" />
         </div>
       </div>
-
-      {/* Loading text */}
       <h2 className="font-outfit text-xl font-bold text-[var(--foreground)] mb-2">
         Completing sign-in...
       </h2>
       <p className="text-sm text-[var(--muted-foreground)]">
         Please wait while we verify your identity.
       </p>
-
-      {/* Decorative progress bar */}
       <div className="mt-6 mx-auto max-w-[200px] h-1 rounded-full bg-[var(--border)] overflow-hidden">
         <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-unjynx-violet to-unjynx-gold animate-[shimmer_1.5s_infinite]" />
       </div>

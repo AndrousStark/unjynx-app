@@ -306,14 +306,9 @@ void main() {
       expect(container.read(membersProvider).value?.length, 1);
     });
 
-    test('loadMembers returns empty list when API unavailable', () async {
-      final notifier = container.read(membersProvider.notifier);
-      await notifier.loadMembers('t1');
-      await _pumpEventQueue();
-      expect(
-        container.read(membersProvider).value,
-        isEmpty,
-      );
+    test('build returns empty list when no team exists', () async {
+      final members = await container.read(membersProvider.future);
+      expect(members, isEmpty);
     });
   });
 
@@ -415,14 +410,9 @@ void main() {
       );
     });
 
-    test('loadHistory returns empty list when API unavailable', () async {
-      final notifier = container.read(standupProvider.notifier);
-      await notifier.loadHistory('t1');
-      await _pumpEventQueue();
-      expect(
-        container.read(standupProvider).value,
-        isEmpty,
-      );
+    test('build returns empty list when no team exists', () async {
+      final standups = await container.read(standupProvider.future);
+      expect(standups, isEmpty);
     });
   });
 
@@ -464,6 +454,24 @@ void main() {
       final container = _makeContainer();
       final activity = await container.read(teamActivityProvider.future);
       expect(activity, isEmpty);
+      container.dispose();
+    });
+  });
+
+  group('currentTeamProvider', () {
+    test('returns null when API is unavailable', () async {
+      final container = _makeContainer();
+      final team = await container.read(currentTeamProvider.future);
+      expect(team, isNull);
+      expect(container.read(teamLoadedProvider), isTrue);
+      container.dispose();
+    });
+  });
+
+  group('hasTeamPlanProvider', () {
+    test('returns false when no team', () {
+      final container = _makeContainer();
+      expect(container.read(hasTeamPlanProvider), isFalse);
       container.dispose();
     });
   });

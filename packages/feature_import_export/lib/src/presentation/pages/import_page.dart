@@ -108,6 +108,7 @@ class _UploadStep extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isLight = context.isLightMode;
     final source = ref.watch(importSourceProvider);
+    final error = ref.watch(importErrorProvider);
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -130,6 +131,38 @@ class _UploadStep extends ConsumerWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
+
+          // Error banner (e.g. empty file, parse failure)
+          if (error != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 18,
+                    color: colorScheme.onErrorContainer,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      error,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onErrorContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 32),
 
           // Upload area
@@ -231,12 +264,54 @@ class _PreviewStep extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${preview?.totalRows ?? 0} tasks found',
+            '${preview?.totalRows ?? 0} tasks found'
+            '${preview != null && preview.validRows < preview.totalRows ? ' (${preview.validRows} valid)' : ''}',
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.onSurfaceVariant,
             ),
           ),
+
+          // Warnings from server validation
+          if (preview != null && preview.warnings.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.tertiaryContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: preview.warnings
+                    .map((w) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                size: 16,
+                                color: colorScheme.tertiary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  w,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+
           const SizedBox(height: 16),
 
           // Sample tasks preview
@@ -258,7 +333,7 @@ class _PreviewStep extends ConsumerWidget {
                       final task = preview.sampleTasks[index];
                       return ListTile(
                         title: Text(
-                          task['title'] ?? 'Untitled',
+                          task['title'] ?? task.values.firstOrNull ?? 'Untitled',
                           style: TextStyle(
                             color: colorScheme.onSurface,
                           ),
@@ -305,6 +380,9 @@ class _MappingStep extends ConsumerWidget {
         ? preview!.sampleTasks.first.keys.toList()
         : <String>['Column 1', 'Column 2', 'Column 3'];
 
+    // Check if at least one column is mapped to 'title'
+    final hasTitleMapping = mapping.values.contains(ImportTargetFields.title);
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -326,6 +404,38 @@ class _MappingStep extends ConsumerWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
+
+          // Validation hint
+          if (!hasTitleMapping) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Map at least one column to "title" to proceed.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 16),
 
           Expanded(
@@ -389,21 +499,80 @@ class _SummaryStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final result = ref.watch(importResultProvider);
+    final error = ref.watch(importErrorProvider);
+    final hasError = error != null && error.isNotEmpty;
+    final isSuccess = result != null && result.imported > 0 && !hasError;
 
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Success/Error icon
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isSuccess
+                  ? colorScheme.primary.withValues(alpha: 0.12)
+                  : colorScheme.errorContainer.withValues(alpha: 0.3),
+            ),
+            child: Icon(
+              isSuccess
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.error_outline_rounded,
+              size: 36,
+              color: isSuccess ? colorScheme.primary : colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Text(
+            isSuccess ? 'Import Complete' : 'Import Failed',
+            style: textTheme.headlineSmall?.copyWith(
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Error message
+          if (hasError) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                error,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colorScheme.onErrorContainer,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Result summary card
           if (result != null) ImportSummaryCard(result: result),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              ref.read(importFlowProvider.notifier).reset();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Done'),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                ref.read(importFlowProvider.notifier).reset();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Done'),
+            ),
           ),
           const SizedBox(height: 8),
           TextButton(

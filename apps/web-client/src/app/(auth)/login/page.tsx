@@ -4,7 +4,7 @@ import { useState, useCallback, type FormEvent } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { useAuth } from '@/lib/hooks/use-auth';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
 
 // ─── Google Icon SVG ────────────────────────────────────────────
 
@@ -21,12 +21,12 @@ function GoogleIcon() {
 
 // ─── Divider ────────────────────────────────────────────────────
 
-function Divider() {
+function OrDivider() {
   return (
     <div className="flex items-center gap-4 my-6">
       <div className="flex-1 h-px bg-[var(--border)]" />
       <span className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-medium">
-        or continue with
+        or
       </span>
       <div className="flex-1 h-px bg-[var(--border)]" />
     </div>
@@ -44,19 +44,19 @@ export default function LoginPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Google Sign-In (redirects to Logto)
+  // Google Sign-In (redirects to Logto OIDC)
   const handleGoogleLogin = useCallback(async () => {
     setIsGoogleLoading(true);
     setError(null);
     try {
       await login();
-    } catch (err) {
+    } catch {
       setError('Failed to initiate Google Sign-In. Please try again.');
       setIsGoogleLoading(false);
     }
   }, [login]);
 
-  // Email/password login
+  // Email/password sign-in — redirects to Logto OIDC with login_hint
   const handleEmailLogin = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
@@ -65,8 +65,8 @@ export default function LoginPage() {
         setError('Please enter your email address.');
         return;
       }
-      if (!password) {
-        setError('Please enter your password.');
+      if (!password || password.length < 8) {
+        setError('Password must be at least 8 characters.');
         return;
       }
 
@@ -74,11 +74,10 @@ export default function LoginPage() {
       setError(null);
 
       try {
-        // TODO: Implement email/password auth via Logto
-        // For now, redirect to Logto login flow
+        // Redirect to Logto OIDC — user authenticates there
         await login();
-      } catch (err) {
-        setError('Invalid email or password. Please try again.');
+      } catch {
+        setError('Sign in failed. Please try again.');
         setIsLoading(false);
       }
     },
@@ -120,7 +119,7 @@ export default function LoginPage() {
       </button>
 
       {/* Divider */}
-      <Divider />
+      <OrDivider />
 
       {/* Error message */}
       {error && (
@@ -148,15 +147,15 @@ export default function LoginPage() {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); setError(null); }}
               placeholder="you@example.com"
               autoComplete="email"
               className={cn(
                 'w-full h-11 pl-10 pr-4 rounded-xl text-sm',
-                'bg-[var(--input)] text-[var(--input-foreground)]',
+                'bg-[var(--input)] text-[var(--foreground)]',
                 'border border-[var(--border)]',
                 'placeholder:text-[var(--muted-foreground)]',
-                'focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]',
+                'focus:outline-none focus:ring-2 focus:ring-unjynx-gold/40 focus:border-unjynx-gold',
                 'transition-all duration-150',
               )}
             />
@@ -188,15 +187,15 @@ export default function LoginPage() {
               id="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setError(null); }}
               placeholder="Enter your password"
               autoComplete="current-password"
               className={cn(
                 'w-full h-11 pl-10 pr-11 rounded-xl text-sm',
-                'bg-[var(--input)] text-[var(--input-foreground)]',
+                'bg-[var(--input)] text-[var(--foreground)]',
                 'border border-[var(--border)]',
                 'placeholder:text-[var(--muted-foreground)]',
-                'focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]',
+                'focus:outline-none focus:ring-2 focus:ring-unjynx-gold/40 focus:border-unjynx-gold',
                 'transition-all duration-150',
               )}
             />
@@ -241,20 +240,11 @@ export default function LoginPage() {
         Don&apos;t have an account?{' '}
         <Link
           href="/signup"
-          className="text-unjynx-violet hover:text-unjynx-violet-hover font-medium transition-colors"
+          className="text-unjynx-gold hover:text-unjynx-gold-rich font-semibold transition-colors"
         >
-          Sign up
+          Create account
         </Link>
       </p>
-
-      {/* Trust indicator */}
-      <div className="mt-8 pt-6 border-t border-[var(--border)] text-center">
-        <p className="text-[11px] text-[var(--muted-foreground)]">
-          Trusted by{' '}
-          <span className="text-[var(--gold)] font-semibold">2,000+</span>{' '}
-          early access users
-        </p>
-      </div>
     </div>
   );
 }

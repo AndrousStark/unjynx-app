@@ -104,7 +104,9 @@ class ContentCategory {
   final IconData icon;
 }
 
-/// The 10 content categories available for selection.
+/// The 19 content categories available for selection.
+///
+/// IDs must match the `content_category` enum values in the backend DB schema.
 const List<ContentCategory> contentCategories = [
   ContentCategory(
     id: 'stoic_wisdom',
@@ -113,7 +115,7 @@ const List<ContentCategory> contentCategories = [
     icon: Icons.school,
   ),
   ContentCategory(
-    id: 'ancient_indian_wisdom',
+    id: 'ancient_indian',
     name: 'Ancient Indian Wisdom',
     tagline: '5,000 years of power.',
     icon: Icons.temple_hindu,
@@ -131,13 +133,13 @@ const List<ContentCategory> contentCategories = [
     icon: Icons.mood,
   ),
   ContentCategory(
-    id: 'anime_pop_culture',
+    id: 'anime',
     name: 'Anime & Pop Culture',
     tagline: 'Level up. Main character energy.',
     icon: Icons.movie,
   ),
   ContentCategory(
-    id: 'gratitude_mindfulness',
+    id: 'gratitude',
     name: 'Gratitude & Mindfulness',
     tagline: 'Anti-jinx your negativity.',
     icon: Icons.self_improvement,
@@ -149,7 +151,7 @@ const List<ContentCategory> contentCategories = [
     icon: Icons.shield,
   ),
   ContentCategory(
-    id: 'poetic_wisdom',
+    id: 'poetry',
     name: 'Poetic Wisdom',
     tagline: 'Words that haunt and heal.',
     icon: Icons.edit_note,
@@ -165,6 +167,60 @@ const List<ContentCategory> contentCategories = [
     name: 'Comeback Stories',
     tagline: 'They were worse off than you.',
     icon: Icons.trending_up,
+  ),
+  ContentCategory(
+    id: 'tech_wisdom',
+    name: 'Tech Wisdom',
+    tagline: 'Ship fast, learn faster.',
+    icon: Icons.computer,
+  ),
+  ContentCategory(
+    id: 'financial_literacy',
+    name: 'Financial Literacy',
+    tagline: 'Money is a tool. Master it.',
+    icon: Icons.attach_money,
+  ),
+  ContentCategory(
+    id: 'health_wellness',
+    name: 'Health & Wellness',
+    tagline: 'Your body is your first home.',
+    icon: Icons.favorite,
+  ),
+  ContentCategory(
+    id: 'leadership',
+    name: 'Leadership',
+    tagline: 'Lead yourself before others.',
+    icon: Icons.groups,
+  ),
+  ContentCategory(
+    id: 'creativity',
+    name: 'Creativity',
+    tagline: 'Think different. Build different.',
+    icon: Icons.palette,
+  ),
+  ContentCategory(
+    id: 'relationships',
+    name: 'Relationships',
+    tagline: 'Connection is everything.',
+    icon: Icons.handshake,
+  ),
+  ContentCategory(
+    id: 'science',
+    name: 'Science',
+    tagline: 'Question everything. Discover more.',
+    icon: Icons.science,
+  ),
+  ContentCategory(
+    id: 'philosophy',
+    name: 'Philosophy',
+    tagline: 'The examined life is worth living.',
+    icon: Icons.auto_stories,
+  ),
+  ContentCategory(
+    id: 'sports',
+    name: 'Sports',
+    tagline: 'Champions are made in practice.',
+    icon: Icons.sports,
   ),
 ];
 
@@ -343,6 +399,29 @@ class PomodoroSettings {
 /// Override in app bootstrap to wire up user-configurable durations.
 final pomodoroSettingsProvider = Provider<PomodoroSettings>(
   (ref) => const PomodoroSettings(),
+);
+
+/// Callback to persist a completed pomodoro session.
+///
+/// Override in app bootstrap with a real implementation backed by
+/// the local Drift database (LocalPomodoroSessions) and, when available,
+/// the progress API. Parameters:
+/// - [sessionsCompleted]: number of work sessions finished
+/// - [totalFocusSeconds]: total seconds of focused work
+/// - [taskName]: optional task the user was working on
+final pomodoroSessionSaveCallbackProvider = Provider<
+    Future<void> Function({
+      required int sessionsCompleted,
+      required int totalFocusSeconds,
+      String? taskName,
+    })>(
+  (ref) => ({
+    required int sessionsCompleted,
+    required int totalFocusSeconds,
+    String? taskName,
+  }) async {
+    // No-op stub. Override at app bootstrap.
+  },
 );
 
 // ---------------------------------------------------------------------------
@@ -553,6 +632,74 @@ class SmartSuggestion {
 /// Override in app bootstrap with real ML service data.
 final smartSuggestionsProvider = FutureProvider<List<SmartSuggestion>>(
   (ref) async => const <SmartSuggestion>[],
+);
+
+// ---------------------------------------------------------------------------
+// Time block persistence
+// ---------------------------------------------------------------------------
+
+/// Immutable model for a persisted time block entry.
+@immutable
+class PersistedTimeBlock {
+  const PersistedTimeBlock({
+    required this.id,
+    required this.taskId,
+    required this.startHour,
+    required this.startMinute,
+    required this.durationMinutes,
+  });
+
+  final String id;
+  final String taskId;
+  final int startHour;
+  final int startMinute;
+  final int durationMinutes;
+}
+
+/// Callback to persist a time block to local storage.
+///
+/// Override in app bootstrap with a real implementation backed by the local
+/// Drift database (LocalTimeBlocks table).
+final timeBlockSaveCallbackProvider = Provider<
+    Future<void> Function({
+      required String id,
+      required String taskId,
+      required DateTime blockDate,
+      required int startHour,
+      required int startMinute,
+      required int durationMinutes,
+    })>(
+  (ref) => ({
+    required String id,
+    required String taskId,
+    required DateTime blockDate,
+    required int startHour,
+    required int startMinute,
+    required int durationMinutes,
+  }) async {
+    // No-op stub. Override at app bootstrap.
+  },
+);
+
+/// Callback to remove a time block from local storage.
+///
+/// Override in app bootstrap.
+final timeBlockRemoveCallbackProvider =
+    Provider<Future<void> Function(String blockId)>(
+  (ref) => (String blockId) async {
+    // No-op stub. Override at app bootstrap.
+  },
+);
+
+/// Callback to load persisted time blocks for a given date.
+///
+/// Override in app bootstrap.
+final timeBlockLoadCallbackProvider =
+    Provider<Future<List<PersistedTimeBlock>> Function(DateTime date)>(
+  (ref) => (DateTime date) async {
+    // No-op stub. Override at app bootstrap.
+    return const <PersistedTimeBlock>[];
+  },
 );
 
 // ---------------------------------------------------------------------------

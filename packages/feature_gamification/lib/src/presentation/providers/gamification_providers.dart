@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:service_api/service_api.dart';
 
@@ -43,6 +44,12 @@ String _scopeToParam(LeaderboardScope scope) {
   }
 }
 
+/// Returns true if [error] is a network/API error that should be handled
+/// with a graceful fallback rather than propagated.
+bool _isRecoverableError(Object error) {
+  return error is DioException || error is ApiException;
+}
+
 // ---------------------------------------------------------------------------
 // XP & Level
 // ---------------------------------------------------------------------------
@@ -59,8 +66,13 @@ final xpDataProvider = FutureProvider<XpData>((ref) async {
       return XpData.fromJson(response.data!);
     }
     return XpData.empty;
-  } on DioException {
-    return XpData.empty;
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint('[gamification] xpDataProvider: API unavailable ($e), '
+          'using empty fallback');
+      return XpData.empty;
+    }
+    rethrow;
   }
 });
 
@@ -83,8 +95,13 @@ final achievementsProvider = FutureProvider<List<Achievement>>((ref) async {
       return List.unmodifiable(items);
     }
     return List.unmodifiable(<Achievement>[]);
-  } on DioException {
-    return List.unmodifiable(<Achievement>[]);
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint('[gamification] achievementsProvider: API unavailable ($e), '
+          'returning empty list');
+      return List.unmodifiable(<Achievement>[]);
+    }
+    rethrow;
   }
 });
 
@@ -151,8 +168,13 @@ final leaderboardProvider =
       return List.unmodifiable(items);
     }
     return List.unmodifiable(<LeaderboardEntry>[]);
-  } on DioException {
-    return List.unmodifiable(<LeaderboardEntry>[]);
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint('[gamification] leaderboardProvider: API unavailable ($e), '
+          'returning empty list');
+      return List.unmodifiable(<LeaderboardEntry>[]);
+    }
+    rethrow;
   }
 });
 
@@ -175,8 +197,14 @@ final activeChallengesProvider = FutureProvider<List<Challenge>>((ref) async {
       return List.unmodifiable(items);
     }
     return List.unmodifiable(<Challenge>[]);
-  } on DioException {
-    return List.unmodifiable(<Challenge>[]);
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint(
+          '[gamification] activeChallengesProvider: API unavailable ($e), '
+          'returning empty list');
+      return List.unmodifiable(<Challenge>[]);
+    }
+    rethrow;
   }
 });
 
@@ -200,8 +228,13 @@ final partnersProvider =
       return List.unmodifiable(items);
     }
     return List.unmodifiable(<AccountabilityPartner>[]);
-  } on DioException {
-    return List.unmodifiable(<AccountabilityPartner>[]);
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint('[gamification] partnersProvider: API unavailable ($e), '
+          'returning empty list');
+      return List.unmodifiable(<AccountabilityPartner>[]);
+    }
+    rethrow;
   }
 });
 
@@ -220,8 +253,13 @@ final sharedGoalsProvider = FutureProvider<List<SharedGoal>>((ref) async {
       return List.unmodifiable(items);
     }
     return List.unmodifiable(<SharedGoal>[]);
-  } on DioException {
-    return List.unmodifiable(<SharedGoal>[]);
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint('[gamification] sharedGoalsProvider: API unavailable ($e), '
+          'returning empty list');
+      return List.unmodifiable(<SharedGoal>[]);
+    }
+    rethrow;
   }
 });
 
@@ -249,8 +287,14 @@ final completionTrendProvider =
       }
     }
     return const [];
-  } on DioException {
-    return const [];
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint(
+          '[gamification] completionTrendProvider: API unavailable ($e), '
+          'returning empty list');
+      return const [];
+    }
+    rethrow;
   }
 });
 
@@ -274,8 +318,14 @@ final productivityByDayProvider =
       }
     }
     return const [];
-  } on DioException {
-    return const [];
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint(
+          '[gamification] productivityByDayProvider: API unavailable ($e), '
+          'returning empty list');
+      return const [];
+    }
+    rethrow;
   }
 });
 
@@ -300,8 +350,14 @@ final productivityByHourProvider =
       }
     }
     return const [];
-  } on DioException {
-    return const [];
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint(
+          '[gamification] productivityByHourProvider: API unavailable ($e), '
+          'returning empty list');
+      return const [];
+    }
+    rethrow;
   }
 });
 
@@ -325,8 +381,14 @@ final categoryBreakdownProvider =
       }
     }
     return const [];
-  } on DioException {
-    return const [];
+  } catch (e) {
+    if (_isRecoverableError(e)) {
+      debugPrint(
+          '[gamification] categoryBreakdownProvider: API unavailable ($e), '
+          'returning empty list');
+      return const [];
+    }
+    rethrow;
   }
 });
 

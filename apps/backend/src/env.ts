@@ -42,6 +42,11 @@ const envSchema = z.object({
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_WEBHOOK_TOKEN: z.string().optional(),
 
+  // Email (SendGrid)
+  SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_FROM_EMAIL: z.string().email().optional(),
+  SENDGRID_FROM_NAME: z.string().optional(),
+
   // Google Calendar Integration
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

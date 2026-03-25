@@ -9,6 +9,7 @@ import 'package:feature_todos/todo_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:service_api/service_api.dart';
+import 'package:service_auth/service_auth.dart' show forgotPasswordApiProvider;
 import 'package:service_database/service_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unjynx_core/core.dart';
@@ -88,6 +89,11 @@ Future<void> bootstrap() async {
         overrideProjectRepository(getIt<ProjectRepository>()),
         overrideSettingsRepository(getIt<SettingsRepository>()),
         overrideAuthPort(getIt<AuthPort>()),
+        // Wire forgot-password API call to real backend endpoint
+        forgotPasswordApiProvider.overrideWithValue((email) async {
+          final authApi = getIt<AuthApiService>();
+          await authApi.forgotPassword(email);
+        }),
         sharedPreferencesProvider
             .overrideWithValue(getIt<SharedPreferences>()),
         // Wire API config from compile-time env vars
@@ -190,6 +196,9 @@ Future<void> bootstrap() async {
   }());
 
   // Initialize FCM and register token with backend.
+  // Registration is auth-aware: retries with exponential backoff until the
+  // user is authenticated (fixes issue #23 — DioException on unauthenticated
+  // POST to /channels/push/connect).
   unawaited(() async {
     try {
       final fcmToken = await FcmTokenManager.initialize();
@@ -201,7 +210,10 @@ Future<void> bootstrap() async {
         } on Exception {
           // ApiClient not available (e.g. no auth token yet).
         }
-        FcmTokenManager.startTokenSync(channelApi: channelApi);
+        FcmTokenManager.startTokenSync(
+          channelApi: channelApi,
+          authPort: getIt<AuthPort>(),
+        );
         FcmTokenManager.setupForegroundHandler(
           onForegroundMessage: (message) {
             // Display foreground FCM messages via awesome_notifications.

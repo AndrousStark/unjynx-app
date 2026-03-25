@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:service_api/service_api.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../../domain/models/schedule_suggestion.dart';
@@ -59,13 +60,15 @@ class AiSchedulePage extends ConsumerWidget {
         },
         child: scheduleAsync.when(
           loading: () => const _ScheduleLoadingState(),
-          error: (error, _) => _ScheduleErrorState(
-            error: error.toString(),
-            onRetry: () {
-              ref.invalidate(scheduleResultProvider);
-              ref.read(scheduleActionsProvider.notifier).reset();
-            },
-          ),
+          error: (error, _) => error is AiUnavailableException
+              ? const _AiComingSoonState()
+              : _ScheduleErrorState(
+                  error: error.toString(),
+                  onRetry: () {
+                    ref.invalidate(scheduleResultProvider);
+                    ref.read(scheduleActionsProvider.notifier).reset();
+                  },
+                ),
           data: (result) => result.slots.isEmpty
               ? const _ScheduleEmptyState()
               : _ScheduleContent(
@@ -394,6 +397,65 @@ class _ScheduleEmptyState extends StatelessWidget {
         icon: Icons.calendar_today_rounded,
         title: 'No tasks to schedule',
         subtitle: 'Add some tasks first, then let AI schedule your day.',
+      ),
+    );
+  }
+}
+
+/// State shown when the AI service is not yet configured (503).
+class _AiComingSoonState extends StatelessWidget {
+  const _AiComingSoonState();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
+    final unjynx = theme.extension<UnjynxCustomColors>()!;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: isLight
+                    ? unjynx.gold.withValues(alpha: 0.12)
+                    : unjynx.gold.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.schedule_rounded,
+                size: 40,
+                color: unjynx.gold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'AI Scheduling Coming Soon',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'BebasNeue',
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'The AI service is being set up.\n'
+              'Smart scheduling will be available soon!',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isLight
+                    ? UnjynxLightColors.textTertiary
+                    : UnjynxDarkColors.textTertiary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

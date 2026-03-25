@@ -11,6 +11,8 @@ import '../widgets/team_activity_feed.dart';
 ///
 /// Team-enhanced project detail with assignee filtering, comment threads,
 /// @mention support, and activity feed sidebar.
+///
+/// Shows an empty state when no team exists.
 class SharedProjectPage extends ConsumerStatefulWidget {
   const SharedProjectPage({super.key});
 
@@ -34,8 +36,58 @@ class _SharedProjectPageState extends ConsumerState<SharedProjectPage> {
     final textTheme = Theme.of(context).textTheme;
     final ux = context.unjynx;
     final isLight = context.isLightMode;
+    final team = ref.watch(currentTeamValueProvider);
     final members = ref.watch(membersProvider).value ?? [];
     final activities = ref.watch(teamActivityProvider).value ?? [];
+
+    // No team state
+    if (team == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Shared Project')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.primary.withValues(
+                      alpha: isLight ? 0.1 : 0.12,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.folder_shared_outlined,
+                    size: 40,
+                    color: colorScheme.primary.withValues(
+                      alpha: isLight ? 0.6 : 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No team found',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Create a team to share projects and collaborate with your team members.',
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -52,123 +104,130 @@ class _SharedProjectPageState extends ConsumerState<SharedProjectPage> {
           // Main content
           Expanded(
             flex: 3,
-            child: CustomScrollView(
-              slivers: [
-                // Project header
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // View toggle
-                        _ViewToggle(),
-                        const SizedBox(height: 16),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(membersProvider);
+                ref.invalidate(teamActivityProvider);
+              },
+              color: colorScheme.primary,
+              child: CustomScrollView(
+                slivers: [
+                  // Project header
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // View toggle
+                          _ViewToggle(),
+                          const SizedBox(height: 16),
 
-                        // Assignee filter chip
-                        if (_selectedAssignee != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Chip(
-                              label: Text(
-                                'Assigned to: $_selectedAssignee',
-                                style: textTheme.bodySmall?.copyWith(
-                                  fontSize: 13,
-                                  color: colorScheme.onSurface,
+                          // Assignee filter chip
+                          if (_selectedAssignee != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Chip(
+                                label: Text(
+                                  'Assigned to: $_selectedAssignee',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    fontSize: 13,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                deleteIcon: const Icon(Icons.close, size: 16),
+                                onDeleted: () => setState(
+                                  () => _selectedAssignee = null,
+                                ),
+                                backgroundColor: colorScheme.primary.withValues(
+                                  alpha: isLight ? 0.1 : 0.12,
                                 ),
                               ),
-                              deleteIcon: const Icon(Icons.close, size: 16),
-                              onDeleted: () => setState(
-                                () => _selectedAssignee = null,
-                              ),
-                              backgroundColor: colorScheme.primary.withValues(
-                                alpha: isLight ? 0.1 : 0.12,
-                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                // Task list placeholder
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: isLight
-                            ? Border.all(
-                                color: colorScheme.primary
-                                    .withValues(alpha: 0.1),
-                              )
-                            : null,
-                        boxShadow: isLight
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFF1A0533)
-                                      .withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                                BoxShadow(
-                                  color: const Color(0xFF1A0533)
-                                      .withValues(alpha: 0.04),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.task_alt_rounded,
-                              size: 48,
-                              color: colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.3),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Shared tasks will appear here',
-                              style: textTheme.bodyMedium?.copyWith(
-                                fontSize: 15,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Assign tasks to team members for collaboration',
-                              style: textTheme.bodySmall?.copyWith(
+                  // Task list placeholder
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: isLight
+                              ? Border.all(
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.1),
+                                )
+                              : null,
+                          boxShadow: isLight
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF1A0533)
+                                        .withValues(alpha: 0.06),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                  BoxShadow(
+                                    color: const Color(0xFF1A0533)
+                                        .withValues(alpha: 0.04),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.task_alt_rounded,
+                                size: 48,
                                 color: colorScheme.onSurfaceVariant
-                                    .withValues(alpha: isLight ? 0.6 : 0.5),
+                                    .withValues(alpha: 0.3),
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              Text(
+                                'Shared tasks will appear here',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  fontSize: 15,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Assign tasks to team members for collaboration',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: isLight ? 0.6 : 0.5),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                // Comment section
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _CommentSection(
-                      controller: _commentController,
-                      members: members,
+                  // Comment section
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _CommentSection(
+                        controller: _commentController,
+                        members: members,
+                      ),
                     ),
                   ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
-              ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                ],
+              ),
             ),
           ),
 

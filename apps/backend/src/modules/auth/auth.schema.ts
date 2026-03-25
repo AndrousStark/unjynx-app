@@ -12,6 +12,13 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+// ── User Registration ───────────────────────────────────────────────────
+export const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8).max(128),
+  name: z.string().min(1).max(100),
+});
+
 // ── Password Reset Request ──────────────────────────────────────────────
 export const forgotPasswordSchema = z.object({
   email: z.string().email(),
@@ -33,6 +40,7 @@ export const updateProfileSchema = z.object({
 
 // ── Type Exports ────────────────────────────────────────────────────────
 export type CallbackInput = z.infer<typeof callbackSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

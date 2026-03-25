@@ -1,11 +1,14 @@
 import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:feature_home/feature_home.dart';
 import 'package:feature_todos/todo_plugin.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:get_it/get_it.dart';
 import 'package:service_api/service_api.dart';
 import 'package:service_auth/service_auth.dart';
+import 'package:service_database/service_database.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -147,6 +150,10 @@ List<Override> homeApiOverrides() {
     // Evening review callback
     eveningReviewSaveCallbackProvider.overrideWith(_eveningReviewCallback),
 
+    // Pomodoro session save callback
+    pomodoroSessionSaveCallbackProvider
+        .overrideWith(_pomodoroSessionSaveCallback),
+
     // Reschedule task callback
     rescheduleTaskCallbackProvider.overrideWith(_rescheduleTaskCallback),
 
@@ -174,6 +181,11 @@ List<Override> homeApiOverrides() {
     // Disconnect calendar callback
     disconnectCalendarCallbackProvider
         .overrideWith(_disconnectCalendarCallback),
+
+    // Time block persistence callbacks
+    timeBlockSaveCallbackProvider.overrideWith(_timeBlockSaveCallback),
+    timeBlockRemoveCallbackProvider.overrideWith(_timeBlockRemoveCallback),
+    timeBlockLoadCallbackProvider.overrideWith(_timeBlockLoadCallback),
   ];
 }
 
@@ -386,22 +398,34 @@ Future<List<DailyContent>> _recentContentFromApi(Ref ref) async {
   if (api == null) return const <DailyContent>[];
 
   try {
-    final response = await api.getRitualHistory();
-    if (response.success && response.data != null) {
-      final items = (response.data!).cast<Map<String, dynamic>>();
-      final contents = items.map((d) {
-        return DailyContent(
+    // Fetch one content item per selected category to populate the
+    // "Recent" section. Each call returns a random active quote from
+    // that category, giving a varied feed.
+    final selectedCategories = ref.read(selectedCategoriesProvider);
+    if (selectedCategories.isEmpty) return const <DailyContent>[];
+
+    // Limit to 7 categories max so we don't flood the backend.
+    final categories = selectedCategories.take(7).toList();
+    final futures = categories.map(
+      (cat) => api.getTodayContent(category: cat),
+    );
+    final responses = await Future.wait(futures);
+
+    final contents = <DailyContent>[];
+    for (final response in responses) {
+      if (response.success && response.data != null) {
+        final d = response.data!;
+        contents.add(DailyContent(
           id: (d['id'] as String?) ?? '',
           category: (d['category'] as String?) ?? '',
           content: (d['content'] as String?) ?? '',
           author: (d['author'] as String?) ?? '',
           source: d['source'] as String?,
           isSaved: (d['isSaved'] as bool?) ?? false,
-        );
-      }).toList();
-      return List.unmodifiable(contents);
+        ));
+      }
     }
-    return const <DailyContent>[];
+    return List.unmodifiable(contents);
   } on DioException {
     return const <DailyContent>[];
   }
@@ -419,8 +443,11 @@ Future<void> Function(String, {required bool saved}) _contentSaveCallback(
     if (api == null) return;
 
     try {
-      // The API uses a single save endpoint; the backend toggles state.
-      await api.saveContent(contentId);
+      if (saved) {
+        await api.saveContent(contentId);
+      } else {
+        await api.unsaveContent(contentId);
+      }
     } on DioException {
       // Swallow — UI can show optimistic state.
     }
@@ -458,6 +485,46 @@ Future<void> Function({String? reflection}) _eveningReviewCallback(Ref ref) {
       });
     } on DioException {
       // Swallow — user sees local state.
+    }
+  };
+}
+
+Future<void> Function({
+  required int sessionsCompleted,
+  required int totalFocusSeconds,
+  String? taskName,
+}) _pomodoroSessionSaveCallback(Ref ref) {
+  return ({
+    required int sessionsCompleted,
+    required int totalFocusSeconds,
+    String? taskName,
+  }) async {
+    final now = DateTime.now();
+    final sessionId = 'pomo-${now.millisecondsSinceEpoch}';
+
+    // 1. Persist to local Drift database.
+    try {
+      final db = GetIt.instance<AppDatabase>();
+      await db.into(db.localPomodoroSessions).insert(
+        LocalPomodoroSessionsCompanion.insert(
+          id: sessionId,
+          durationSeconds: totalFocusSeconds,
+          startedAt: now.subtract(Duration(seconds: totalFocusSeconds)),
+          completedAt: Value(now),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[PomodoroSave] local save failed: $e');
+    }
+
+    // 2. Push to backend API (progress snapshot includes pomodoro data).
+    final api = _tryReadSync(ref, progressApiProvider);
+    if (api == null) return;
+
+    try {
+      await api.saveSnapshot();
+    } on DioException {
+      // Swallow — sync engine will reconcile later.
     }
   };
 }
@@ -808,6 +875,83 @@ Future<void> Function() _disconnectCalendarCallback(Ref ref) {
       ref.invalidate(calendarConnectedProvider);
     } on DioException catch (e) {
       debugPrint('Calendar disconnect failed: $e');
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Time block persistence — local Drift DB (LocalTimeBlocks)
+// ---------------------------------------------------------------------------
+
+Future<void> Function({
+  required String id,
+  required String taskId,
+  required DateTime blockDate,
+  required int startHour,
+  required int startMinute,
+  required int durationMinutes,
+}) _timeBlockSaveCallback(Ref ref) {
+  return ({
+    required String id,
+    required String taskId,
+    required DateTime blockDate,
+    required int startHour,
+    required int startMinute,
+    required int durationMinutes,
+  }) async {
+    try {
+      final db = GetIt.instance<AppDatabase>();
+      await db.into(db.localTimeBlocks).insertOnConflictUpdate(
+        LocalTimeBlocksCompanion.insert(
+          id: id,
+          taskId: taskId,
+          blockDate: blockDate,
+          startHour: startHour,
+          startMinute: startMinute,
+          durationMinutes: durationMinutes,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[TimeBlockSave] local save failed: $e');
+    }
+  };
+}
+
+Future<void> Function(String) _timeBlockRemoveCallback(Ref ref) {
+  return (String blockId) async {
+    try {
+      final db = GetIt.instance<AppDatabase>();
+      await (db.delete(db.localTimeBlocks)
+            ..where((t) => t.id.equals(blockId)))
+          .go();
+    } catch (e) {
+      debugPrint('[TimeBlockRemove] local delete failed: $e');
+    }
+  };
+}
+
+Future<List<PersistedTimeBlock>> Function(DateTime) _timeBlockLoadCallback(
+  Ref ref,
+) {
+  return (DateTime date) async {
+    try {
+      final db = GetIt.instance<AppDatabase>();
+      final rows = await (db.select(db.localTimeBlocks)
+            ..where((t) => t.blockDate.equals(date))
+            ..orderBy([(t) => OrderingTerm.asc(t.startHour)]))
+          .get();
+      return rows
+          .map((r) => PersistedTimeBlock(
+                id: r.id,
+                taskId: r.taskId,
+                startHour: r.startHour,
+                startMinute: r.startMinute,
+                durationMinutes: r.durationMinutes,
+              ))
+          .toList();
+    } catch (e) {
+      debugPrint('[TimeBlockLoad] local load failed: $e');
+      return const <PersistedTimeBlock>[];
     }
   };
 }
