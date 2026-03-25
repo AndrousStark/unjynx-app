@@ -286,6 +286,23 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
     final updateTodo = ref.read(updateTodoProvider);
     await updateTodo(todo.copyWith(dueDate: result));
 
+    // Reschedule notification for new due date
+    final notificationPort = ref.read(notificationPortProvider);
+    await notificationPort.cancel(todo.id);
+    if (result.isAfter(DateTime.now())) {
+      final reminderTime = result.subtract(const Duration(minutes: 15));
+      final scheduleAt = reminderTime.isAfter(DateTime.now())
+          ? reminderTime
+          : result;
+      await notificationPort.schedule(
+        id: todo.id,
+        title: 'Task reminder',
+        body: todo.title,
+        scheduledAt: scheduleAt,
+        payload: {'todo_id': todo.id},
+      );
+    }
+
     _logActivity(
       todoId: todo.id,
       type: ActivityType.dueDateChanged,

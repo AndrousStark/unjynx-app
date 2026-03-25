@@ -117,7 +117,7 @@ final currentTeamProvider =
 ///
 /// Returns null while loading or on error.
 final currentTeamValueProvider = Provider<Team?>((ref) {
-  return ref.watch(currentTeamProvider).valueOrNull;
+  return ref.watch(currentTeamProvider).value;
 });
 
 /// Whether the user has an active team subscription.

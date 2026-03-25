@@ -132,8 +132,8 @@ class _TaskGroups extends StatelessWidget {
       } else if (task.dueDate!.isBefore(tomorrowStart)) {
         today.add(task);
       } else {
-        // Future tasks shouldn't appear here but handle gracefully.
-        today.add(task);
+        // Future tasks — skip, they belong in the upcoming section.
+        continue;
       }
     }
 

@@ -12,6 +12,7 @@ import 'package:feature_widgets/feature_widgets.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:unjynx_mobile/config/app_config.dart';
 import 'package:service_auth/service_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unjynx_core/core.dart';
@@ -205,43 +206,48 @@ GoRouter createAppRouter(
       builder: (context, state) => const PlanComparisonPage(),
     ),
 
-    // Team screens (N1-N5)
-    GoRoute(
-      path: '/team',
-      builder: (context, state) => const TeamDashboardPage(),
-    ),
-    GoRoute(
-      path: '/team/members',
-      builder: (context, state) => const TeamMembersPage(),
-    ),
-    GoRoute(
-      path: '/team/shared-project',
-      builder: (context, state) => const SharedProjectPage(),
-    ),
-    GoRoute(
-      path: '/team/reports',
-      builder: (context, state) => const TeamReportsPage(),
-    ),
-    GoRoute(
-      path: '/team/standup',
-      builder: (context, state) => const AsyncStandupPage(),
-    ),
+    // Team screens (N1-N5) — only when feature flag is enabled
+    if (AppConfig.featureTeam) ...[
+      GoRoute(
+        path: '/team',
+        builder: (context, state) => const TeamDashboardPage(),
+      ),
+      GoRoute(
+        path: '/team/members',
+        builder: (context, state) => const TeamMembersPage(),
+      ),
+      GoRoute(
+        path: '/team/shared-project',
+        builder: (context, state) => const SharedProjectPage(),
+      ),
+      GoRoute(
+        path: '/team/reports',
+        builder: (context, state) => const TeamReportsPage(),
+      ),
+      GoRoute(
+        path: '/team/standup',
+        builder: (context, state) => const AsyncStandupPage(),
+      ),
+    ],
 
-    // Import/Export screens
-    GoRoute(
-      path: '/import',
-      builder: (context, state) => const ImportPage(),
-    ),
-    GoRoute(
-      path: '/export',
-      builder: (context, state) => const ExportPage(),
-    ),
+    // Import/Export screens — only when feature flag is enabled
+    if (AppConfig.featureImportExport) ...[
+      GoRoute(
+        path: '/import',
+        builder: (context, state) => const ImportPage(),
+      ),
+      GoRoute(
+        path: '/export',
+        builder: (context, state) => const ExportPage(),
+      ),
+    ],
 
-    // Widget configuration
-    GoRoute(
-      path: '/widgets',
-      builder: (context, state) => const WidgetConfigPage(),
-    ),
+    // Widget configuration — only when feature flag is enabled
+    if (AppConfig.featureWidgets)
+      GoRoute(
+        path: '/widgets',
+        builder: (context, state) => const WidgetConfigPage(),
+      ),
 
     // Industry Mode selector
     GoRoute(
