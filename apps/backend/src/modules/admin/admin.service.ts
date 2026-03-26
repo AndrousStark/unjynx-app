@@ -25,13 +25,17 @@ import type {
   UpdateCouponInput,
   UserActivityQuery,
 } from "./admin.schema.js";
+import { eq, and, ne, sql } from "drizzle-orm";
 import * as adminRepo from "./admin.repository.js";
 import * as broadcastRepo from "./broadcast.repository.js";
 import * as logtoManagement from "./logto-management.service.js";
+import * as siemWebhook from "./siem-webhook.service.js";
 import { clearAdminCache } from "../../middleware/admin-guard.js";
 import { dispatchJob } from "../scheduler/notification-dispatcher.js";
 import { logger } from "../../middleware/logger.js";
 import type { NotificationJobData } from "../../queue/types.js";
+import { db } from "../../db/index.js";
+import { profiles, featureFlags, userSessions } from "../../db/schema/index.js";
 
 const log = logger.child({ module: "admin-broadcast" });
 
@@ -405,7 +409,7 @@ export async function logAuditEvent(
   details?: Record<string, unknown>,
   ipAddress?: string,
 ): Promise<AuditLogEntry> {
-  return adminRepo.insertAuditEntry({
+  const entry = await adminRepo.insertAuditEntry({
     userId,
     action,
     entityType: resourceType,
@@ -413,6 +417,19 @@ export async function logAuditEvent(
     metadata: details ? JSON.stringify(details) : undefined,
     ipAddress,
   });
+
+  // Forward to SIEM (non-blocking, fire-and-forget)
+  siemWebhook.forwardToSiem({
+    timestamp: entry.createdAt.toISOString(),
+    actor: userId,
+    action,
+    target: resourceType,
+    targetId: resourceId,
+    metadata: details,
+    ipAddress,
+  });
+
+  return entry;
 }
 
 // ── Analytics ─────────────────────────────────────────────────────────
@@ -646,4 +663,251 @@ export async function getUserActivity(
 
 export async function getComplianceSummary(): Promise<adminRepo.ComplianceSummary> {
   return adminRepo.getComplianceSummary();
+}
+
+// ── Content Detail ──────────────────────────────────────────────────
+
+export async function getContentDetail(
+  contentId: string,
+): Promise<adminRepo.ContentDetail | null> {
+  return adminRepo.findContentById(contentId);
+}
+
+// ── Coupon Detail ───────────────────────────────────────────────────
+
+export async function getCouponDetail(
+  couponId: string,
+): Promise<adminRepo.CouponDetail | null> {
+  return adminRepo.findCouponDetailById(couponId);
+}
+
+export async function getCouponRedemptions(
+  couponId: string,
+  page: number,
+  limit: number,
+): Promise<{ items: adminRepo.CouponRedemptionWithUser[]; total: number }> {
+  const offset = (page - 1) * limit;
+  return adminRepo.findCouponRedemptions(couponId, limit, offset);
+}
+
+// ── Subscription Detail ─────────────────────────────────────────────
+
+export async function getSubscriptionDetail(
+  subscriptionId: string,
+): Promise<adminRepo.SubscriptionDetail | null> {
+  return adminRepo.findSubscriptionById(subscriptionId);
+}
+
+// ── SIEM Config ─────────────────────────────────────────────────────
+
+export async function getSiemConfig(): Promise<siemWebhook.SiemConfig> {
+  return siemWebhook.getSiemConfig();
+}
+
+export async function updateSiemConfig(
+  webhookUrl: string | undefined,
+  webhookSecret: string | undefined,
+  enabled: boolean | undefined,
+): Promise<siemWebhook.SiemConfig> {
+  return siemWebhook.updateSiemConfig(webhookUrl, webhookSecret, enabled);
+}
+
+export async function testSiemWebhook(): Promise<{
+  readonly success: boolean;
+  readonly message: string;
+}> {
+  return siemWebhook.sendTestEvent();
+}
+
+// ── Panic Mode ──────────────────────────────────────────────────────
+
+export interface PanicModeStatus {
+  readonly active: boolean;
+  readonly activatedAt: string | null;
+  readonly activatedBy: string | null;
+  readonly reason: string | null;
+}
+
+/**
+ * Activate panic mode:
+ * 1. Set global flag (feature_flags: key="panic_mode", status="enabled")
+ * 2. Suspend ALL users except the activator (owner)
+ * 3. Revoke all active sessions except the activator's
+ * 4. Audit log with timestamp and reason
+ */
+export async function activatePanicMode(
+  activatedBy: string,
+  reason: string,
+): Promise<PanicModeStatus> {
+  const now = new Date();
+
+  // Step 1: Upsert the panic_mode feature flag
+  const existingFlags = await db
+    .select()
+    .from(featureFlags)
+    .where(eq(featureFlags.key, "panic_mode"))
+    .limit(1);
+
+  const metadata = JSON.stringify({
+    reason,
+    activatedBy,
+    activatedAt: now.toISOString(),
+  });
+
+  if (existingFlags.length > 0) {
+    await db
+      .update(featureFlags)
+      .set({
+        status: "enabled",
+        description: metadata,
+        updatedAt: now,
+      })
+      .where(eq(featureFlags.key, "panic_mode"));
+  } else {
+    await db
+      .insert(featureFlags)
+      .values({
+        key: "panic_mode",
+        name: "Panic Mode",
+        status: "enabled",
+        description: metadata,
+      });
+  }
+
+  // Step 2: Suspend all non-owner users (set accountStatus to "suspended")
+  await db
+    .update(profiles)
+    .set({
+      accountStatus: "suspended",
+      suspendedReason: `Panic mode: ${reason}`,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        ne(profiles.id, activatedBy),
+        ne(profiles.accountStatus, "suspended"),
+      ),
+    );
+
+  // Step 3: Revoke all active sessions except the activator's
+  await db
+    .update(userSessions)
+    .set({ isRevoked: true })
+    .where(
+      and(
+        ne(userSessions.userId, activatedBy),
+        eq(userSessions.isRevoked, false),
+      ),
+    );
+
+  // Step 4: Audit log
+  await logAuditEvent(
+    activatedBy,
+    "panic_mode.activate",
+    "system",
+    undefined,
+    { reason, activatedAt: now.toISOString() },
+  );
+
+  log.warn(
+    { activatedBy, reason },
+    "PANIC MODE ACTIVATED: All users suspended, sessions revoked",
+  );
+
+  return {
+    active: true,
+    activatedAt: now.toISOString(),
+    activatedBy,
+    reason,
+  };
+}
+
+/**
+ * Deactivate panic mode:
+ * 1. Disable the panic_mode flag
+ * 2. Reactivate all previously-panic-suspended users
+ * 3. Audit log
+ */
+export async function deactivatePanicMode(
+  deactivatedBy: string,
+): Promise<PanicModeStatus> {
+  const now = new Date();
+
+  // Step 1: Disable the panic_mode feature flag
+  await db
+    .update(featureFlags)
+    .set({
+      status: "disabled",
+      updatedAt: now,
+    })
+    .where(eq(featureFlags.key, "panic_mode"));
+
+  // Step 2: Reactivate all panic-suspended users
+  // Match users whose suspendedReason starts with "Panic mode:"
+  await db.execute(
+    sql`UPDATE profiles SET account_status = 'active', suspended_reason = NULL, updated_at = ${now} WHERE account_status = 'suspended' AND suspended_reason LIKE 'Panic mode:%'`,
+  );
+
+  // Step 3: Audit log
+  await logAuditEvent(
+    deactivatedBy,
+    "panic_mode.deactivate",
+    "system",
+    undefined,
+    { deactivatedAt: now.toISOString() },
+  );
+
+  log.info(
+    { deactivatedBy },
+    "PANIC MODE DEACTIVATED: Suspended users reactivated",
+  );
+
+  return {
+    active: false,
+    activatedAt: null,
+    activatedBy: null,
+    reason: null,
+  };
+}
+
+/**
+ * Get current panic mode status from the feature_flags table.
+ */
+export async function getPanicModeStatus(): Promise<PanicModeStatus> {
+  const [flag] = await db
+    .select()
+    .from(featureFlags)
+    .where(eq(featureFlags.key, "panic_mode"))
+    .limit(1);
+
+  if (!flag || flag.status !== "enabled") {
+    return {
+      active: false,
+      activatedAt: null,
+      activatedBy: null,
+      reason: null,
+    };
+  }
+
+  // Parse the stored metadata from description
+  try {
+    const meta = JSON.parse(flag.description ?? "{}") as {
+      reason?: string;
+      activatedBy?: string;
+      activatedAt?: string;
+    };
+    return {
+      active: true,
+      activatedAt: meta.activatedAt ?? flag.updatedAt.toISOString(),
+      activatedBy: meta.activatedBy ?? null,
+      reason: meta.reason ?? null,
+    };
+  } catch {
+    return {
+      active: true,
+      activatedAt: flag.updatedAt.toISOString(),
+      activatedBy: null,
+      reason: null,
+    };
+  }
 }

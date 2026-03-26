@@ -29,8 +29,13 @@ import {
   updateCouponSchema,
   userActivityQuerySchema,
   loginEventsQuerySchema,
+  impersonateSchema,
+  panicModeActivateSchema,
+  couponRedemptionsQuerySchema,
+  updateSiemConfigSchema,
 } from "./admin.schema.js";
 import * as adminService from "./admin.service.js";
+import * as impersonationService from "./impersonation.service.js";
 import * as loginAuditService from "../auth/login-audit.service.js";
 import * as accountLifecycle from "../auth/account-lifecycle.service.js";
 import * as suspiciousLoginService from "../auth/suspicious-login.service.js";
@@ -889,5 +894,259 @@ adminRoutes.get(
       dateTo: query.dateTo,
     });
     return c.json(paginated(items, total, query.page, query.limit));
+  },
+);
+
+// ── Impersonation (owner only) ──────────────────────────────────────
+
+// POST /admin/impersonate - Generate impersonation token
+adminRoutes.post(
+  "/impersonate",
+  adminGuard("owner"),
+  zValidator("json", impersonateSchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const { targetUserId, reason } = c.req.valid("json");
+
+    try {
+      const result = await impersonationService.generateImpersonationToken(
+        auth.profileId,
+        targetUserId,
+        reason,
+      );
+
+      await adminService.logAuditEvent(
+        auth.profileId,
+        "impersonation.create",
+        "impersonation_session",
+        result.sessionId,
+        { targetUserId, reason },
+        c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+      );
+
+      return c.json(
+        ok({
+          impersonationToken: result.token,
+          sessionId: result.sessionId,
+          expiresAt: result.expiresAt.toISOString(),
+        }),
+        201,
+      );
+    } catch (error) {
+      const message = (error as Error).message;
+      if (message === "Target user not found") {
+        return c.json(err(message), 404);
+      }
+      return c.json(err(message), 400);
+    }
+  },
+);
+
+// DELETE /admin/impersonate/:sessionId - Revoke impersonation session
+adminRoutes.delete(
+  "/impersonate/:sessionId",
+  adminGuard("owner"),
+  async (c) => {
+    const auth = c.get("auth");
+    const sessionId = c.req.param("sessionId");
+
+    const revoked = await impersonationService.revokeImpersonation(
+      auth.profileId,
+      sessionId,
+    );
+
+    if (!revoked) {
+      return c.json(err("Impersonation session not found"), 404);
+    }
+
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "impersonation.revoke",
+      "impersonation_session",
+      sessionId,
+      undefined,
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
+    return c.json(ok({ revoked: true }));
+  },
+);
+
+// GET /admin/impersonations - List active impersonation sessions
+adminRoutes.get(
+  "/impersonations",
+  adminGuard("owner"),
+  async (c) => {
+    const sessions = await impersonationService.listActiveImpersonations();
+    return c.json(ok(sessions));
+  },
+);
+
+// ── Panic Mode (owner only) ─────────────────────────────────────────
+
+// POST /admin/panic-mode/activate - Activate panic mode
+adminRoutes.post(
+  "/panic-mode/activate",
+  adminGuard("owner"),
+  zValidator("json", panicModeActivateSchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const { reason } = c.req.valid("json");
+
+    try {
+      const status = await adminService.activatePanicMode(
+        auth.profileId,
+        reason,
+      );
+
+      return c.json(ok(status));
+    } catch (error) {
+      return c.json(err((error as Error).message), 500);
+    }
+  },
+);
+
+// POST /admin/panic-mode/deactivate - Deactivate panic mode
+adminRoutes.post(
+  "/panic-mode/deactivate",
+  adminGuard("owner"),
+  async (c) => {
+    const auth = c.get("auth");
+
+    try {
+      const status = await adminService.deactivatePanicMode(auth.profileId);
+
+      return c.json(ok(status));
+    } catch (error) {
+      return c.json(err((error as Error).message), 500);
+    }
+  },
+);
+
+// GET /admin/panic-mode/status - Get panic mode status
+adminRoutes.get("/panic-mode/status", async (c) => {
+  const status = await adminService.getPanicModeStatus();
+  return c.json(ok(status));
+});
+
+// ── Content Detail ──────────────────────────────────────────────────
+
+// GET /admin/content/:id - Single content item with delivery stats
+adminRoutes.get("/content/:id", async (c) => {
+  const contentId = c.req.param("id");
+  const content = await adminService.getContentDetail(contentId);
+
+  if (!content) {
+    return c.json(err("Content not found"), 404);
+  }
+
+  return c.json(ok(content));
+});
+
+// ── Coupon Detail ───────────────────────────────────────────────────
+
+// GET /admin/coupons/:id - Single coupon with redemption count
+adminRoutes.get("/coupons/:id", async (c) => {
+  const couponId = c.req.param("id");
+  const coupon = await adminService.getCouponDetail(couponId);
+
+  if (!coupon) {
+    return c.json(err("Coupon not found"), 404);
+  }
+
+  return c.json(ok(coupon));
+});
+
+// GET /admin/coupons/:id/redemptions - Paginated list of redemptions
+adminRoutes.get(
+  "/coupons/:id/redemptions",
+  zValidator("query", couponRedemptionsQuerySchema),
+  async (c) => {
+    const couponId = c.req.param("id");
+    const query = c.req.valid("query");
+    const { items, total } = await adminService.getCouponRedemptions(
+      couponId,
+      query.page,
+      query.limit,
+    );
+    return c.json(paginated(items, total, query.page, query.limit));
+  },
+);
+
+// ── Subscription Detail ─────────────────────────────────────────────
+
+// GET /admin/subscriptions/:id - Full subscription with user, invoices, plan changes
+adminRoutes.get("/subscriptions/:id", async (c) => {
+  const subscriptionId = c.req.param("id");
+  const subscription = await adminService.getSubscriptionDetail(subscriptionId);
+
+  if (!subscription) {
+    return c.json(err("Subscription not found"), 404);
+  }
+
+  return c.json(ok(subscription));
+});
+
+// ── SIEM Webhook Config (owner only) ────────────────────────────────
+
+// GET /admin/siem/config - Read current SIEM config
+adminRoutes.get(
+  "/siem/config",
+  adminGuard("owner"),
+  async (c) => {
+    const config = await adminService.getSiemConfig();
+    return c.json(ok(config));
+  },
+);
+
+// PATCH /admin/siem/config - Update SIEM config
+adminRoutes.patch(
+  "/siem/config",
+  adminGuard("owner"),
+  zValidator("json", updateSiemConfigSchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const input = c.req.valid("json");
+    const config = await adminService.updateSiemConfig(
+      input.webhookUrl,
+      input.webhookSecret,
+      input.enabled,
+    );
+
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "siem.config_update",
+      "siem_config",
+      undefined,
+      { enabled: input.enabled, urlChanged: input.webhookUrl !== undefined },
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
+    return c.json(ok(config));
+  },
+);
+
+// POST /admin/siem/test - Send a test event to verify connectivity
+adminRoutes.post(
+  "/siem/test",
+  adminGuard("owner"),
+  async (c) => {
+    const auth = c.get("auth");
+    const result = await adminService.testSiemWebhook();
+
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "siem.test",
+      "siem_config",
+      undefined,
+      { success: result.success, message: result.message },
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
+    if (!result.success) {
+      return c.json(err(result.message), 502);
+    }
+
+    return c.json(ok(result));
   },
 );

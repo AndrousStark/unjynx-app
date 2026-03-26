@@ -1,8 +1,11 @@
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
+import { eq } from "drizzle-orm";
 import * as jose from "jose";
 import { env } from "../env.js";
 import { upsertProfile } from "../modules/auth/auth.repository.js";
+import { db } from "../db/index.js";
+import { featureFlags, profiles } from "../db/schema/index.js";
 
 interface AuthPayload {
   readonly sub: string;
@@ -10,6 +13,8 @@ interface AuthPayload {
   readonly email?: string;
   readonly name?: string;
   readonly emailVerified: boolean;
+  /** Set when an admin is impersonating this user. Contains the admin's profile ID. */
+  readonly impersonatedBy?: string;
 }
 
 declare module "hono" {
@@ -63,6 +68,79 @@ export function clearProfileCache(): void {
   profileCache.clear();
 }
 
+// ── Panic Mode Cache ────────────────────────────────────────────────
+
+let panicModeCache: { active: boolean; expiresAt: number } | null = null;
+const PANIC_CACHE_TTL_MS = 10_000; // 10 seconds — short TTL for security
+
+async function isPanicModeActive(): Promise<boolean> {
+  if (panicModeCache && Date.now() < panicModeCache.expiresAt) {
+    return panicModeCache.active;
+  }
+
+  const [flag] = await db
+    .select({ status: featureFlags.status })
+    .from(featureFlags)
+    .where(eq(featureFlags.key, "panic_mode"))
+    .limit(1);
+
+  const active = flag?.status === "enabled";
+  panicModeCache = { active, expiresAt: Date.now() + PANIC_CACHE_TTL_MS };
+  return active;
+}
+
+/** Check if a profile ID belongs to an owner. */
+async function isOwnerProfile(profileId: string): Promise<boolean> {
+  const [profile] = await db
+    .select({ adminRole: profiles.adminRole })
+    .from(profiles)
+    .where(eq(profiles.id, profileId))
+    .limit(1);
+
+  return profile?.adminRole === "owner";
+}
+
+// ── Impersonation Token Helper ──────────────────────────────────────
+
+function getImpersonationSecretKey(): Uint8Array {
+  return new TextEncoder().encode(env.JWT_SECRET);
+}
+
+interface ImpersonationPayload {
+  readonly targetUserId: string;
+  readonly adminId: string;
+}
+
+/**
+ * Try to decode a token as an impersonation JWT (HS256, signed with JWT_SECRET).
+ * Returns null if the token is not an impersonation token.
+ */
+async function tryDecodeImpersonationToken(
+  token: string,
+): Promise<ImpersonationPayload | null> {
+  try {
+    const { payload } = await jose.jwtVerify(token, getImpersonationSecretKey());
+
+    if (payload.type !== "impersonation") {
+      return null;
+    }
+
+    const targetUserId = payload.sub as string | undefined;
+    const adminId = payload.actor as string | undefined;
+
+    if (!targetUserId || !adminId) {
+      return null;
+    }
+
+    return { targetUserId, adminId };
+  } catch {
+    // Not an impersonation token or invalid — return null
+    return null;
+  }
+}
+
+// ── Main Auth Middleware ─────────────────────────────────────────────
+
 export const authMiddleware = createMiddleware(async (c, next) => {
   const authHeader = c.req.header("Authorization");
 
@@ -71,6 +149,48 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   }
 
   const token = authHeader.slice(7);
+
+  // ── Attempt 1: Check if this is an impersonation token (HS256) ────
+  const impersonation = await tryDecodeImpersonationToken(token);
+  if (impersonation) {
+    // Validate the session is still active via the impersonation service
+    // (lazy import to avoid circular dependencies)
+    const { validateImpersonationToken } = await import(
+      "../modules/admin/impersonation.service.js"
+    );
+
+    try {
+      const validated = await validateImpersonationToken(token);
+
+      // Resolve the TARGET user's profile
+      const [targetProfile] = await db
+        .select()
+        .from(profiles)
+        .where(eq(profiles.id, validated.targetUserId))
+        .limit(1);
+
+      if (!targetProfile) {
+        throw new HTTPException(401, { message: "Impersonated user not found" });
+      }
+
+      // Set auth context with target user's identity + actor (admin) annotation
+      c.set("auth", {
+        sub: targetProfile.logtoId,
+        profileId: targetProfile.id,
+        email: targetProfile.email ?? undefined,
+        name: targetProfile.name ?? undefined,
+        emailVerified: targetProfile.emailVerified,
+        impersonatedBy: validated.adminId,
+      });
+
+      await next();
+      return;
+    } catch {
+      throw new HTTPException(401, { message: "Invalid or expired impersonation token" });
+    }
+  }
+
+  // ── Attempt 2: Standard Logto OIDC token (RS256 via JWKS) ────────
 
   let sub: string;
   let email: string | undefined;
@@ -99,6 +219,20 @@ export const authMiddleware = createMiddleware(async (c, next) => {
 
   // Resolve logtoId -> profileId + emailVerified (cached, upserts on first encounter)
   const { profileId, emailVerified } = await resolveProfile(sub, email, name, picture);
+
+  // ── Panic Mode Check ──────────────────────────────────────────────
+  // During panic mode, only owner accounts can access the system.
+  // Non-owner users receive 503 Service Unavailable.
+  const panicActive = await isPanicModeActive();
+  if (panicActive) {
+    const isOwner = await isOwnerProfile(profileId);
+    if (!isOwner) {
+      throw new HTTPException(503, {
+        message:
+          "UNJYNX is temporarily locked for security. Please contact support.",
+      });
+    }
+  }
 
   c.set("auth", { sub, profileId, email, name, emailVerified });
 

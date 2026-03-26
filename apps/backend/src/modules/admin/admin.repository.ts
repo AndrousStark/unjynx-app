@@ -3,6 +3,7 @@ import { db, contentDb } from "../../db/index.js";
 import {
   profiles,
   dailyContent,
+  contentDeliveryLog,
   featureFlags,
   auditLog,
   subscriptions,
@@ -24,7 +25,9 @@ import {
   type NewTask,
   type Coupon,
   type NewCoupon,
+  type CouponRedemption,
   type Subscription,
+  type Invoice,
   type DeliveryAttempt,
 } from "../../db/schema/index.js";
 
@@ -999,4 +1002,217 @@ export async function getComplianceSummary(): Promise<ComplianceSummary> {
     auditLogEntries: auditCount,
     oldestAuditEntry: oldestEntry[0]?.createdAt?.toISOString() ?? null,
   };
+}
+
+// ── Content Detail ──────────────────────────────────────────────────
+
+export interface ContentDetail extends DailyContentItem {
+  readonly deliveryCount: number;
+  readonly uniqueUsers: number;
+}
+
+export async function findContentById(
+  contentId: string,
+): Promise<ContentDetail | null> {
+  const [content] = await contentDb
+    .select()
+    .from(dailyContent)
+    .where(eq(dailyContent.id, contentId))
+    .limit(1);
+
+  if (!content) return null;
+
+  const [[{ deliveryCount }], [{ uniqueUsers }]] = await Promise.all([
+    contentDb
+      .select({ deliveryCount: count() })
+      .from(contentDeliveryLog)
+      .where(eq(contentDeliveryLog.contentId, contentId)),
+    contentDb
+      .select({ uniqueUsers: sql<number>`count(distinct ${contentDeliveryLog.userId})` })
+      .from(contentDeliveryLog)
+      .where(eq(contentDeliveryLog.contentId, contentId)),
+  ]);
+
+  return {
+    ...content,
+    deliveryCount,
+    uniqueUsers: Number(uniqueUsers),
+  };
+}
+
+// ── Coupon Detail ───────────────────────────────────────────────────
+
+export interface CouponDetail extends Coupon {
+  readonly redemptions: number;
+}
+
+export async function findCouponDetailById(
+  couponId: string,
+): Promise<CouponDetail | null> {
+  const [coupon] = await db
+    .select()
+    .from(coupons)
+    .where(eq(coupons.id, couponId))
+    .limit(1);
+
+  if (!coupon) return null;
+
+  const [{ redemptions }] = await db
+    .select({ redemptions: count() })
+    .from(couponRedemptions)
+    .where(eq(couponRedemptions.couponId, couponId));
+
+  return { ...coupon, redemptions };
+}
+
+export interface CouponRedemptionWithUser {
+  readonly id: string;
+  readonly couponId: string;
+  readonly userId: string;
+  readonly redeemedAt: Date;
+  readonly userName: string | null;
+  readonly userEmail: string | null;
+}
+
+export async function findCouponRedemptions(
+  couponId: string,
+  limit: number,
+  offset: number,
+): Promise<{ items: CouponRedemptionWithUser[]; total: number }> {
+  const condition = eq(couponRedemptions.couponId, couponId);
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: couponRedemptions.id,
+        couponId: couponRedemptions.couponId,
+        userId: couponRedemptions.userId,
+        redeemedAt: couponRedemptions.redeemedAt,
+        userName: profiles.name,
+        userEmail: profiles.email,
+      })
+      .from(couponRedemptions)
+      .leftJoin(profiles, eq(couponRedemptions.userId, profiles.id))
+      .where(condition)
+      .orderBy(desc(couponRedemptions.redeemedAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ total: count() }).from(couponRedemptions).where(condition),
+  ]);
+
+  return { items: rows, total };
+}
+
+// ── Subscription Detail ─────────────────────────────────────────────
+
+export interface SubscriptionDetail extends Subscription {
+  readonly userProfile: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly email: string | null;
+    readonly avatarUrl: string | null;
+    readonly createdAt: Date;
+  } | null;
+  readonly invoiceHistory: Invoice[];
+  readonly planChanges: AuditLogEntry[];
+}
+
+export async function findSubscriptionById(
+  subscriptionId: string,
+): Promise<SubscriptionDetail | null> {
+  const [subscription] = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.id, subscriptionId))
+    .limit(1);
+
+  if (!subscription) return null;
+
+  const [userRows, invoiceRows, planChangeRows] = await Promise.all([
+    db
+      .select({
+        id: profiles.id,
+        name: profiles.name,
+        email: profiles.email,
+        avatarUrl: profiles.avatarUrl,
+        createdAt: profiles.createdAt,
+      })
+      .from(profiles)
+      .where(eq(profiles.id, subscription.userId))
+      .limit(1),
+    db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.subscriptionId, subscriptionId))
+      .orderBy(desc(invoices.createdAt)),
+    db
+      .select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.entityType, "subscription"),
+          eq(auditLog.entityId, subscriptionId),
+        ),
+      )
+      .orderBy(desc(auditLog.createdAt))
+      .limit(50),
+  ]);
+
+  return {
+    ...subscription,
+    userProfile: userRows[0] ?? null,
+    invoiceHistory: invoiceRows,
+    planChanges: planChangeRows,
+  };
+}
+
+// ── Feature Flag Helpers (SIEM Config) ──────────────────────────────
+
+export async function findFeatureFlagByKey(
+  key: string,
+): Promise<FeatureFlag | undefined> {
+  const [flag] = await db
+    .select()
+    .from(featureFlags)
+    .where(eq(featureFlags.key, key))
+    .limit(1);
+
+  return flag;
+}
+
+export async function upsertFeatureFlagByKey(
+  key: string,
+  name: string,
+  description: string | undefined,
+  userList: string | undefined,
+  status: "enabled" | "disabled",
+): Promise<FeatureFlag> {
+  const existing = await findFeatureFlagByKey(key);
+
+  if (existing) {
+    const [updated] = await db
+      .update(featureFlags)
+      .set({
+        name,
+        description: description ?? existing.description,
+        userList: userList ?? existing.userList,
+        status,
+        updatedAt: new Date(),
+      })
+      .where(eq(featureFlags.id, existing.id))
+      .returning();
+    return updated;
+  }
+
+  const [created] = await db
+    .insert(featureFlags)
+    .values({
+      key,
+      name,
+      description,
+      userList,
+      status,
+    })
+    .returning();
+  return created;
 }

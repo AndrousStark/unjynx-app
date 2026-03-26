@@ -268,6 +268,13 @@ export {
   type NewUserSession,
 } from "./user-sessions.js";
 
+// ── Impersonation Sessions ──────────────────────────────────────────
+export {
+  impersonationSessions,
+  type ImpersonationSession,
+  type NewImpersonationSession,
+} from "./impersonation-sessions.js";
+
 // ── Industry Modes ──────────────────────────────────────────────────
 export {
   industryModes,

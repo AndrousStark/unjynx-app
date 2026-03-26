@@ -15,6 +15,9 @@ const envSchema = z.object({
   // Redis
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
+  // JWT (impersonation tokens — falls back to a dev-only default)
+  JWT_SECRET: z.string().min(32).default("unjynx-dev-jwt-secret-change-in-production-32chars"),
+
   // Auth (Logto)
   LOGTO_ENDPOINT: z.string().url().default("http://localhost:3001"),
   LOGTO_APP_ID: z.string().optional(),

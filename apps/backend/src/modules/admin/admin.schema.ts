@@ -202,6 +202,34 @@ export const userActivityQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+// ── Impersonation ───────────────────────────────────────────────────
+
+export const impersonateSchema = z.object({
+  targetUserId: z.string().uuid(),
+  reason: z.string().min(1).max(500),
+});
+
+// ── Panic Mode ──────────────────────────────────────────────────────
+
+export const panicModeActivateSchema = z.object({
+  reason: z.string().min(1).max(1000),
+});
+
+// ── Coupon Redemptions ──────────────────────────────────────────────
+
+export const couponRedemptionsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+// ── SIEM Config ─────────────────────────────────────────────────────
+
+export const updateSiemConfigSchema = z.object({
+  webhookUrl: z.string().url().max(2000).optional(),
+  webhookSecret: z.string().min(8).max(500).optional(),
+  enabled: z.boolean().optional(),
+});
+
 // ── Type exports ─────────────────────────────────────────────────────
 
 export type UserListQuery = z.infer<typeof userListQuerySchema>;
@@ -227,3 +255,7 @@ export type CreateCouponInput = z.infer<typeof createCouponSchema>;
 export type UpdateCouponInput = z.infer<typeof updateCouponSchema>;
 export type LoginEventsQuery = z.infer<typeof loginEventsQuerySchema>;
 export type UserActivityQuery = z.infer<typeof userActivityQuerySchema>;
+export type ImpersonateInput = z.infer<typeof impersonateSchema>;
+export type PanicModeActivateInput = z.infer<typeof panicModeActivateSchema>;
+export type CouponRedemptionsQuery = z.infer<typeof couponRedemptionsQuerySchema>;
+export type UpdateSiemConfigInput = z.infer<typeof updateSiemConfigSchema>;
