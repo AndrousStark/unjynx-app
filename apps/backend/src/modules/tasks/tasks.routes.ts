@@ -112,6 +112,30 @@ taskRoutes.get("/", zValidator("query", taskQuerySchema), async (c) => {
 taskRoutes.post("/", zValidator("json", createTaskSchema), async (c) => {
   const auth = c.get("auth");
   const input = c.req.valid("json");
+
+  // Check feature gate (enforces plan-based task limits: free=25, pro=unlimited)
+  const { checkAccess } = await import("../../middleware/access-gate.js");
+  const role = (auth.adminRole ?? "member") as "owner" | "admin" | "member" | "viewer" | "guest";
+  const access = await checkAccess(auth.profileId, role, "tasks.create");
+  if (!access.allowed) {
+    return c.json({
+      success: false, data: null, error: access.reason,
+      requiredPlan: access.requiredPlan, upgradeUrl: access.upgradeUrl,
+    }, 403);
+  }
+
+  // Enforce task count limit if set
+  if (access.limit) {
+    const count = await taskService.getTaskCount(auth.profileId);
+    if (count >= access.limit) {
+      return c.json({
+        success: false, data: null,
+        error: `You've reached your plan limit of ${access.limit} tasks. Upgrade to create more.`,
+        requiredPlan: "pro", upgradeUrl: "/billing/upgrade",
+      }, 403);
+    }
+  }
+
   const task = await taskService.createTask(auth.profileId, input);
 
   return c.json(ok(task), 201);

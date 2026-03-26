@@ -23,6 +23,14 @@ export interface TaskFilters {
   readonly projectId?: string;
 }
 
+export async function countByUser(userId: string): Promise<number> {
+  const [result] = await db
+    .select({ count: count() })
+    .from(tasks)
+    .where(eq(tasks.userId, userId));
+  return Number(result?.count ?? 0);
+}
+
 export async function insertTask(data: NewTask): Promise<Task> {
   const [created] = await db.insert(tasks).values(data).returning();
   return created;

@@ -108,7 +108,18 @@ authRoutes.post(
 
 authRoutes.use("/me", authMiddleware);
 authRoutes.use("/me/*", authMiddleware);
+authRoutes.use("/entitlements", authMiddleware);
 authRoutes.use("/logout", authMiddleware);
+
+// GET /api/v1/auth/entitlements - Get feature access for current user
+// Returns all features with allowed/denied status + upgrade prompts
+authRoutes.get("/entitlements", async (c) => {
+  const auth = c.get("auth");
+  const { getUserEntitlements } = await import("../../middleware/access-gate.js");
+  const role = (auth.adminRole ?? "member") as "owner" | "admin" | "member" | "viewer" | "guest";
+  const entitlements = await getUserEntitlements(auth.profileId, role);
+  return c.json(ok(entitlements));
+});
 
 // GET /api/v1/auth/me - Get profile for current user
 authRoutes.get("/me", async (c) => {

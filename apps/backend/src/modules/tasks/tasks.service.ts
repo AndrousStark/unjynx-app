@@ -93,6 +93,10 @@ export async function createTask(
   return task;
 }
 
+export async function getTaskCount(userId: string): Promise<number> {
+  return taskRepo.countByUser(userId);
+}
+
 export async function getTasks(
   userId: string,
   query: TaskQuery,
