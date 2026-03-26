@@ -11,6 +11,8 @@ export const userManager = new UserManager({
   post_logout_redirect_uri: LOGTO_CONFIG.postLogoutRedirectUri,
   scope: LOGTO_CONFIG.scopes.join(" "),
   response_type: "code",
+  // SPA = public client — must NOT send client_secret
+  client_authentication: "none",
   userStore: new WebStorageStateStore({ store: window.localStorage }),
   // Request JWT (not opaque) by specifying the API resource
   extraQueryParams: { resource: LOGTO_CONFIG.resource },

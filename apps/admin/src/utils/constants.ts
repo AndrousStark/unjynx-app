@@ -71,9 +71,11 @@ export const FLAG_TYPES = [
 
 // ── Admin Roles ─────────────────────────────────────────────────────
 export const ADMIN_ROLE_OPTIONS = [
-  { value: "user", label: "App User", color: "default" },
-  { value: "super_admin", label: "Super Admin", color: "gold" },
-  { value: "dev_admin", label: "Dev Admin", color: "purple" },
+  { value: "owner", label: "Owner", color: "gold" },
+  { value: "admin", label: "Admin", color: "purple" },
+  { value: "member", label: "Member", color: "blue" },
+  { value: "viewer", label: "Viewer", color: "default" },
+  { value: "guest", label: "Guest", color: "default" },
 ] as const;
 
 // ── Task Priorities ─────────────────────────────────────────────────
