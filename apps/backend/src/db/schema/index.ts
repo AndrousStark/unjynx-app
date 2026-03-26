@@ -261,6 +261,13 @@ export {
   type NewCalendarEventMapping,
 } from "./calendar-event-mapping.js";
 
+// ── User Sessions ──────────────────────────────────────────────────
+export {
+  userSessions,
+  type UserSession,
+  type NewUserSession,
+} from "./user-sessions.js";
+
 // ── Industry Modes ──────────────────────────────────────────────────
 export {
   industryModes,

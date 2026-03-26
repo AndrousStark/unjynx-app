@@ -12,6 +12,12 @@ export const profiles = pgTable("profiles", {
   isBanned: boolean("is_banned").default(false).notNull(),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  accountStatus: text("account_status").notNull().default("active"),
+  gracePeriodEndsAt: timestamp("grace_period_ends_at", {
+    withTimezone: true,
+  }),
+  suspendedReason: text("suspended_reason"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

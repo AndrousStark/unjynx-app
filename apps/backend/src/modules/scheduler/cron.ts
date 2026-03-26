@@ -28,6 +28,7 @@ import {
   CALENDAR_SYNC_INTERVAL_MS,
 } from "../calendar/calendar.sync-worker.js";
 import { hardDeleteExpiredAccounts } from "../import-export/import-export.service.js";
+import { cleanupExpiredSessions } from "../auth/session.service.js";
 
 const log = logger.child({ module: "cron-scheduler" });
 
@@ -42,6 +43,7 @@ const INSTAGRAM_WINDOW_HOURS = 24;
 const INACTIVITY_CHECK_INTERVAL_MS = 6 * 60 * 60_000; // 6 hours
 const INACTIVITY_THRESHOLD_HOURS = 48;
 const HARD_DELETE_CHECK_INTERVAL_MS = 24 * 60 * 60_000; // 24 hours
+const SESSION_CLEANUP_INTERVAL_MS = 24 * 60 * 60_000; // 24 hours
 
 // ── Active interval handles (for graceful shutdown) ─────────────────
 
@@ -612,6 +614,20 @@ export function startCronJobs(): void {
   }, HARD_DELETE_CHECK_INTERVAL_MS);
   activeIntervals.push(hardDeleteInterval);
 
+  // Every 24 hours: clean up expired user sessions
+  const sessionCleanupInterval = setInterval(() => {
+    cleanupExpiredSessions()
+      .then((count) => {
+        if (count > 0) {
+          log.info({ deletedCount: count }, "Expired session cleanup complete");
+        }
+      })
+      .catch((error) => {
+        log.error({ error }, "Unhandled error in session cleanup");
+      });
+  }, SESSION_CLEANUP_INTERVAL_MS);
+  activeIntervals.push(sessionCleanupInterval);
+
   log.info(
     {
       reminderIntervalMs: REMINDER_CHECK_INTERVAL_MS,
@@ -622,6 +638,7 @@ export function startCronJobs(): void {
       inactivityIntervalMs: INACTIVITY_CHECK_INTERVAL_MS,
       calendarSyncIntervalMs: CALENDAR_SYNC_INTERVAL_MS,
       hardDeleteIntervalMs: HARD_DELETE_CHECK_INTERVAL_MS,
+      sessionCleanupIntervalMs: SESSION_CLEANUP_INTERVAL_MS,
     },
     "All cron jobs started",
   );

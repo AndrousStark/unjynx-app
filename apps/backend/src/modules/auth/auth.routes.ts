@@ -8,6 +8,8 @@ import { db } from "../../db/index.js";
 import { profiles } from "../../db/schema/index.js";
 import * as authRepo from "./auth.repository.js";
 import * as authService from "./auth.service.js";
+import * as sessionService from "./session.service.js";
+import * as mfaService from "./mfa.service.js";
 import { uploadFile } from "../../services/storage.js";
 import {
   callbackSchema,
@@ -31,6 +33,38 @@ authRoutes.post(
 
     try {
       const tokens = await authService.exchangeCodeForTokens(input);
+
+      // Create a session record if we received a refresh token.
+      // Decode the access token (without verification — already issued by Logto)
+      // to extract the sub claim and resolve the profile.
+      if (tokens.refreshToken) {
+        try {
+          const payload = decodeJwtPayload(tokens.accessToken);
+          if (payload?.sub) {
+            const profile = await authRepo.findProfileByLogtoId(payload.sub);
+            if (profile) {
+              const tokenHash = await sessionService.hashToken(
+                tokens.refreshToken,
+              );
+              const userAgent = c.req.header("user-agent") ?? "";
+              const ipAddress =
+                c.req.header("x-forwarded-for") ??
+                c.req.header("x-real-ip") ??
+                undefined;
+
+              await sessionService.createSession(profile.id, tokenHash, {
+                deviceType: parseDeviceType(userAgent),
+                browser: parseBrowser(userAgent),
+                os: parseOs(userAgent),
+                ipAddress,
+              });
+            }
+          }
+        } catch {
+          // Session tracking is non-critical — don't fail the callback
+        }
+      }
+
       return c.json(ok(tokens));
     } catch (e) {
       const message = e instanceof Error ? e.message : "Token exchange failed";
@@ -65,6 +99,15 @@ authRoutes.post(
 
     try {
       const tokens = await authService.refreshAccessToken(refreshToken);
+
+      // Update session lastActiveAt (fire-and-forget)
+      sessionService
+        .hashToken(refreshToken)
+        .then((hash) => sessionService.refreshSessionActivity(hash))
+        .catch(() => {
+          // Non-critical
+        });
+
       return c.json(ok(tokens));
     } catch (e) {
       const message = e instanceof Error ? e.message : "Token refresh failed";
@@ -110,6 +153,26 @@ authRoutes.use("/me", authMiddleware);
 authRoutes.use("/me/*", authMiddleware);
 authRoutes.use("/entitlements", authMiddleware);
 authRoutes.use("/logout", authMiddleware);
+authRoutes.use("/sessions", authMiddleware);
+authRoutes.use("/sessions/*", authMiddleware);
+authRoutes.use("/mfa-status", authMiddleware);
+
+// GET /api/v1/auth/mfa-status - Check MFA configuration status
+// Returns { enabled, methods: ["totp"|"webauthn"|"backup_codes"], mandatory }
+authRoutes.get("/mfa-status", async (c) => {
+  const auth = c.get("auth");
+
+  try {
+    const profile = await authRepo.findProfileById(auth.profileId);
+    const adminRole = (profile as Record<string, unknown>)?.adminRole as string | null ?? null;
+
+    const status = await mfaService.getFullMfaStatus(auth.sub, adminRole);
+    return c.json(ok(status));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to check MFA status";
+    return c.json(err(message), 500);
+  }
+});
 
 // GET /api/v1/auth/entitlements - Get feature access for current user
 // Returns all features with allowed/denied status + upgrade prompts
@@ -229,3 +292,148 @@ authRoutes.post("/logout", async (c) => {
     return c.json(ok({ loggedOut: true }));
   }
 });
+
+// ── Session Management (protected) ──────────────────────────────────
+
+// GET /api/v1/auth/sessions - List active sessions for current user
+authRoutes.get("/sessions", async (c) => {
+  const auth = c.get("auth");
+
+  try {
+    const sessions = await sessionService.listActiveSessions(auth.profileId);
+
+    // Strip tokenHash from the response for security
+    const sanitized = sessions.map((s) => ({
+      id: s.id,
+      deviceType: s.deviceType,
+      browser: s.browser,
+      os: s.os,
+      ipAddress: s.ipAddress,
+      geoCountry: s.geoCountry,
+      geoCity: s.geoCity,
+      lastActiveAt: s.lastActiveAt,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+    }));
+
+    return c.json(ok(sanitized));
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Failed to list sessions";
+    return c.json(err(message), 500);
+  }
+});
+
+// DELETE /api/v1/auth/sessions/:id - Revoke a specific session
+authRoutes.delete("/sessions/:id", async (c) => {
+  const auth = c.get("auth");
+  const sessionId = c.req.param("id");
+
+  // Validate UUID format
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(sessionId)) {
+    return c.json(err("Invalid session ID"), 400);
+  }
+
+  try {
+    const revoked = await sessionService.revokeSession(
+      auth.profileId,
+      sessionId,
+    );
+
+    if (!revoked) {
+      return c.json(err("Session not found"), 404);
+    }
+
+    return c.json(ok({ revoked: true }));
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Failed to revoke session";
+    return c.json(err(message), 500);
+  }
+});
+
+// DELETE /api/v1/auth/sessions - Revoke all other sessions ("sign out everywhere")
+authRoutes.delete("/sessions", async (c) => {
+  const auth = c.get("auth");
+
+  // Optional: pass current session ID to keep it alive
+  const currentSessionId = c.req.query("keepCurrent") ?? undefined;
+
+  try {
+    const revokedCount = await sessionService.revokeAllSessions(
+      auth.profileId,
+      currentSessionId,
+    );
+
+    return c.json(ok({ revokedCount }));
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Failed to revoke sessions";
+    return c.json(err(message), 500);
+  }
+});
+
+// ── Helper Functions ────────────────────────────────────────────────
+
+/**
+ * Decode a JWT payload without verification (for extracting the sub claim
+ * from a freshly issued token that we trust).
+ */
+function decodeJwtPayload(
+  token: string,
+): { sub?: string } | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf-8"),
+    );
+    return payload as { sub?: string };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse device type from User-Agent string.
+ */
+function parseDeviceType(ua: string): string {
+  const lower = ua.toLowerCase();
+  if (
+    lower.includes("mobile") ||
+    lower.includes("android") ||
+    lower.includes("iphone")
+  ) {
+    return "mobile";
+  }
+  if (lower.includes("tablet") || lower.includes("ipad")) {
+    return "tablet";
+  }
+  return "desktop";
+}
+
+/**
+ * Parse browser name from User-Agent string.
+ */
+function parseBrowser(ua: string): string {
+  if (ua.includes("Firefox/")) return "Firefox";
+  if (ua.includes("Edg/")) return "Edge";
+  if (ua.includes("Chrome/") && !ua.includes("Edg/")) return "Chrome";
+  if (ua.includes("Safari/") && !ua.includes("Chrome/")) return "Safari";
+  if (ua.includes("Opera/") || ua.includes("OPR/")) return "Opera";
+  return "Unknown";
+}
+
+/**
+ * Parse OS from User-Agent string.
+ */
+function parseOs(ua: string): string {
+  if (ua.includes("Windows")) return "Windows";
+  if (ua.includes("Mac OS") || ua.includes("Macintosh")) return "macOS";
+  if (ua.includes("Linux") && !ua.includes("Android")) return "Linux";
+  if (ua.includes("Android")) return "Android";
+  if (ua.includes("iPhone") || ua.includes("iPad")) return "iOS";
+  return "Unknown";
+}

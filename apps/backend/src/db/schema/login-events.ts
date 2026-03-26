@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, index } from "drizzle-orm/pg-core";
 
 export const loginEvents = pgTable(
   "login_events",
@@ -16,6 +16,8 @@ export const loginEvents = pgTable(
     geoCity: text("geo_city"),
     logtoEvent: text("logto_event"), // original Logto event key
     metadata: text("metadata"), // JSON string
+    riskScore: integer("risk_score"),
+    riskSignals: text("risk_signals"), // JSON array string e.g. ["NEW_DEVICE","NEW_COUNTRY"]
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -25,6 +27,7 @@ export const loginEvents = pgTable(
     index("login_events_event_type_idx").on(table.eventType),
     index("login_events_ip_address_idx").on(table.ipAddress),
     index("login_events_created_at_idx").on(table.createdAt),
+    index("login_events_risk_score_idx").on(table.riskScore),
   ],
 );
 

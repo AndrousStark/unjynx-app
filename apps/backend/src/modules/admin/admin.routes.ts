@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import { authMiddleware } from "../../middleware/auth.js";
 import { adminGuard } from "../../middleware/admin-guard.js";
+import { mfaGuard } from "../../middleware/mfa-guard.js";
 import { ok, err, paginated } from "../../types/api.js";
 import {
   userListQuerySchema,
@@ -30,11 +32,14 @@ import {
 } from "./admin.schema.js";
 import * as adminService from "./admin.service.js";
 import * as loginAuditService from "../auth/login-audit.service.js";
+import * as accountLifecycle from "../auth/account-lifecycle.service.js";
+import * as suspiciousLoginService from "../auth/suspicious-login.service.js";
 
 export const adminRoutes = new Hono();
 
 adminRoutes.use("/*", authMiddleware);
 adminRoutes.use("/*", adminGuard("owner", "admin"));
+adminRoutes.use("/*", mfaGuard);
 
 // ── Users ─────────────────────────────────────────────────────────────
 
@@ -766,6 +771,120 @@ adminRoutes.get(
       limit: query.limit,
       userId: query.userId,
       eventType: query.eventType,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+    });
+    return c.json(paginated(items, total, query.page, query.limit));
+  },
+);
+
+// ── Account Lifecycle ───────────────────────────────────────────────
+
+const suspendSchema = z.object({
+  reason: z.string().min(1).max(500),
+});
+
+// POST /admin/users/:id/suspend - Suspend a user account
+adminRoutes.post(
+  "/users/:id/suspend",
+  zValidator("json", suspendSchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const userId = c.req.param("id");
+    const { reason } = c.req.valid("json");
+
+    try {
+      const status = await accountLifecycle.suspendAccount(
+        userId,
+        reason,
+        auth.profileId,
+      );
+
+      await adminService.logAuditEvent(
+        auth.profileId,
+        "account.suspend",
+        "profile",
+        userId,
+        { reason },
+        c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+      );
+
+      return c.json(ok(status));
+    } catch (error) {
+      const message = (error as Error).message;
+      if (message === "User not found") {
+        return c.json(err(message), 404);
+      }
+      return c.json(err(message), 400);
+    }
+  },
+);
+
+// POST /admin/users/:id/reactivate - Reactivate a suspended user account
+adminRoutes.post("/users/:id/reactivate", async (c) => {
+  const auth = c.get("auth");
+  const userId = c.req.param("id");
+
+  try {
+    const status = await accountLifecycle.reactivateAccount(
+      userId,
+      auth.profileId,
+    );
+
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "account.reactivate",
+      "profile",
+      userId,
+      undefined,
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
+    return c.json(ok(status));
+  } catch (error) {
+    const message = (error as Error).message;
+    if (message === "User not found") {
+      return c.json(err(message), 404);
+    }
+    return c.json(err(message), 400);
+  }
+});
+
+// GET /admin/users/:id/account-status - Get account lifecycle status
+adminRoutes.get("/users/:id/account-status", async (c) => {
+  const userId = c.req.param("id");
+
+  const status = await accountLifecycle.getAccountStatus(userId);
+
+  if (!status) {
+    return c.json(err("User not found"), 404);
+  }
+
+  return c.json(ok(status));
+});
+
+// ── Suspicious Logins ───────────────────────────────────────────────
+
+const suspiciousLoginsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  minScore: z.coerce.number().int().min(0).max(100).default(30),
+  userId: z.string().max(200).optional(),
+  dateFrom: z.string().datetime().optional(),
+  dateTo: z.string().datetime().optional(),
+});
+
+// GET /admin/suspicious-logins - List login events with risk_score > threshold
+adminRoutes.get(
+  "/suspicious-logins",
+  zValidator("query", suspiciousLoginsQuerySchema),
+  async (c) => {
+    const query = c.req.valid("query");
+    const { items, total } = await suspiciousLoginService.getSuspiciousLogins({
+      page: query.page,
+      limit: query.limit,
+      minScore: query.minScore,
+      userId: query.userId,
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
     });

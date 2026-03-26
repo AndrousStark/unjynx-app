@@ -20,6 +20,8 @@ export interface LogLoginEventInput {
   readonly geoCountry?: string;
   readonly geoCity?: string;
   readonly logtoEvent?: string;
+  readonly riskScore?: number;
+  readonly riskSignals?: readonly string[];
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -51,6 +53,10 @@ export async function logLoginEvent(
     geoCountry: input.geoCountry,
     geoCity: input.geoCity,
     logtoEvent: input.logtoEvent,
+    riskScore: input.riskScore,
+    riskSignals: input.riskSignals?.length
+      ? JSON.stringify(input.riskSignals)
+      : undefined,
     metadata: input.metadata ? JSON.stringify(input.metadata) : undefined,
   };
 
