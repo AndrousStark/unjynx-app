@@ -7,12 +7,11 @@ const ADMIN_ROLE_KEY = "unjynx_admin_role";
 export const userManager = new UserManager({
   authority: LOGTO_CONFIG.authority,
   client_id: LOGTO_CONFIG.clientId,
+  client_secret: LOGTO_CONFIG.clientSecret,
   redirect_uri: LOGTO_CONFIG.redirectUri,
   post_logout_redirect_uri: LOGTO_CONFIG.postLogoutRedirectUri,
   scope: LOGTO_CONFIG.scopes.join(" "),
   response_type: "code",
-  // SPA = public client — must NOT send client_secret
-  client_authentication: "none",
   userStore: new WebStorageStateStore({ store: window.localStorage }),
   // Request JWT (not opaque) by specifying the API resource
   extraQueryParams: { resource: LOGTO_CONFIG.resource },
