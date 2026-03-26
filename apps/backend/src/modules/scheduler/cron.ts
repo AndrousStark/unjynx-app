@@ -44,6 +44,8 @@ const INACTIVITY_CHECK_INTERVAL_MS = 6 * 60 * 60_000; // 6 hours
 const INACTIVITY_THRESHOLD_HOURS = 48;
 const HARD_DELETE_CHECK_INTERVAL_MS = 24 * 60 * 60_000; // 24 hours
 const SESSION_CLEANUP_INTERVAL_MS = 24 * 60 * 60_000; // 24 hours
+const EMAIL_VERIFICATION_DEADLINE_MS = 6 * 60 * 60_000; // Check every 6 hours
+const EMAIL_VERIFICATION_DEADLINE_HOURS = 48;
 
 // ── Active interval handles (for graceful shutdown) ─────────────────
 
@@ -517,6 +519,55 @@ async function enrichJobsWithRecipients(
   });
 }
 
+// ── Email Verification 48h Deadline ──────────────────────────────────
+
+/**
+ * Enforces the 48-hour email verification deadline.
+ * Users who registered more than 48 hours ago without verifying their email
+ * are transitioned to "pending_verification" status, which gates premium features.
+ */
+async function enforceEmailVerificationDeadline(): Promise<number> {
+  const cutoff = new Date(
+    Date.now() - EMAIL_VERIFICATION_DEADLINE_HOURS * 60 * 60 * 1000,
+  );
+
+  try {
+    // Find users past the 48h deadline with unverified email and still "active"
+    const unverified = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.emailVerified, false),
+          eq(profiles.accountStatus, "active"),
+          lte(profiles.createdAt, cutoff),
+        ),
+      );
+
+    if (unverified.length === 0) return 0;
+
+    // Transition them to pending_verification
+    for (const user of unverified) {
+      await db
+        .update(profiles)
+        .set({
+          accountStatus: "pending_verification",
+          updatedAt: new Date(),
+        })
+        .where(eq(profiles.id, user.id));
+    }
+
+    log.info(
+      { count: unverified.length },
+      "Enforced 48h email verification deadline",
+    );
+    return unverified.length;
+  } catch (error) {
+    log.error({ error }, "Email verification deadline enforcement failed");
+    return 0;
+  }
+}
+
 // ── Scheduler Lifecycle ─────────────────────────────────────────────
 
 /**
@@ -597,7 +648,7 @@ export function startCronJobs(): void {
   }, CALENDAR_SYNC_INTERVAL_MS);
   activeIntervals.push(calendarSyncInterval);
 
-  // Every 24 hours: hard-delete accounts past 30-day grace period (GDPR Art.17)
+  // Every 24 hours: hard-delete accounts past 90-day recovery period (GDPR Art.17)
   const hardDeleteInterval = setInterval(() => {
     hardDeleteExpiredAccounts()
       .then((result) => {
@@ -628,6 +679,14 @@ export function startCronJobs(): void {
   }, SESSION_CLEANUP_INTERVAL_MS);
   activeIntervals.push(sessionCleanupInterval);
 
+  // Every 6 hours: enforce 48h email verification deadline
+  const emailVerificationInterval = setInterval(() => {
+    enforceEmailVerificationDeadline().catch((error) => {
+      log.error({ error }, "Unhandled error in email verification deadline check");
+    });
+  }, EMAIL_VERIFICATION_DEADLINE_MS);
+  activeIntervals.push(emailVerificationInterval);
+
   log.info(
     {
       reminderIntervalMs: REMINDER_CHECK_INTERVAL_MS,
@@ -639,6 +698,7 @@ export function startCronJobs(): void {
       calendarSyncIntervalMs: CALENDAR_SYNC_INTERVAL_MS,
       hardDeleteIntervalMs: HARD_DELETE_CHECK_INTERVAL_MS,
       sessionCleanupIntervalMs: SESSION_CLEANUP_INTERVAL_MS,
+      emailVerificationDeadlineMs: EMAIL_VERIFICATION_DEADLINE_MS,
     },
     "All cron jobs started",
   );

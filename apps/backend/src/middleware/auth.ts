@@ -13,6 +13,10 @@ interface AuthPayload {
   readonly email?: string;
   readonly name?: string;
   readonly emailVerified: boolean;
+  /** User's admin role from the profiles table. */
+  readonly adminRole: "owner" | "admin" | "member" | "viewer" | "guest";
+  /** JWT scopes from Logto RBAC (space-delimited in JWT, parsed to array). */
+  readonly scopes: readonly string[];
   /** Set when an admin is impersonating this user. Contains the admin's profile ID. */
   readonly impersonatedBy?: string;
 }
@@ -33,10 +37,12 @@ function getJwks() {
   return jwks;
 }
 
-// In-memory cache: logtoId -> { profileId, emailVerified, expiresAt }
+// In-memory cache: logtoId -> { profileId, emailVerified, adminRole, expiresAt }
+type AdminRole = "owner" | "admin" | "member" | "viewer" | "guest";
+
 const profileCache = new Map<
   string,
-  { profileId: string; emailVerified: boolean; expiresAt: number }
+  { profileId: string; emailVerified: boolean; adminRole: AdminRole; expiresAt: number }
 >();
 const CACHE_TTL_MS = 5 * 60_000; // 5 minutes
 
@@ -45,22 +51,33 @@ async function resolveProfile(
   email?: string,
   name?: string,
   picture?: string,
-): Promise<{ profileId: string; emailVerified: boolean }> {
+): Promise<{ profileId: string; emailVerified: boolean; adminRole: AdminRole }> {
   const cached = profileCache.get(logtoId);
   if (cached && Date.now() < cached.expiresAt) {
-    return { profileId: cached.profileId, emailVerified: cached.emailVerified };
+    return { profileId: cached.profileId, emailVerified: cached.emailVerified, adminRole: cached.adminRole };
   }
 
   // Upsert ensures the profile always exists.
   // On first login, picture (from Google/social sign-in) seeds avatarUrl.
   const profile = await upsertProfile({ logtoId, email, name, picture });
+
+  // Fetch adminRole from the profiles table (not included in upsert return)
+  const [fullProfile] = await db
+    .select({ adminRole: profiles.adminRole })
+    .from(profiles)
+    .where(eq(profiles.id, profile.id))
+    .limit(1);
+
+  const adminRole: AdminRole = (fullProfile?.adminRole as AdminRole) ?? "member";
+
   profileCache.set(logtoId, {
     profileId: profile.id,
     emailVerified: profile.emailVerified,
+    adminRole,
     expiresAt: Date.now() + CACHE_TTL_MS,
   });
 
-  return { profileId: profile.id, emailVerified: profile.emailVerified };
+  return { profileId: profile.id, emailVerified: profile.emailVerified, adminRole };
 }
 
 /** Clear the profile cache (useful when email verification status changes). */
@@ -174,12 +191,15 @@ export const authMiddleware = createMiddleware(async (c, next) => {
       }
 
       // Set auth context with target user's identity + actor (admin) annotation
+      // Impersonation tokens have no JWT scopes — restricted by design
       c.set("auth", {
         sub: targetProfile.logtoId,
         profileId: targetProfile.id,
         email: targetProfile.email ?? undefined,
         name: targetProfile.name ?? undefined,
         emailVerified: targetProfile.emailVerified,
+        adminRole: (targetProfile.adminRole as AdminRole) ?? "member",
+        scopes: [],
         impersonatedBy: validated.adminId,
       });
 
@@ -196,6 +216,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   let email: string | undefined;
   let name: string | undefined;
   let picture: string | undefined;
+  let jwtScopes: readonly string[] = [];
 
   try {
     const { payload } = await jose.jwtVerify(token, getJwks(), {
@@ -209,6 +230,10 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     email = payload.email as string | undefined;
     name = payload.name as string | undefined;
     picture = payload.picture as string | undefined;
+
+    // Extract scopes from JWT (Logto RBAC places them in the "scope" claim)
+    const scopeClaim = payload.scope as string | undefined;
+    jwtScopes = scopeClaim ? scopeClaim.split(" ").filter(Boolean) : [];
   } catch (err) {
     const errorMessage = (err as Error).message;
     const errorCode = (err as { code?: string }).code;
@@ -217,8 +242,8 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     throw new HTTPException(401, { message: "Invalid or expired token" });
   }
 
-  // Resolve logtoId -> profileId + emailVerified (cached, upserts on first encounter)
-  const { profileId, emailVerified } = await resolveProfile(sub, email, name, picture);
+  // Resolve logtoId -> profileId + emailVerified + adminRole (cached, upserts on first encounter)
+  const { profileId, emailVerified, adminRole } = await resolveProfile(sub, email, name, picture);
 
   // ── Panic Mode Check ──────────────────────────────────────────────
   // During panic mode, only owner accounts can access the system.
@@ -234,7 +259,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     }
   }
 
-  c.set("auth", { sub, profileId, email, name, emailVerified });
+  c.set("auth", { sub, profileId, email, name, emailVerified, adminRole, scopes: jwtScopes });
 
   await next();
 });

@@ -251,25 +251,48 @@ export async function validateCoupon(
   const coupon = await billingRepo.findCouponByCode(code);
 
   if (!coupon) {
+    logCouponValidation(userId, code, false, "Coupon not found");
     return { valid: false, discountPercent: 0, reason: "Coupon not found" };
   }
 
   if (!coupon.isActive) {
+    logCouponValidation(userId, code, false, "Coupon is inactive");
     return { valid: false, discountPercent: 0, reason: "Coupon is inactive" };
   }
 
   if (coupon.validUntil && new Date() > coupon.validUntil) {
+    logCouponValidation(userId, code, false, "Coupon has expired");
     return { valid: false, discountPercent: 0, reason: "Coupon has expired" };
   }
 
   if (coupon.usedCount >= coupon.maxUses) {
+    logCouponValidation(userId, code, false, "Coupon usage limit reached");
     return { valid: false, discountPercent: 0, reason: "Coupon usage limit reached" };
   }
 
   const alreadyRedeemed = await billingRepo.hasUserRedeemedCoupon(userId, coupon.id);
   if (alreadyRedeemed) {
+    logCouponValidation(userId, code, false, "Coupon already redeemed");
     return { valid: false, discountPercent: 0, reason: "Coupon already redeemed" };
   }
 
+  logCouponValidation(userId, code, true, undefined, coupon.discountPercent);
   return { valid: true, discountPercent: coupon.discountPercent };
+}
+
+/** Fire-and-forget audit log for coupon validation attempts. */
+function logCouponValidation(
+  userId: string,
+  code: string,
+  valid: boolean,
+  reason?: string,
+  discountPercent?: number,
+): void {
+  adminRepo.insertAuditEntry({
+    userId,
+    action: valid ? "coupon.validation_success" : "coupon.validation_failed",
+    entityType: "coupon",
+    entityId: code,
+    metadata: JSON.stringify({ code, valid, reason, discountPercent }),
+  }).catch(() => { /* non-critical */ });
 }

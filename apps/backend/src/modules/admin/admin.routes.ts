@@ -685,6 +685,7 @@ adminRoutes.patch(
   adminGuard("owner"),
   zValidator("json", updateCouponSchema),
   async (c) => {
+    const auth = c.get("auth");
     const id = c.req.param("id");
     const input = c.req.valid("json");
     const coupon = await adminService.updateCoupon(id, input);
@@ -692,6 +693,15 @@ adminRoutes.patch(
     if (!coupon) {
       return c.json(err("Coupon not found"), 404);
     }
+
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "coupon.update",
+      "coupon",
+      id,
+      { changes: input },
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
 
     return c.json(ok(coupon));
   },
@@ -1148,5 +1158,71 @@ adminRoutes.post(
     }
 
     return c.json(ok(result));
+  },
+);
+
+// ── Logto Organizations ↔ Teams ─────────────────────────────────────
+
+// GET /admin/organizations - List Logto organizations
+adminRoutes.get(
+  "/organizations",
+  adminGuard("owner", "admin"),
+  async (c) => {
+    const { listOrganizations } = await import("./logto-organizations.service.js");
+
+    try {
+      const orgs = await listOrganizations();
+      return c.json(ok(orgs));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to list organizations";
+      return c.json(err(message), 500);
+    }
+  },
+);
+
+// ── Logto RBAC Setup ────────────────────────────────────────────────
+
+// POST /admin/rbac/setup - Initialize Logto RBAC resources and scopes
+adminRoutes.post(
+  "/rbac/setup",
+  adminGuard("owner"),
+  async (c) => {
+    const auth = c.get("auth");
+    const { setupLogtoRbac } = await import("./logto-rbac.service.js");
+
+    try {
+      const result = await setupLogtoRbac();
+
+      await adminService.logAuditEvent(
+        auth.profileId,
+        "rbac.setup",
+        "logto_rbac",
+        undefined,
+        { ...result },
+        c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+      );
+
+      return c.json(ok(result));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "RBAC setup failed";
+      return c.json(err(message), 500);
+    }
+  },
+);
+
+// GET /admin/rbac/status - Get current RBAC configuration status
+adminRoutes.get(
+  "/rbac/status",
+  adminGuard("owner", "admin"),
+  async (c) => {
+    const { getRbacStatus } = await import("./logto-rbac.service.js");
+
+    try {
+      const status = await getRbacStatus();
+      return c.json(ok(status));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to get RBAC status";
+      return c.json(err(message), 500);
+    }
   },
 );

@@ -289,7 +289,8 @@ export interface HardDeleteResult {
 }
 
 export async function hardDeleteExpiredAccounts(): Promise<HardDeleteResult> {
-  const expiredProfiles = await importExportRepo.findExpiredDeletedProfiles(30);
+  // GDPR/DPDP compliance: 90-day recovery period after soft-deletion
+  const expiredProfiles = await importExportRepo.findExpiredDeletedProfiles(90);
 
   if (expiredProfiles.length === 0) {
     return { deletedCount: 0, failedIds: [] };

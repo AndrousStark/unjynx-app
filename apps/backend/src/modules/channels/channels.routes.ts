@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { authMiddleware } from "../../middleware/auth.js";
 import { emailVerifiedGuard } from "../../middleware/email-verified-guard.js";
+import { accessGate } from "../../middleware/access-gate.js";
 import { ok, err } from "../../types/api.js";
 import {
   connectPushSchema,
@@ -53,6 +54,7 @@ channelRoutes.post(
 channelRoutes.post(
   "/telegram/connect",
   emailVerifiedGuard,
+  accessGate("channels.telegram"),
   zValidator("json", connectTelegramSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -77,6 +79,7 @@ channelRoutes.post(
 channelRoutes.post(
   "/email/connect",
   emailVerifiedGuard,
+  accessGate("channels.email"),
   zValidator("json", connectEmailSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -101,6 +104,7 @@ channelRoutes.post(
 channelRoutes.post(
   "/whatsapp/connect",
   emailVerifiedGuard,
+  accessGate("channels.whatsapp"),
   zValidator("json", connectPhoneSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -127,6 +131,7 @@ channelRoutes.post(
 channelRoutes.post(
   "/instagram/connect",
   emailVerifiedGuard,
+  accessGate("channels.instagram"),
   zValidator("json", connectInstagramSchema),
   async (c) => {
     const auth = c.get("auth");

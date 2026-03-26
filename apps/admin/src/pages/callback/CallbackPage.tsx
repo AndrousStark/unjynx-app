@@ -8,10 +8,26 @@ const ADMIN_ROLE_KEY = "unjynx_admin_role";
 
 /**
  * Map backend admin_role enum to frontend AdminRole type.
+ * Supports both legacy (super_admin, dev_admin) and new 5-role model
+ * (owner, admin, member, viewer, guest).
  */
 function mapAdminRole(dbRole: string | null | undefined): string {
-  if (dbRole === "super_admin" || dbRole === "dev_admin") return "SUPER_ADMIN";
-  return "VIEWER";
+  switch (dbRole) {
+    case "owner":
+    case "super_admin":
+      return "OWNER";
+    case "admin":
+    case "dev_admin":
+      return "ADMIN";
+    case "member":
+      return "MEMBER";
+    case "viewer":
+      return "VIEWER";
+    case "guest":
+      return "GUEST";
+    default:
+      return "VIEWER";
+  }
 }
 
 /**
@@ -51,10 +67,11 @@ export const CallbackPage: React.FC = () => {
             const role = mapAdminRole(json.data?.adminRole);
             localStorage.setItem(ADMIN_ROLE_KEY, role);
 
-            if (role === "VIEWER") {
+            // Only owner and admin roles can access the admin panel
+            if (role !== "OWNER" && role !== "ADMIN") {
               setError(
                 "Access denied. Your account does not have admin privileges. " +
-                  "Contact your administrator to get an admin role.",
+                  "Contact your administrator to get an owner or admin role.",
               );
               await userManager.removeUser();
               localStorage.removeItem(ADMIN_ROLE_KEY);

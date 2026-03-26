@@ -25,6 +25,8 @@ export const teams = pgTable(
       .notNull(),
     plan: userPlanEnum("plan").default("team").notNull(),
     logoUrl: text("logo_url"),
+    /** Logto Organization ID for RBAC sync. Null if not yet synced. */
+    logtoOrgId: text("logto_org_id"),
     maxMembers: integer("max_members").default(50).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

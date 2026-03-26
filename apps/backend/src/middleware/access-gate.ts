@@ -13,7 +13,7 @@
 import { createMiddleware } from "hono/factory";
 import { eq, and } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { profiles, featureFlags } from "../db/schema/index.js";
+import { profiles, featureFlags, subscriptions } from "../db/schema/index.js";
 import { env } from "../env.js";
 
 // ── Feature Catalog ─────────────────────────────────────────────────
@@ -249,13 +249,14 @@ async function resolveUserPlan(userId: string): Promise<PlanTier> {
   if (cached && Date.now() < cached.expiresAt) return cached.plan;
 
   try {
-    // Check subscription table
-    const result = await db.execute(
-      `SELECT s.plan FROM subscriptions s WHERE s.user_id = '${userId}' AND s.status = 'active' LIMIT 1`,
-    );
-    const rows = result as unknown as Array<{ plan: string }>;
-    const plan = (rows?.[0]?.plan as PlanTier) ?? "free";
+    // Check subscription table using parameterized query (Drizzle ORM)
+    const [row] = await db
+      .select({ plan: subscriptions.plan })
+      .from(subscriptions)
+      .where(and(eq(subscriptions.userId, userId), eq(subscriptions.status, "active")))
+      .limit(1);
 
+    const plan = (row?.plan as PlanTier) ?? "free";
     planCache.set(userId, { plan, expiresAt: Date.now() + PLAN_CACHE_TTL });
     return plan;
   } catch {

@@ -1,4 +1,7 @@
 import crypto from "node:crypto";
+import { eq } from "drizzle-orm";
+import { db } from "../../db/index.js";
+import { profiles } from "../../db/schema/index.js";
 import type {
   Team,
   TeamMember,
@@ -13,6 +16,19 @@ import type {
   TeamReportsQuery,
 } from "./teams.schema.js";
 import * as teamRepo from "./teams.repository.js";
+import * as logtoOrg from "../admin/logto-organizations.service.js";
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+/** Resolve a profile ID to its Logto user ID for org sync. */
+async function resolveLogtoId(profileId: string): Promise<string | null> {
+  const [profile] = await db
+    .select({ logtoId: profiles.logtoId })
+    .from(profiles)
+    .where(eq(profiles.id, profileId))
+    .limit(1);
+  return profile?.logtoId ?? null;
+}
 
 // ── Teams ─────────────────────────────────────────────────────────────
 
@@ -35,6 +51,17 @@ export async function createTeam(
     status: "active",
   });
 
+  // Sync to Logto Organizations (fire-and-forget)
+  resolveLogtoId(userId).then((logtoId) => {
+    if (logtoId) {
+      logtoOrg.syncTeamCreated(team.id, input.name, logtoId).then((orgId) => {
+        if (orgId) {
+          teamRepo.updateTeam(team.id, { logtoOrgId: orgId });
+        }
+      });
+    }
+  });
+
   return team;
 }
 
@@ -48,7 +75,14 @@ export async function updateTeam(
   teamId: string,
   input: UpdateTeamInput,
 ): Promise<Team | undefined> {
-  return teamRepo.updateTeam(teamId, input);
+  const updated = await teamRepo.updateTeam(teamId, input);
+
+  // Sync name change to Logto (fire-and-forget)
+  if (updated?.logtoOrgId && input.name) {
+    logtoOrg.syncTeamUpdated(updated.logtoOrgId, input.name);
+  }
+
+  return updated;
 }
 
 // ── Members ───────────────────────────────────────────────────────────
@@ -101,7 +135,19 @@ export async function updateMemberRole(
     throw new Error("Cannot change the owner's role");
   }
 
-  return teamRepo.updateMemberRole(teamId, userId, role);
+  const updated = await teamRepo.updateMemberRole(teamId, userId, role);
+
+  // Sync role change to Logto (fire-and-forget)
+  const team = await teamRepo.findTeamById(teamId);
+  if (team?.logtoOrgId) {
+    resolveLogtoId(userId).then((logtoId) => {
+      if (logtoId) {
+        logtoOrg.syncMemberRoleChanged(team.logtoOrgId!, logtoId, role);
+      }
+    });
+  }
+
+  return updated;
 }
 
 export async function removeMember(
@@ -116,7 +162,21 @@ export async function removeMember(
     throw new Error("Cannot remove the team owner");
   }
 
-  return teamRepo.removeMember(teamId, userId);
+  const removed = await teamRepo.removeMember(teamId, userId);
+
+  // Sync removal to Logto (fire-and-forget)
+  if (removed) {
+    const team = await teamRepo.findTeamById(teamId);
+    if (team?.logtoOrgId) {
+      resolveLogtoId(userId).then((logtoId) => {
+        if (logtoId) {
+          logtoOrg.syncMemberRemoved(team.logtoOrgId!, logtoId);
+        }
+      });
+    }
+  }
+
+  return removed;
 }
 
 // ── Reports ───────────────────────────────────────────────────────────
