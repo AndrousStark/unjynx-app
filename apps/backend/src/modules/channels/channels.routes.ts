@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { authMiddleware } from "../../middleware/auth.js";
+import { emailVerifiedGuard } from "../../middleware/email-verified-guard.js";
 import { ok, err } from "../../types/api.js";
 import {
   connectPushSchema,
@@ -24,9 +25,10 @@ channelRoutes.get("/", async (c) => {
   return c.json(ok(channels));
 });
 
-// ── POST /:type/connect — Connect a channel ─────────────────────────
+// ── POST /:type/connect — Connect a channel (email verification required) ──
 channelRoutes.post(
   "/push/connect",
+  emailVerifiedGuard,
   zValidator("json", connectPushSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -50,6 +52,7 @@ channelRoutes.post(
 
 channelRoutes.post(
   "/telegram/connect",
+  emailVerifiedGuard,
   zValidator("json", connectTelegramSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -73,6 +76,7 @@ channelRoutes.post(
 
 channelRoutes.post(
   "/email/connect",
+  emailVerifiedGuard,
   zValidator("json", connectEmailSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -96,6 +100,7 @@ channelRoutes.post(
 
 channelRoutes.post(
   "/whatsapp/connect",
+  emailVerifiedGuard,
   zValidator("json", connectPhoneSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -121,6 +126,7 @@ channelRoutes.post(
 
 channelRoutes.post(
   "/instagram/connect",
+  emailVerifiedGuard,
   zValidator("json", connectInstagramSchema),
   async (c) => {
     const auth = c.get("auth");

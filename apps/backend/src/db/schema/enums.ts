@@ -176,7 +176,9 @@ export const teamMemberStatusEnum = pgEnum("team_member_status", [
 
 // ── Admin ────────────────────────────────────────────────────────────
 export const adminRoleEnum = pgEnum("admin_role", [
-  "user",
-  "super_admin",
-  "dev_admin",
+  "owner",
+  "admin",
+  "member",
+  "viewer",
+  "guest",
 ]);

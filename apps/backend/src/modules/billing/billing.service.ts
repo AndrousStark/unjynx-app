@@ -1,6 +1,7 @@
 import type { Subscription, Invoice, Coupon } from "../../db/schema/index.js";
 import type { WebhookEvent, PlansQuery } from "./billing.schema.js";
 import * as billingRepo from "./billing.repository.js";
+import * as adminRepo from "../admin/admin.repository.js";
 
 // ── Regional Pricing ──────────────────────────────────────────────────
 
@@ -201,6 +202,25 @@ export async function processWebhookEvent(
 
   const handler = handlers[type];
   const action = await handler();
+
+  // Audit log: record subscription changes from webhook
+  try {
+    await adminRepo.insertAuditEntry({
+      userId: app_user_id,
+      action: `subscription.${action}`,
+      entityType: "subscription",
+      entityId: app_user_id,
+      metadata: JSON.stringify({
+        webhookType: type,
+        productId: product_id,
+        newProductId: new_product_id,
+        transactionId: transaction_id,
+        source: "revenuecat_webhook",
+      }),
+    });
+  } catch {
+    // Non-critical: don't fail the webhook if audit logging fails
+  }
 
   return { processed: true, action };
 }

@@ -10,6 +10,8 @@ export const profiles = pgTable("profiles", {
   timezone: text("timezone").default("Asia/Kolkata"),
   adminRole: adminRoleEnum("admin_role"),
   isBanned: boolean("is_banned").default(false).notNull(),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

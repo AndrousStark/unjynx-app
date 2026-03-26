@@ -24,6 +24,9 @@ const envSchema = z.object({
   LOGTO_M2M_APP_ID: z.string().optional(),
   LOGTO_M2M_APP_SECRET: z.string().optional(),
 
+  // Auth (Logto Webhook HMAC verification)
+  LOGTO_WEBHOOK_SECRET: z.string().optional(),
+
   // Storage (MinIO / S3)
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   S3_ACCESS_KEY: z.string().default("minioadmin"),

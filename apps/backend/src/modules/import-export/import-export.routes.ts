@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { authMiddleware } from "../../middleware/auth.js";
+import { emailVerifiedGuard } from "../../middleware/email-verified-guard.js";
 import { ok, err } from "../../types/api.js";
 import {
   importPreviewSchema,
@@ -13,11 +14,12 @@ export const importExportRoutes = new Hono();
 
 importExportRoutes.use("/*", authMiddleware);
 
-// ── Import ────────────────────────────────────────────────────────────
+// ── Import (email verification required) ──────────────────────────────
 
 // POST /import/preview - Preview parsed tasks (first 10)
 importExportRoutes.post(
   "/import/preview",
+  emailVerifiedGuard,
   zValidator("json", importPreviewSchema),
   async (c) => {
     const input = c.req.valid("json");
@@ -32,9 +34,10 @@ importExportRoutes.post(
   },
 );
 
-// POST /import/execute - Execute import with mapping
+// POST /import/execute - Execute import with mapping (email verification required)
 importExportRoutes.post(
   "/import/execute",
+  emailVerifiedGuard,
   zValidator("json", importExecuteSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -55,9 +58,10 @@ importExportRoutes.post(
 
 // ── Export ─────────────────────────────────────────────────────────────
 
-// GET /export/csv - Export tasks as CSV
+// GET /export/csv - Export tasks as CSV (email verification required)
 importExportRoutes.get(
   "/export/csv",
+  emailVerifiedGuard,
   zValidator("query", exportQuerySchema),
   async (c) => {
     const auth = c.get("auth");
@@ -73,16 +77,17 @@ importExportRoutes.get(
   },
 );
 
-// GET /export/json - Export all user data as JSON (GDPR)
-importExportRoutes.get("/export/json", async (c) => {
+// GET /export/json - Export all user data as JSON (GDPR, email verification required)
+importExportRoutes.get("/export/json", emailVerifiedGuard, async (c) => {
   const auth = c.get("auth");
   const data = await importExportService.exportJson(auth.profileId);
   return c.json(ok(data));
 });
 
-// GET /export/ics - Export tasks as ICS (RFC 5545)
+// GET /export/ics - Export tasks as ICS (RFC 5545, email verification required)
 importExportRoutes.get(
   "/export/ics",
+  emailVerifiedGuard,
   zValidator("query", exportQuerySchema),
   async (c) => {
     const auth = c.get("auth");

@@ -4,7 +4,7 @@ export const userListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().max(200).optional(),
-  role: z.enum(["user", "super_admin", "dev_admin"]).optional(),
+  role: z.enum(["owner", "admin", "member", "viewer", "guest"]).optional(),
   status: z.enum(["active", "banned"]).optional(),
   sortBy: z.string().max(50).optional(),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
@@ -15,7 +15,7 @@ export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   avatarUrl: z.string().url().nullable().optional(),
   timezone: z.string().max(100).optional(),
-  adminRole: z.enum(["user", "super_admin", "dev_admin"]).optional(),
+  adminRole: z.enum(["owner", "admin", "member", "viewer", "guest"]).optional(),
   isBanned: z.boolean().optional(),
   planOverride: z.enum(["free", "pro", "team", "enterprise"]).optional(),
 });
@@ -124,7 +124,7 @@ export const createUserSchema = z.object({
   password: z.string().min(8).max(128),
   name: z.string().max(200).optional(),
   timezone: z.string().max(100).optional(),
-  adminRole: z.enum(["user", "super_admin", "dev_admin"]).default("user"),
+  adminRole: z.enum(["owner", "admin", "member", "viewer", "guest"]).default("member"),
 });
 
 export const resetPasswordSchema = z.object({
@@ -132,7 +132,7 @@ export const resetPasswordSchema = z.object({
 });
 
 export const changeRoleSchema = z.object({
-  role: z.enum(["user", "super_admin", "dev_admin"]),
+  role: z.enum(["owner", "admin", "member", "viewer", "guest"]),
 });
 
 export const assignTaskSchema = z.object({
@@ -184,6 +184,17 @@ export const updateCouponSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+// ── Login Events (Audit Trail) ──────────────────────────────────────
+
+export const loginEventsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  userId: z.string().max(200).optional(),
+  eventType: z.string().max(50).optional(),
+  dateFrom: z.string().datetime().optional(),
+  dateTo: z.string().datetime().optional(),
+});
+
 // ── Support Admin ───────────────────────────────────────────────────
 
 export const userActivityQuerySchema = z.object({
@@ -214,4 +225,5 @@ export type FailedNotificationsQuery = z.infer<typeof failedNotificationsQuerySc
 export type SubscriptionListQuery = z.infer<typeof subscriptionListQuerySchema>;
 export type CreateCouponInput = z.infer<typeof createCouponSchema>;
 export type UpdateCouponInput = z.infer<typeof updateCouponSchema>;
+export type LoginEventsQuery = z.infer<typeof loginEventsQuerySchema>;
 export type UserActivityQuery = z.infer<typeof userActivityQuerySchema>;

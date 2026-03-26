@@ -25,6 +25,7 @@ import { devPortalRoutes } from "./dev-portal/dev-portal.routes.js";
 import { calendarRoutes } from "./calendar/calendar.routes.js";
 import { modesRoutes } from "./modes/modes.routes.js";
 import { aiRoutes } from "./ai/ai.routes.js";
+import { logtoWebhookRoutes } from "./auth/logto-webhook.routes.js";
 
 /**
  * Register all domain modules on the Hono app instance.
@@ -75,6 +76,7 @@ export function registerModules(app: Hono): void {
 
   // Webhooks (no auth — providers call these directly)
   app.route("/api/v1/webhooks", webhookRoutes);
+  app.route("/api/v1/webhooks", logtoWebhookRoutes);
 
   // Channel verification (OTP — requires auth)
   app.route("/api/v1/channels", verificationRoutes);

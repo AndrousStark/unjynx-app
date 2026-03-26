@@ -26,8 +26,14 @@ import type {
   UserActivityQuery,
 } from "./admin.schema.js";
 import * as adminRepo from "./admin.repository.js";
+import * as broadcastRepo from "./broadcast.repository.js";
 import * as logtoManagement from "./logto-management.service.js";
 import { clearAdminCache } from "../../middleware/admin-guard.js";
+import { dispatchJob } from "../scheduler/notification-dispatcher.js";
+import { logger } from "../../middleware/logger.js";
+import type { NotificationJobData } from "../../queue/types.js";
+
+const log = logger.child({ module: "admin-broadcast" });
 
 // ── Users ─────────────────────────────────────────────────────────────
 
@@ -452,13 +458,97 @@ export async function getNotificationStats(): Promise<adminRepo.NotificationChan
 export interface BroadcastResult {
   readonly sent: boolean;
   readonly targetCount: number;
+  readonly dispatched: number;
+  readonly failed: number;
 }
 
+/**
+ * Send a broadcast notification to users filtered by plan.
+ *
+ * 1. Queries active user IDs by plan filter (profiles + subscriptions via `db`).
+ * 2. For each user, looks up their primary notification channel (notification_preferences via `contentDb`).
+ * 3. Creates a notification record and dispatches delivery via the notification dispatcher.
+ * 4. Returns the actual count of users targeted.
+ */
 export async function sendBroadcast(
   input: BroadcastInput,
 ): Promise<BroadcastResult> {
-  // Placeholder: real implementation would queue notifications via BullMQ
-  return { sent: true, targetCount: 0 };
+  // Step 1: Get target users by plan filter
+  const targetUsers = await broadcastRepo.findBroadcastTargets(input.targetPlan);
+
+  if (targetUsers.length === 0) {
+    log.info({ targetPlan: input.targetPlan }, "Broadcast: no users matched filter");
+    return { sent: true, targetCount: 0, dispatched: 0, failed: 0 };
+  }
+
+  log.info(
+    { targetPlan: input.targetPlan, targetCount: targetUsers.length },
+    "Broadcast: dispatching to users",
+  );
+
+  // Step 2: Get notification preferences for all target users (primary channel)
+  const userPrefs = await broadcastRepo.findUserPrimaryChannels(
+    targetUsers.map((u) => u.id),
+  );
+
+  // Build a map of userId -> primaryChannel for quick lookup
+  const channelMap = new Map<string, string>();
+  for (const pref of userPrefs) {
+    channelMap.set(pref.userId, pref.primaryChannel);
+  }
+
+  // Step 3: Dispatch notifications
+  let dispatched = 0;
+  let failed = 0;
+
+  for (const user of targetUsers) {
+    const channel = channelMap.get(user.id) ?? "push"; // Default to push if no preference
+
+    const job: NotificationJobData = {
+      userId: user.id,
+      notificationId: crypto.randomUUID(),
+      channel,
+      messageType: "system",
+      templateVars: {
+        title: input.title,
+        body: input.body,
+        _recipient: "", // Resolved by dispatcher from connected channels
+      },
+      priority: 5, // Normal priority for broadcasts
+      attemptNumber: 1,
+    };
+
+    try {
+      const result = await dispatchJob(job);
+      if (result.success) {
+        dispatched += 1;
+      } else {
+        failed += 1;
+        log.warn(
+          { userId: user.id, channel, reason: result.reason },
+          "Broadcast: dispatch failed for user",
+        );
+      }
+    } catch (error) {
+      failed += 1;
+      log.error(
+        { userId: user.id, channel, error },
+        "Broadcast: exception dispatching to user",
+      );
+    }
+  }
+
+  log.info(
+    { targetCount: targetUsers.length, dispatched, failed },
+    "Broadcast: dispatch complete",
+  );
+
+  return {
+    sent: true,
+    targetCount: targetUsers.length,
+    dispatched,
+    failed,
+  };
 }
 
 // ── Notification Admin ───────────────────────────────────────────────

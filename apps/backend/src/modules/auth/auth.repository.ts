@@ -67,3 +67,23 @@ export async function updateLastLogout(logtoId: string): Promise<void> {
     .set({ updatedAt: new Date() })
     .where(eq(profiles.logtoId, logtoId));
 }
+
+/**
+ * Mark a user's email as verified in the profiles table.
+ * Sets emailVerified = true and emailVerifiedAt = now.
+ */
+export async function markEmailVerified(
+  profileId: string,
+): Promise<Profile | undefined> {
+  const [updated] = await db
+    .update(profiles)
+    .set({
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(profiles.id, profileId))
+    .returning();
+
+  return updated;
+}

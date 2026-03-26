@@ -167,6 +167,13 @@ export {
   type NewAuditLogEntry,
 } from "./audit-log.js";
 
+// ── Login Events (Login Audit Trail) ─────────────────────────────────
+export {
+  loginEvents,
+  type LoginEvent,
+  type NewLoginEvent,
+} from "./login-events.js";
+
 // ── Accountability ────────────────────────────────────────────────────
 export {
   accountabilityPartners,

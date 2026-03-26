@@ -1,68 +1,75 @@
 import type { AccessControlProvider } from "@refinedev/core";
-import type { AdminRole } from "../types";
+
+type AppRole = "owner" | "admin" | "member" | "viewer" | "guest";
 
 const ADMIN_ROLE_KEY = "unjynx_admin_role";
 
 /**
  * Role-based access control matrix.
- * Maps each resource+action pair to the roles that are permitted.
+ *
+ * 5 roles: owner > admin > member > viewer > guest
+ * - owner: full control (billing, roles, everything)
+ * - admin: user management, content, flags, analytics (no billing)
+ * - member: standard user (no admin portal access in practice)
+ * - viewer: read-only
+ * - guest: no admin access
  */
-const PERMISSION_MATRIX: Record<string, readonly AdminRole[]> = {
-  // Dashboard - everyone can view
-  "dashboard:list": ["SUPER_ADMIN", "CONTENT_MANAGER", "SUPPORT_AGENT", "VIEWER"],
+const PERMISSION_MATRIX: Record<string, readonly AppRole[]> = {
+  // Dashboard
+  "dashboard:list": ["owner", "admin", "viewer"],
 
   // Users
-  "users:list": ["SUPER_ADMIN", "SUPPORT_AGENT", "VIEWER"],
-  "users:show": ["SUPER_ADMIN", "SUPPORT_AGENT", "VIEWER"],
-  "users:create": ["SUPER_ADMIN"],
-  "users:edit": ["SUPER_ADMIN"],
-  "users:delete": ["SUPER_ADMIN"],
+  "users:list": ["owner", "admin"],
+  "users:show": ["owner", "admin"],
+  "users:create": ["owner", "admin"],
+  "users:edit": ["owner", "admin"],
+  "users:delete": ["owner"],
 
   // Content
-  "content:list": ["SUPER_ADMIN", "CONTENT_MANAGER", "VIEWER"],
-  "content:show": ["SUPER_ADMIN", "CONTENT_MANAGER", "VIEWER"],
-  "content:create": ["SUPER_ADMIN", "CONTENT_MANAGER"],
-  "content:edit": ["SUPER_ADMIN", "CONTENT_MANAGER"],
-  "content:delete": ["SUPER_ADMIN", "CONTENT_MANAGER"],
+  "content:list": ["owner", "admin"],
+  "content:show": ["owner", "admin"],
+  "content:create": ["owner", "admin"],
+  "content:edit": ["owner", "admin"],
+  "content:delete": ["owner", "admin"],
 
   // Notifications
-  "notifications:list": ["SUPER_ADMIN", "SUPPORT_AGENT", "VIEWER"],
-  "notifications:show": ["SUPER_ADMIN", "SUPPORT_AGENT"],
-  "notifications:edit": ["SUPER_ADMIN"],
+  "notifications:list": ["owner", "admin"],
+  "notifications:show": ["owner", "admin"],
+  "notifications:edit": ["owner"],
 
   // Feature Flags
-  "feature-flags:list": ["SUPER_ADMIN", "VIEWER"],
-  "feature-flags:show": ["SUPER_ADMIN", "VIEWER"],
-  "feature-flags:create": ["SUPER_ADMIN"],
-  "feature-flags:edit": ["SUPER_ADMIN"],
-  "feature-flags:delete": ["SUPER_ADMIN"],
+  "feature-flags:list": ["owner", "admin"],
+  "feature-flags:show": ["owner", "admin"],
+  "feature-flags:create": ["owner"],
+  "feature-flags:edit": ["owner"],
+  "feature-flags:delete": ["owner"],
 
   // Analytics
-  "analytics:list": ["SUPER_ADMIN", "VIEWER"],
+  "analytics:list": ["owner", "admin"],
 
   // Support
-  "support:list": ["SUPER_ADMIN", "SUPPORT_AGENT"],
-  "support:show": ["SUPER_ADMIN", "SUPPORT_AGENT"],
-  "support:edit": ["SUPER_ADMIN", "SUPPORT_AGENT"],
+  "support:list": ["owner", "admin"],
+  "support:show": ["owner", "admin"],
+  "support:edit": ["owner", "admin"],
 
   // Billing
-  "billing:list": ["SUPER_ADMIN"],
-  "billing:show": ["SUPER_ADMIN"],
-  "billing:create": ["SUPER_ADMIN"],
-  "billing:edit": ["SUPER_ADMIN"],
-  "billing:delete": ["SUPER_ADMIN"],
+  "billing:list": ["owner"],
+  "billing:show": ["owner"],
+  "billing:create": ["owner"],
+  "billing:edit": ["owner"],
+  "billing:delete": ["owner"],
 
   // Compliance
-  "compliance:list": ["SUPER_ADMIN"],
-  "compliance:show": ["SUPER_ADMIN"],
+  "compliance:list": ["owner", "admin"],
+  "compliance:show": ["owner", "admin"],
 };
 
 export const accessControlProvider: AccessControlProvider = {
   can: async ({ resource, action }) => {
-    const role = (localStorage.getItem(ADMIN_ROLE_KEY) ?? "VIEWER") as AdminRole;
+    const role = (localStorage.getItem(ADMIN_ROLE_KEY) ?? "member") as AppRole;
 
-    // SUPER_ADMIN bypasses all checks
-    if (role === "SUPER_ADMIN") {
+    // owner bypasses all checks
+    if (role === "owner") {
       return { can: true };
     }
 
@@ -70,7 +77,6 @@ export const accessControlProvider: AccessControlProvider = {
     const allowedRoles = PERMISSION_MATRIX[key];
 
     if (!allowedRoles) {
-      // If no rule defined, only SUPER_ADMIN
       return { can: false, reason: "Insufficient permissions" };
     }
 

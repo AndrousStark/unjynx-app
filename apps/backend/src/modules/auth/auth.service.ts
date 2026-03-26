@@ -2,6 +2,7 @@ import type { Profile } from "../../db/schema/index.js";
 import { env } from "../../env.js";
 import { getManagementToken } from "../../utils/logto-m2m.js";
 import { logger } from "../../middleware/logger.js";
+import { clearProfileCache } from "../../middleware/auth.js";
 import * as authRepo from "./auth.repository.js";
 import type { CallbackInput } from "./auth.schema.js";
 
@@ -11,6 +12,7 @@ interface LogtoUser {
   readonly sub: string;
   readonly email?: string;
   readonly name?: string;
+  readonly emailVerified?: boolean;
 }
 
 interface TokenResponse {
@@ -22,12 +24,69 @@ interface TokenResponse {
 
 // ── Profile sync ────────────────────────────────────────────────────────
 
+/**
+ * Sync profile from Logto user data.
+ *
+ * Checks Logto's user data for `primaryEmail` and `emailVerified` status,
+ * and updates our profile accordingly. If Logto reports the email as
+ * verified, we mark it verified in our DB as well.
+ */
 export async function syncProfile(user: LogtoUser): Promise<Profile> {
-  return authRepo.upsertProfile({
+  // Upsert basic profile fields
+  const profile = await authRepo.upsertProfile({
     logtoId: user.sub,
     email: user.email,
     name: user.name,
   });
+
+  // If Logto reports email as verified and we haven't marked it yet,
+  // update the verification status in our DB.
+  if (user.emailVerified && !profile.emailVerified && user.email) {
+    const updated = await authRepo.markEmailVerified(profile.id);
+    // Clear the auth middleware profile cache so the new status is picked up
+    clearProfileCache();
+    return updated ?? profile;
+  }
+
+  // Additionally, fetch email verification status from Logto Management API
+  // if the JWT didn't include it (e.g., first sync or token without email_verified claim).
+  if (!profile.emailVerified && user.email) {
+    try {
+      const logtoVerified = await fetchLogtoEmailVerified(user.sub);
+      if (logtoVerified) {
+        const updated = await authRepo.markEmailVerified(profile.id);
+        clearProfileCache();
+        return updated ?? profile;
+      }
+    } catch (error) {
+      log.warn({ error }, "Failed to fetch Logto email verification status");
+      // Non-critical — continue with existing profile
+    }
+  }
+
+  return profile;
+}
+
+/**
+ * Fetch a user's email verification status from Logto Management API.
+ */
+async function fetchLogtoEmailVerified(logtoId: string): Promise<boolean> {
+  const m2mToken = await getManagementToken();
+  if (!m2mToken) return false;
+
+  const url = `${env.LOGTO_ENDPOINT}/api/users/${logtoId}`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${m2mToken}` },
+  });
+
+  if (!response.ok) return false;
+
+  const data = (await response.json()) as {
+    primaryEmail?: string;
+    primaryEmailVerified?: boolean;
+  };
+
+  return data.primaryEmailVerified === true;
 }
 
 export async function getProfileByLogtoId(

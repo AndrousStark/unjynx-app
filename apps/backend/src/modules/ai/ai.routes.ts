@@ -17,6 +17,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
 import { authMiddleware } from "../../middleware/auth.js";
+import { emailVerifiedGuard } from "../../middleware/email-verified-guard.js";
 import { ok, err } from "../../types/api.js";
 import {
   suggestionsQuerySchema,
@@ -31,6 +32,8 @@ import * as claudeService from "../../services/claude.js";
 export const aiRoutes = new Hono();
 
 aiRoutes.use("/*", authMiddleware);
+// All AI features require email verification
+aiRoutes.use("/*", emailVerifiedGuard);
 
 // ── Helper: handle ML service errors consistently ───────────────────────
 

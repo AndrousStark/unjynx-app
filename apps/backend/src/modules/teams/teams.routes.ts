@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { authMiddleware } from "../../middleware/auth.js";
+import { emailVerifiedGuard } from "../../middleware/email-verified-guard.js";
 import { teamRole } from "../../middleware/team-rbac.js";
 import { ok, err } from "../../types/api.js";
 import {
@@ -19,9 +20,10 @@ export const teamRoutes = new Hono();
 
 teamRoutes.use("/*", authMiddleware);
 
-// POST /teams - Create team
+// POST /teams - Create team (email verification required)
 teamRoutes.post(
   "/",
+  emailVerifiedGuard,
   zValidator("json", createTeamSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -68,9 +70,10 @@ teamRoutes.get("/:teamId/members", async (c) => {
   return c.json(ok(members));
 });
 
-// POST /teams/:teamId/invite - Invite member (admin+)
+// POST /teams/:teamId/invite - Invite member (admin+, email verification required)
 teamRoutes.post(
   "/:teamId/invite",
+  emailVerifiedGuard,
   teamRole("owner", "admin"),
   zValidator("json", inviteMemberSchema),
   async (c) => {

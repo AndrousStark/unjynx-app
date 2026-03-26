@@ -2,9 +2,9 @@ import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { profiles } from "../db/schema/index.js";
+import { profiles, auditLog } from "../db/schema/index.js";
 
-type AdminRole = "super_admin" | "dev_admin";
+type AdminRole = "owner" | "admin" | "member" | "viewer" | "guest";
 
 // In-memory cache: userId -> { role, expiresAt }
 const adminCache = new Map<string, { role: string | null; expiresAt: number }>();
@@ -44,6 +44,29 @@ export function adminGuard(...allowedRoles: AdminRole[]) {
     const role = await resolveAdminRole(userId);
 
     if (!role || !allowedRoles.includes(role as AdminRole)) {
+      // Audit log: record failed admin access attempt (fire-and-forget)
+      db.insert(auditLog)
+        .values({
+          userId,
+          action: "admin.access_denied",
+          entityType: "admin_guard",
+          metadata: JSON.stringify({
+            requiredRoles: allowedRoles,
+            actualRole: role ?? "none",
+            path: c.req.path,
+            method: c.req.method,
+          }),
+          ipAddress:
+            c.req.header("x-forwarded-for") ??
+            c.req.header("x-real-ip") ??
+            undefined,
+          userAgent: c.req.header("user-agent") ?? undefined,
+        })
+        .execute()
+        .catch(() => {
+          // Non-critical: don't block the response if audit insert fails
+        });
+
       throw new HTTPException(403, {
         message: "Admin access required",
       });

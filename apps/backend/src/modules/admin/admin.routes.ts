@@ -26,13 +26,15 @@ import {
   createCouponSchema,
   updateCouponSchema,
   userActivityQuerySchema,
+  loginEventsQuerySchema,
 } from "./admin.schema.js";
 import * as adminService from "./admin.service.js";
+import * as loginAuditService from "../auth/login-audit.service.js";
 
 export const adminRoutes = new Hono();
 
 adminRoutes.use("/*", authMiddleware);
-adminRoutes.use("/*", adminGuard("super_admin", "dev_admin"));
+adminRoutes.use("/*", adminGuard("owner", "admin"));
 
 // ── Users ─────────────────────────────────────────────────────────────
 
@@ -90,7 +92,7 @@ adminRoutes.patch(
 // POST /admin/users - Create user (super_admin only)
 adminRoutes.post(
   "/users",
-  adminGuard("super_admin"),
+  adminGuard("owner"),
   zValidator("json", createUserSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -118,7 +120,7 @@ adminRoutes.post(
 // DELETE /admin/users/:id - Delete user (super_admin only)
 adminRoutes.delete(
   "/users/:id",
-  adminGuard("super_admin"),
+  adminGuard("owner"),
   async (c) => {
     const auth = c.get("auth");
     const userId = c.req.param("id");
@@ -149,7 +151,7 @@ adminRoutes.delete(
 // POST /admin/users/:id/reset-password - Reset user password (super_admin only)
 adminRoutes.post(
   "/users/:id/reset-password",
-  adminGuard("super_admin"),
+  adminGuard("owner"),
   zValidator("json", resetPasswordSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -182,7 +184,7 @@ adminRoutes.post(
 // PATCH /admin/users/:id/role - Change user role (super_admin only)
 adminRoutes.patch(
   "/users/:id/role",
-  adminGuard("super_admin"),
+  adminGuard("owner"),
   zValidator("json", changeRoleSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -285,8 +287,19 @@ adminRoutes.post(
   "/content",
   zValidator("json", createContentSchema),
   async (c) => {
+    const auth = c.get("auth");
     const input = c.req.valid("json");
     const content = await adminService.createContent(input);
+
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "content.create",
+      "daily_content",
+      content.id,
+      { category: input.category },
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
     return c.json(ok(content), 201);
   },
 );
@@ -296,6 +309,7 @@ adminRoutes.patch(
   "/content/:id",
   zValidator("json", updateContentSchema),
   async (c) => {
+    const auth = c.get("auth");
     const contentId = c.req.param("id");
     const input = c.req.valid("json");
     const content = await adminService.updateContent(contentId, input);
@@ -304,18 +318,37 @@ adminRoutes.patch(
       return c.json(err("Content not found"), 404);
     }
 
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "content.update",
+      "daily_content",
+      contentId,
+      input,
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
     return c.json(ok(content));
   },
 );
 
 // DELETE /admin/content/:id - Delete content
 adminRoutes.delete("/content/:id", async (c) => {
+  const auth = c.get("auth");
   const contentId = c.req.param("id");
   const deleted = await adminService.deleteContent(contentId);
 
   if (!deleted) {
     return c.json(err("Content not found"), 404);
   }
+
+  await adminService.logAuditEvent(
+    auth.profileId,
+    "content.delete",
+    "daily_content",
+    contentId,
+    undefined,
+    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+  );
 
   return c.json(ok({ deleted: true }));
 });
@@ -325,8 +358,19 @@ adminRoutes.post(
   "/content/bulk-import",
   zValidator("json", bulkImportContentSchema),
   async (c) => {
+    const auth = c.get("auth");
     const input = c.req.valid("json");
     const items = await adminService.bulkImportContent(input);
+
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "content.bulk_import",
+      "daily_content",
+      undefined,
+      { importedCount: items.length, categories: [...new Set(input.items.map((i) => i.category))] },
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
     return c.json(ok({ imported: items.length }), 201);
   },
 );
@@ -408,8 +452,19 @@ adminRoutes.post(
   "/feature-flags",
   zValidator("json", createFeatureFlagSchema),
   async (c) => {
+    const auth = c.get("auth");
     const input = c.req.valid("json");
     const flag = await adminService.createFeatureFlag(input);
+
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "feature_flag.create",
+      "feature_flag",
+      flag.id,
+      { key: input.key, status: input.status },
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
     return c.json(ok(flag), 201);
   },
 );
@@ -419,6 +474,7 @@ adminRoutes.patch(
   "/feature-flags/:id",
   zValidator("json", updateFeatureFlagSchema),
   async (c) => {
+    const auth = c.get("auth");
     const id = c.req.param("id");
     const input = c.req.valid("json");
     const flag = await adminService.updateFeatureFlag(id, input);
@@ -427,18 +483,37 @@ adminRoutes.patch(
       return c.json(err("Feature flag not found"), 404);
     }
 
+    await adminService.logAuditEvent(
+      auth.profileId,
+      "feature_flag.update",
+      "feature_flag",
+      id,
+      input,
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    );
+
     return c.json(ok(flag));
   },
 );
 
 // DELETE /admin/feature-flags/:id - Delete
 adminRoutes.delete("/feature-flags/:id", async (c) => {
+  const auth = c.get("auth");
   const id = c.req.param("id");
   const deleted = await adminService.deleteFeatureFlag(id);
 
   if (!deleted) {
     return c.json(err("Feature flag not found"), 404);
   }
+
+  await adminService.logAuditEvent(
+    auth.profileId,
+    "feature_flag.delete",
+    "feature_flag",
+    id,
+    undefined,
+    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+  );
 
   return c.json(ok({ deleted: true }));
 });
@@ -574,7 +649,7 @@ adminRoutes.get("/billing/coupons", async (c) => {
 // POST /admin/billing/coupons - Create coupon
 adminRoutes.post(
   "/billing/coupons",
-  adminGuard("super_admin"),
+  adminGuard("owner"),
   zValidator("json", createCouponSchema),
   async (c) => {
     const auth = c.get("auth");
@@ -597,7 +672,7 @@ adminRoutes.post(
 // PATCH /admin/billing/coupons/:id - Update coupon
 adminRoutes.patch(
   "/billing/coupons/:id",
-  adminGuard("super_admin"),
+  adminGuard("owner"),
   zValidator("json", updateCouponSchema),
   async (c) => {
     const id = c.req.param("id");
@@ -615,7 +690,7 @@ adminRoutes.patch(
 // DELETE /admin/billing/coupons/:id - Delete coupon
 adminRoutes.delete(
   "/billing/coupons/:id",
-  adminGuard("super_admin"),
+  adminGuard("owner"),
   async (c) => {
     const auth = c.get("auth");
     const id = c.req.param("id");
@@ -677,3 +752,23 @@ adminRoutes.get("/compliance/summary", async (c) => {
   const data = await adminService.getComplianceSummary();
   return c.json(ok(data));
 });
+
+// ── Login Events (Audit Trail) ──────────────────────────────────────
+
+// GET /admin/login-events - Login events (paginated, filterable)
+adminRoutes.get(
+  "/login-events",
+  zValidator("query", loginEventsQuerySchema),
+  async (c) => {
+    const query = c.req.valid("query");
+    const { items, total } = await loginAuditService.getAllLoginEvents({
+      page: query.page,
+      limit: query.limit,
+      userId: query.userId,
+      eventType: query.eventType,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+    });
+    return c.json(paginated(items, total, query.page, query.limit));
+  },
+);

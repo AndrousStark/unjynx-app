@@ -29,7 +29,7 @@ healthRoutes.get("/health", async (c) => {
 });
 
 // Metrics: admin-only (exposes internal process info)
-healthRoutes.get("/metrics", authMiddleware, adminGuard("super_admin", "dev_admin"), (c) => {
+healthRoutes.get("/metrics", authMiddleware, adminGuard("owner", "admin"), (c) => {
   const metrics = {
     uptime: process.uptime(),
     memory: process.memoryUsage(),

@@ -9,6 +9,7 @@ interface AuthPayload {
   readonly profileId: string;
   readonly email?: string;
   readonly name?: string;
+  readonly emailVerified: boolean;
 }
 
 declare module "hono" {
@@ -27,22 +28,22 @@ function getJwks() {
   return jwks;
 }
 
-// In-memory cache: logtoId -> { profileId, expiresAt }
+// In-memory cache: logtoId -> { profileId, emailVerified, expiresAt }
 const profileCache = new Map<
   string,
-  { profileId: string; expiresAt: number }
+  { profileId: string; emailVerified: boolean; expiresAt: number }
 >();
 const CACHE_TTL_MS = 5 * 60_000; // 5 minutes
 
-async function resolveProfileId(
+async function resolveProfile(
   logtoId: string,
   email?: string,
   name?: string,
   picture?: string,
-): Promise<string> {
+): Promise<{ profileId: string; emailVerified: boolean }> {
   const cached = profileCache.get(logtoId);
   if (cached && Date.now() < cached.expiresAt) {
-    return cached.profileId;
+    return { profileId: cached.profileId, emailVerified: cached.emailVerified };
   }
 
   // Upsert ensures the profile always exists.
@@ -50,10 +51,16 @@ async function resolveProfileId(
   const profile = await upsertProfile({ logtoId, email, name, picture });
   profileCache.set(logtoId, {
     profileId: profile.id,
+    emailVerified: profile.emailVerified,
     expiresAt: Date.now() + CACHE_TTL_MS,
   });
 
-  return profile.id;
+  return { profileId: profile.id, emailVerified: profile.emailVerified };
+}
+
+/** Clear the profile cache (useful when email verification status changes). */
+export function clearProfileCache(): void {
+  profileCache.clear();
 }
 
 export const authMiddleware = createMiddleware(async (c, next) => {
@@ -90,10 +97,10 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     throw new HTTPException(401, { message: "Invalid or expired token" });
   }
 
-  // Resolve logtoId -> profileId (cached, upserts on first encounter)
-  const profileId = await resolveProfileId(sub, email, name, picture);
+  // Resolve logtoId -> profileId + emailVerified (cached, upserts on first encounter)
+  const { profileId, emailVerified } = await resolveProfile(sub, email, name, picture);
 
-  c.set("auth", { sub, profileId, email, name });
+  c.set("auth", { sub, profileId, email, name, emailVerified });
 
   await next();
 });

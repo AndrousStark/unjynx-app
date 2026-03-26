@@ -20,7 +20,7 @@ const userManager = new UserManager({
   extraTokenParams: { resource: LOGTO_CONFIG.resource },
 });
 
-const ALLOWED_ROLES = ["dev_admin", "super_admin"] as const;
+const ALLOWED_ROLES = ["owner", "admin"] as const;
 
 const hasDevAccess = (roles: ReadonlyArray<string>): boolean =>
   roles.some((r) => (ALLOWED_ROLES as ReadonlyArray<string>).includes(r));

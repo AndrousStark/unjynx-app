@@ -19,7 +19,7 @@ export const devPortalRoutes = new Hono();
 
 // All dev portal routes require auth + admin role
 devPortalRoutes.use("/*", authMiddleware);
-devPortalRoutes.use("/*", adminGuard("super_admin", "dev_admin"));
+devPortalRoutes.use("/*", adminGuard("owner", "admin"));
 
 // ── R1: System Health ───────────────────────────────────────────────
 
