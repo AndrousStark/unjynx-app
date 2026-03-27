@@ -1,5 +1,10 @@
 /**
- * AI routes — proxy to the Python ML microservice + Claude API.
+ * AI routes — 6-layer pipeline + ML microservice + Claude API.
+ *
+ * Pipeline (new):
+ *   POST /api/v1/ai/query          — 6-layer pipeline (intent → cache → LLM)
+ *   GET  /api/v1/ai/usage          — daily AI usage stats
+ *   GET  /api/v1/ai/insights       — weekly AI-generated insights
  *
  * ML service (existing):
  *   GET /api/v1/ai/optimal-time   — best notification hour
@@ -7,8 +12,8 @@
  *   GET /api/v1/ai/energy         — 24-hour energy forecast
  *   GET /api/v1/ai/patterns       — habit pattern detection
  *
- * Claude API (new):
- *   POST /api/v1/ai/chat          — streaming chat via SSE
+ * Claude API (existing):
+ *   POST /api/v1/ai/chat          — streaming chat via SSE (now with pipeline)
  *   POST /api/v1/ai/decompose     — task decomposition
  *   POST /api/v1/ai/schedule      — schedule suggestions
  */
@@ -16,6 +21,7 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import { authMiddleware } from "../../middleware/auth.js";
 import { emailVerifiedGuard } from "../../middleware/email-verified-guard.js";
 import { ok, err } from "../../types/api.js";
@@ -28,6 +34,7 @@ import {
 } from "./ai.schema.js";
 import * as aiService from "./ai.service.js";
 import * as claudeService from "../../services/claude.js";
+import { processQuery, processStreamingChat } from "./pipeline/ai-pipeline.js";
 
 export const aiRoutes = new Hono();
 
@@ -140,7 +147,41 @@ function handleClaudeError(error: unknown) {
   return { message, status: 500 as const };
 }
 
-// POST /api/v1/ai/chat — streaming chat via SSE
+// ── Pipeline Endpoints ──────────────────────────────────────────────
+
+// POST /api/v1/ai/query — 6-layer pipeline (non-streaming)
+const querySchema = z.object({
+  query: z.string().min(1).max(2000),
+  persona: z.enum(["default", "drill_sergeant", "therapist", "ceo", "coach"]).optional(),
+  conversationHistory: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string(),
+  })).optional(),
+});
+
+aiRoutes.post(
+  "/query",
+  zValidator("json", querySchema),
+  async (c) => {
+    const auth = c.get("auth");
+    const body = c.req.valid("json");
+
+    try {
+      const result = await processQuery({
+        query: body.query,
+        userId: auth.profileId,
+        persona: body.persona,
+        conversationHistory: body.conversationHistory,
+      });
+      return c.json(ok(result));
+    } catch (error) {
+      const claudeErr = handleClaudeError(error);
+      return c.json(err(claudeErr.message), claudeErr.status);
+    }
+  },
+);
+
+// POST /api/v1/ai/chat — streaming chat via SSE (now with pipeline)
 aiRoutes.post(
   "/chat",
   zValidator("json", chatRequestSchema),
@@ -148,17 +189,17 @@ aiRoutes.post(
     const auth = c.get("auth");
     const body = c.req.valid("json");
 
-    if (!claudeService.isClaudeEnabled()) {
-      return c.json(err("AI service is not configured"), 503);
-    }
-
     return streamSSE(c, async (stream) => {
       try {
-        const generator = claudeService.chatStream({
-          messages: body.messages,
+        // Use pipeline-aware streaming
+        const lastMessage = body.messages[body.messages.length - 1];
+        const history = body.messages.slice(0, -1);
+
+        const generator = processStreamingChat({
+          query: lastMessage.content,
+          userId: auth.profileId,
           persona: body.persona,
-          model: body.model as claudeService.ModelTier | undefined,
-          profileId: auth.profileId,
+          conversationHistory: history,
         });
 
         let result = await generator.next();
@@ -191,6 +232,67 @@ aiRoutes.post(
     });
   },
 );
+
+// GET /api/v1/ai/insights — weekly AI-generated productivity insights
+aiRoutes.get("/insights", async (c) => {
+  const auth = c.get("auth");
+
+  if (!claudeService.isClaudeEnabled()) {
+    return c.json(err("AI service is not configured"), 503);
+  }
+
+  try {
+    // Build progress data from DB
+    const { buildUserContext } = await import("./pipeline/context-builder.js");
+    const ctx = await buildUserContext(auth.profileId);
+
+    const result = await claudeService.generateInsights(
+      {
+        tasksCompleted: ctx.completedToday,
+        tasksCreated: ctx.tasksToday,
+        avgCompletionTime: 0,
+        streakDays: ctx.streak,
+        topCategories: [],
+        dailyCompletions: [],
+      },
+      {
+        peakHours: [],
+        lowHours: [],
+        busiestDay: ctx.dayOfWeek,
+        quietestDay: "Sun",
+      },
+      auth.profileId,
+    );
+
+    return c.json(ok({
+      summary: result.summary,
+      patterns: result.patterns,
+      suggestions: result.suggestions,
+      prediction: result.prediction,
+    }));
+  } catch (error) {
+    const claudeErr = handleClaudeError(error);
+    return c.json(err(claudeErr.message), claudeErr.status);
+  }
+});
+
+// GET /api/v1/ai/usage — daily AI usage stats
+aiRoutes.get("/usage", async (c) => {
+  const auth = c.get("auth");
+
+  // Import rate limit info from claude service
+  const plan = auth.adminRole === "owner" ? "enterprise" : "free";
+  const limits: Record<string, number> = { free: 10, pro: 100, team: 200, enterprise: 1000 };
+  const dailyLimit = limits[plan] ?? 10;
+
+  // Note: actual usage count comes from the in-memory rate buckets in claude.ts
+  // For now, return the limit info — the frontend shows remaining from SSE usage events
+  return c.json(ok({
+    plan,
+    dailyLimit,
+    resetAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  }));
+});
 
 // POST /api/v1/ai/decompose — task decomposition
 aiRoutes.post(
