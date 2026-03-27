@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// AI API
+// AI API — streaming chat, pipeline query, insights, scheduling
 // ---------------------------------------------------------------------------
 
 import { apiClient } from './client';
@@ -8,165 +8,234 @@ import { apiClient } from './client';
 // Types
 // ---------------------------------------------------------------------------
 
-export interface AiSuggestion {
-  readonly id: string;
-  readonly type: 'schedule' | 'priority' | 'breakdown' | 'reminder' | 'insight';
-  readonly title: string;
-  readonly description: string;
-  readonly confidence: number;
-  readonly taskId: string | null;
-  readonly actionPayload: Record<string, unknown> | null;
-  readonly isApplied: boolean;
-  readonly createdAt: string;
-}
-
 export interface AiChatMessage {
   readonly id: string;
   readonly role: 'user' | 'assistant';
   readonly content: string;
-  readonly metadata: Record<string, unknown> | null;
+  readonly source?: 'layer1_intent' | 'layer2_cache' | 'layer5_llm' | 'streaming';
+  readonly model?: string | null;
+  readonly tokensUsed?: number;
+  readonly metadata?: Record<string, unknown> | null;
   readonly createdAt: string;
 }
 
-export interface AiInsight {
-  readonly id: string;
-  readonly category: 'productivity' | 'patterns' | 'suggestions' | 'warnings';
-  readonly title: string;
-  readonly body: string;
-  readonly severity: 'info' | 'warning' | 'critical';
-  readonly isRead: boolean;
-  readonly createdAt: string;
+export type Persona = 'default' | 'drill_sergeant' | 'therapist' | 'ceo' | 'coach';
+
+export interface AiUsage {
+  readonly plan: string;
+  readonly dailyLimit: number;
+  readonly resetAt: string;
 }
 
-export interface SmartScheduleResult {
-  readonly suggestedDate: string;
-  readonly suggestedTime: string;
-  readonly reason: string;
-  readonly confidence: number;
-  readonly alternatives: readonly {
-    readonly date: string;
-    readonly time: string;
-    readonly reason: string;
-  }[];
+export interface AiInsightsResult {
+  readonly summary: string;
+  readonly patterns: readonly { type: string; description: string; confidence: number }[];
+  readonly suggestions: readonly { title: string; description: string; impact: string }[];
+  readonly prediction: string;
+}
+
+export interface PipelineResult {
+  readonly response: string;
+  readonly source: 'layer1_intent' | 'layer2_cache' | 'layer5_llm';
+  readonly intent: string | null;
+  readonly model: string | null;
+  readonly tier: number;
+  readonly cached: boolean;
+  readonly tokensUsed: number;
+  readonly latencyMs: number;
+  readonly data?: unknown;
 }
 
 // ---------------------------------------------------------------------------
-// API functions
+// Helpers
 // ---------------------------------------------------------------------------
 
-export function getSuggestions(params?: {
-  readonly type?: AiSuggestion['type'];
-  readonly taskId?: string;
-  readonly limit?: number;
-}): Promise<readonly AiSuggestion[]> {
-  return apiClient.get<readonly AiSuggestion[]>('/api/v1/ai/suggestions', {
-    params: params as Record<string, string | number | boolean | undefined>,
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const cookieMatch = document.cookie.match(/(?:^|;\s*)unjynx_token=([^;]*)/);
+  if (cookieMatch) return decodeURIComponent(cookieMatch[1]);
+  return localStorage.getItem('unjynx_token');
+}
+
+function getBaseUrl(): string {
+  return typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.unjynx.me')
+    : 'https://api.unjynx.me';
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Query (non-streaming — fast for direct actions + cached)
+// ---------------------------------------------------------------------------
+
+export async function queryAi(
+  query: string,
+  options?: {
+    persona?: Persona;
+    conversationHistory?: readonly { role: 'user' | 'assistant'; content: string }[];
+  },
+): Promise<PipelineResult> {
+  return apiClient.post<PipelineResult>('/api/v1/ai/query', {
+    query,
+    persona: options?.persona,
+    conversationHistory: options?.conversationHistory,
   });
 }
 
-export function applySuggestion(id: string): Promise<AiSuggestion> {
-  return apiClient.post<AiSuggestion>(`/api/v1/ai/suggestions/${id}/apply`);
-}
+// ---------------------------------------------------------------------------
+// Streaming Chat (real-time token-by-token rendering)
+// ---------------------------------------------------------------------------
 
-export function dismissSuggestion(id: string): Promise<void> {
-  return apiClient.post(`/api/v1/ai/suggestions/${id}/dismiss`);
-}
-
-export function getChatHistory(params?: {
-  readonly page?: number;
-  readonly limit?: number;
-}): Promise<readonly AiChatMessage[]> {
-  return apiClient.get<readonly AiChatMessage[]>('/api/v1/ai/chat', {
-    params: params as Record<string, string | number | boolean | undefined>,
-  });
+export interface StreamChatOptions {
+  readonly messages: readonly { role: 'user' | 'assistant'; content: string }[];
+  readonly persona?: Persona;
+  readonly onChunk: (text: string) => void;
+  readonly onDone: (usage?: { model: string; tokensUsed: number }) => void;
+  readonly onError: (error: string) => void;
 }
 
 /**
- * Send a chat message and consume the SSE stream, returning the full response.
- *
- * Backend streams SSE events: "text" (content chunks), "usage", "done".
- * We collect all text chunks into a single AiChatMessage.
+ * Stream AI chat responses via SSE with real-time token rendering.
+ * Returns an AbortController so the caller can cancel the stream.
  */
-export async function sendChatMessage(message: string): Promise<AiChatMessage> {
-  const BASE_URL =
-    typeof window !== 'undefined'
-      ? (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.unjynx.me')
-      : 'https://api.unjynx.me';
+export function streamChat(options: StreamChatOptions): AbortController {
+  const controller = new AbortController();
 
-  const token =
-    typeof window !== 'undefined'
-      ? (document.cookie.match(/(?:^|;\s*)unjynx_token=([^;]*)/)?.[1]
-          ? decodeURIComponent(document.cookie.match(/(?:^|;\s*)unjynx_token=([^;]*)/)![1])
-          : localStorage.getItem('unjynx_token'))
-      : null;
+  (async () => {
+    try {
+      const token = getAuthToken();
+      const baseUrl = getBaseUrl();
 
-  const res = await fetch(`${BASE_URL}/api/v1/ai/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ message }),
-  });
+      const res = await fetch(`${baseUrl}/api/v1/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: options.messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          persona: options.persona ?? 'default',
+        }),
+        signal: controller.signal,
+      });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `AI chat failed: ${res.status}`);
-  }
-
-  // Collect SSE text chunks
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error('No response body');
-
-  const decoder = new TextDecoder();
-  let content = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    const chunk = decoder.decode(value, { stream: true });
-    for (const line of chunk.split('\n')) {
-      if (line.startsWith('data: ')) {
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        let errorMsg = `AI service error (${res.status})`;
         try {
-          const data = JSON.parse(line.slice(6));
-          if (data.text) content += data.text;
-          if (data.content) content += data.content;
+          const parsed = JSON.parse(text);
+          errorMsg = parsed.error ?? parsed.message ?? errorMsg;
         } catch {
-          // Non-JSON data line, might be raw text
-          const raw = line.slice(6).trim();
-          if (raw && raw !== '[DONE]') content += raw;
+          if (text) errorMsg = text;
+        }
+        options.onError(errorMsg);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        options.onError('No response body');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // Keep the last incomplete line in buffer
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ') && !line.startsWith('event: ')) continue;
+
+          // Parse SSE event type
+          const eventMatch = line.match(/^event:\s*(.+)/);
+          if (eventMatch) continue; // Event type line, data follows on next line
+
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') {
+              options.onDone();
+              return;
+            }
+
+            // Try to parse as JSON
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.message) {
+                options.onError(parsed.message);
+                return;
+              }
+              // Usage event
+              if (parsed.model || parsed.inputTokens) {
+                options.onDone({
+                  model: parsed.model ?? 'unknown',
+                  tokensUsed: (parsed.inputTokens ?? 0) + (parsed.outputTokens ?? 0),
+                });
+                return;
+              }
+            } catch {
+              // Raw text chunk — this is the streaming content
+              if (data) {
+                options.onChunk(data);
+              }
+            }
+          }
         }
       }
+
+      // Stream ended without [DONE]
+      options.onDone();
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') return;
+      options.onError(
+        error instanceof Error ? error.message : 'Connection failed',
+      );
     }
-  }
+  })();
 
-  return {
-    id: crypto.randomUUID(),
-    role: 'assistant',
-    content: content || 'AI service is currently unavailable. Please try again later.',
-    metadata: null,
-    createdAt: new Date().toISOString(),
-  };
+  return controller;
 }
 
-export function getInsights(): Promise<readonly AiInsight[]> {
-  return apiClient.get<readonly AiInsight[]>('/api/v1/ai/insights');
+// ---------------------------------------------------------------------------
+// Insights & Usage
+// ---------------------------------------------------------------------------
+
+export function getAiUsage(): Promise<AiUsage> {
+  return apiClient.get<AiUsage>('/api/v1/ai/usage');
 }
 
-export function markInsightRead(id: string): Promise<void> {
-  return apiClient.post(`/api/v1/ai/insights/${id}/read`);
+export function getAiInsights(): Promise<AiInsightsResult> {
+  return apiClient.get<AiInsightsResult>('/api/v1/ai/insights');
 }
 
-export function getSmartSchedule(taskId: string): Promise<SmartScheduleResult> {
-  return apiClient.get<SmartScheduleResult>(`/api/v1/ai/schedule/${taskId}`);
+// ---------------------------------------------------------------------------
+// Schedule & Decompose
+// ---------------------------------------------------------------------------
+
+export function decomposeTask(
+  taskTitle: string,
+  description?: string,
+): Promise<{
+  subtasks: readonly { title: string; estimatedMinutes: number; priority: string }[];
+  reasoning: string;
+}> {
+  return apiClient.post('/api/v1/ai/decompose', { taskTitle, description });
 }
 
-export function autoScheduleTasks(taskIds: readonly string[]): Promise<readonly {
-  readonly taskId: string;
-  readonly suggestedDate: string;
-  readonly suggestedTime: string;
-}[]> {
-  return apiClient.post('/api/v1/ai/schedule/auto', { taskIds });
+export function scheduleTasks(
+  taskIds: readonly string[],
+): Promise<{
+  schedule: readonly { taskId: string; suggestedStart: string; suggestedEnd: string; reason: string }[];
+  insights: string;
+}> {
+  return apiClient.post('/api/v1/ai/schedule', { taskIds });
 }
