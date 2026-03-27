@@ -93,7 +93,7 @@ export function resetPassword(token: string, password: string): Promise<{ reset:
 // ---------------------------------------------------------------------------
 
 const LOGTO_ENDPOINT = process.env.NEXT_PUBLIC_LOGTO_ENDPOINT ?? 'https://auth.unjynx.me';
-const LOGTO_APP_ID = process.env.NEXT_PUBLIC_LOGTO_APP_ID ?? 'unjynx-web-client';
+const LOGTO_APP_ID = process.env.NEXT_PUBLIC_LOGTO_APP_ID ?? '4rpcwskqhipqoxmiluj6o';
 
 /**
  * Build the Logto OIDC authorization URL for browser redirect.
