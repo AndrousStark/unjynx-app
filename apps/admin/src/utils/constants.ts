@@ -114,9 +114,7 @@ export const LOGTO_REDIRECT_URI =
 export const LOGTO_CONFIG = {
   authority: `${LOGTO_ENDPOINT}/oidc`,
   clientId: LOGTO_APP_ID,
-  // Logto assigns a secret to all app types including SPAs.
-  // oidc-client-ts must send it during token exchange or Logto rejects.
-  clientSecret: import.meta.env.VITE_LOGTO_CLIENT_SECRET ?? "UnjynxAdminWebSecret2026",
+  // SPA apps use PKCE for token exchange — no client_secret needed.
   redirectUri: LOGTO_REDIRECT_URI,
   postLogoutRedirectUri: `${origin}${basePath}`,
   scopes: ["openid", "profile", "email"],

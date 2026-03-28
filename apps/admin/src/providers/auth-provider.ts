@@ -7,7 +7,8 @@ const ADMIN_ROLE_KEY = "unjynx_admin_role";
 export const userManager = new UserManager({
   authority: LOGTO_CONFIG.authority,
   client_id: LOGTO_CONFIG.clientId,
-  client_secret: LOGTO_CONFIG.clientSecret,
+  // SPA apps use PKCE (code_verifier), NOT client_secret.
+  // Sending client_secret causes Logto to reject with "client authentication failed".
   redirect_uri: LOGTO_CONFIG.redirectUri,
   post_logout_redirect_uri: LOGTO_CONFIG.postLogoutRedirectUri,
   scope: LOGTO_CONFIG.scopes.join(" "),
