@@ -116,6 +116,54 @@ function stripTags(text: string): string {
     .trim();
 }
 
+// ── Notification Channel Extraction ───────────────────────────────
+
+const CHANNEL_PATTERNS: readonly [RegExp, string][] = [
+  [/\b(?:on\s+)?whatsapp\b/i, "whatsapp"],
+  [/\b(?:on\s+)?telegram\b/i, "telegram"],
+  [/\b(?:via?\s+)?(?:text|sms)\b/i, "sms"],
+  [/\b(?:via?\s+)?(?:email|e-mail|mail\s+me)\b/i, "email"],
+  [/\b(?:on\s+)?(?:slack)\b/i, "slack"],
+  [/\b(?:on\s+)?(?:discord)\b/i, "discord"],
+  [/\b(?:on\s+)?(?:instagram|insta|ig)\b/i, "instagram"],
+  [/\b(?:push\s+(?:notification|notify))\b/i, "push"],
+];
+
+function parseNotificationChannel(text: string): string | null {
+  for (const [pattern, channel] of CHANNEL_PATTERNS) {
+    if (pattern.test(text)) return channel;
+  }
+  return null;
+}
+
+function stripChannel(text: string): string {
+  let cleaned = text;
+  for (const [pattern] of CHANNEL_PATTERNS) {
+    cleaned = cleaned.replace(pattern, "");
+  }
+  return cleaned.replace(/\b(?:on|via|through|using)\s+$/i, "").replace(/\s{2,}/g, " ").trim();
+}
+
+// ── Abbreviation Normalization ────────────────────────────────────
+
+const ABBREVIATIONS: Record<string, string> = {
+  tmrw: "tomorrow", tmr: "tomorrow", "2mrw": "tomorrow",
+  mtg: "meeting", appt: "appointment",
+  "w/": "with", "b/c": "because",
+  pls: "please", plz: "please",
+  rn: "right now", asap: "as soon as possible",
+  eod: "end of day", eow: "end of week", eom: "end of month",
+  wfh: "work from home", ooo: "out of office",
+  "f/u": "follow up", "1:1": "one on one meeting",
+  msg: "message", info: "information",
+  mins: "minutes", hrs: "hours", secs: "seconds",
+};
+
+function normalizeAbbreviations(text: string): string {
+  const words = text.split(/\s+/);
+  return words.map((w) => ABBREVIATIONS[w.toLowerCase()] ?? w).join(" ");
+}
+
 // ── Recurring Pattern Detection ───────────────────────────────────
 
 function parseRecurring(text: string): string | null {
@@ -257,6 +305,10 @@ interface IntentPattern {
  */
 function extractTaskEntities(text: string): Record<string, string> {
   const entities: Record<string, string> = {};
+
+  // Extract notification channel (UNJYNX USP)
+  const channel = parseNotificationChannel(text);
+  if (channel) entities.channel = channel;
 
   // Extract date/time (chrono-node)
   const { date, time } = parseDateTime(text);
@@ -558,6 +610,82 @@ const INTENT_PATTERNS: readonly IntentPattern[] = [
     },
   },
 
+  // ── Search Tasks (confidence: 0.85) ──
+  {
+    intent: "search_tasks",
+    confidence: 0.85,
+    patterns: [
+      /^(?:find|search|look\s+for|where\s+is)\s+(?:the\s+)?(?:task\s+)?(?:about\s+|called\s+|named\s+)?(?:["'](.+?)["']|(.+))/i,
+      /^(?:which\s+task)\s+(?:is\s+)?(?:about|has|contains)\s+(.+)/i,
+    ],
+    extractor: (_text, match) => ({
+      searchQuery: (match[1] ?? match[2] ?? match[3] ?? "").trim(),
+    }),
+  },
+
+  // ── Show Completed (confidence: 0.90) ──
+  {
+    intent: "show_completed",
+    confidence: 0.90,
+    patterns: [
+      /^(?:what\s+did\s+i\s+(?:finish|complete|do|accomplish))\s*(.+)?/i,
+      /^(?:show|list)\s+(?:my\s+)?(?:completed|finished|done)\s+tasks?\s*(.+)?/i,
+      /^(?:completed|finished)\s+tasks?\s*(.+)?/i,
+    ],
+    extractor: (text) => {
+      const entities: Record<string, string> = { status: "completed" };
+      const { date } = parseDateTime(text);
+      if (date) entities.dateFilter = date;
+      else if (/\btoday\b/i.test(text)) entities.period = "today";
+      else if (/\byesterday\b/i.test(text)) entities.period = "yesterday";
+      else if (/\bthis\s+week\b/i.test(text)) entities.period = "week";
+      return entities;
+    },
+  },
+
+  // ── Start Task (confidence: 0.90) ──
+  {
+    intent: "start_task",
+    confidence: 0.90,
+    patterns: [
+      /^(?:start|begin|working\s+on|starting)\s+(?:task\s+)?(?:["'](.+?)["']|(.+))/i,
+      /^(?:i'?m\s+(?:going\s+to|about\s+to|starting)\s+(?:work\s+on\s+)?)\s*(.+)/i,
+    ],
+    extractor: (_text, match) => ({
+      taskQuery: (match[1] ?? match[2] ?? match[3] ?? "").trim(),
+    }),
+  },
+
+  // ── Move Task to Project (confidence: 0.85) ──
+  {
+    intent: "move_task",
+    confidence: 0.85,
+    patterns: [
+      /^(?:move|put|add)\s+(?:task\s+)?(?:["'](.+?)["']|(.+?))\s+(?:to|into|in)\s+(?:project\s+)?(?:#?(.+))/i,
+    ],
+    extractor: (_text, match) => ({
+      taskQuery: (match[1] ?? match[2] ?? "").trim(),
+      targetProject: (match[3] ?? "").trim(),
+    }),
+  },
+
+  // ── Count Tasks (confidence: 0.85) ──
+  {
+    intent: "count_tasks",
+    confidence: 0.85,
+    patterns: [
+      /^(?:how\s+many)\s+(?:tasks?|todos?)\s+(?:do\s+i\s+have|are\s+there)\s*(.+)?/i,
+      /^(?:count|number\s+of)\s+(?:my\s+)?(?:tasks?|todos?)\s*(.+)?/i,
+    ],
+    extractor: (text) => {
+      const entities: Record<string, string> = {};
+      if (/\boverdue\b/i.test(text)) entities.filter = "overdue";
+      if (/\bpending\b/i.test(text)) entities.filter = "pending";
+      if (/\bcompleted\b/i.test(text)) entities.filter = "completed";
+      return entities;
+    },
+  },
+
   // ── Greetings (confidence: 0.80) ──
   {
     intent: "greeting",
@@ -604,17 +732,20 @@ export function classifyIntent(text: string): ClassifiedIntent | null {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > 1000) return null;
 
+  // ── Pre-processing: normalize abbreviations ──
+  const normalized = normalizeAbbreviations(trimmed);
+
   // ── Tier 1: Slash commands (highest confidence) ──
-  const slashResult = parseSlashCommand(trimmed);
+  const slashResult = parseSlashCommand(normalized);
   if (slashResult) return slashResult;
 
   // ── Tier 2: Natural language patterns ──
   for (const pattern of INTENT_PATTERNS) {
     for (const regex of pattern.patterns) {
-      const match = trimmed.match(regex);
+      const match = normalized.match(regex);
       if (match) {
         const entities = pattern.extractor
-          ? pattern.extractor(trimmed, match)
+          ? pattern.extractor(normalized, match)
           : {};
         return {
           intent: pattern.intent,
@@ -622,6 +753,25 @@ export function classifyIntent(text: string): ClassifiedIntent | null {
           entities,
         };
       }
+    }
+  }
+
+  // ── Tier 3: Implicit task creation fallback ──
+  // If nothing matched and the input is short, has no question marks,
+  // and contains date/priority markers, treat as implicit task creation.
+  // This handles bare phrases like "Milk", "Call dentist 3pm", "meeting tmrw p1"
+  if (normalized.length < 100 && !normalized.includes("?")) {
+    const entities = extractTaskEntities(normalized);
+    // Only trigger if we extracted at least a date, priority, or the text looks like a task
+    const hasEntities = entities.dueDate || entities.priority || entities.channel || entities.rrule;
+    const looksLikeTask = /^[A-Z]/.test(normalized) || normalized.split(/\s+/).length <= 8;
+
+    if (hasEntities || looksLikeTask) {
+      return {
+        intent: "create_task",
+        confidence: 0.60,
+        entities,
+      };
     }
   }
 

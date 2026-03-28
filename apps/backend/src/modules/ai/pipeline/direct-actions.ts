@@ -178,8 +178,17 @@ export async function handleDirectAction(
       return handleAcknowledgment();
     case "start_focus":
       return handleStartFocus(intent.entities);
+    case "search_tasks":
+      return handleSearchTasks(intent.entities, profileId);
+    case "show_completed":
+      return handleListTasks({ ...intent.entities, status: "completed" }, profileId);
+    case "start_task":
+      return handleStartTask(intent.entities, profileId);
+    case "count_tasks":
+      return handleCountTasks(intent.entities, profileId);
 
     // These require LLM
+    case "move_task":
     case "delete_task":
     case "update_task":
     case "decompose_task":
@@ -218,6 +227,21 @@ async function handleCreateTask(
   if (entities.rrule) {
     newTask.rrule = entities.rrule;
     newTask.isRecurring = true;
+  }
+
+  // Persist estimated duration if extracted
+  if (entities.estimatedMinutes) {
+    newTask.description = newTask.description
+      ? `${newTask.description}\n\nEstimated: ${entities.estimatedMinutes} minutes`
+      : `Estimated: ${entities.estimatedMinutes} minutes`;
+  }
+
+  // Persist project reference if extracted
+  if (entities.project) {
+    // Project tag is a name, not an ID — store as label for now
+    newTask.description = newTask.description
+      ? `${newTask.description}\nProject: ${entities.project}`
+      : `Project: ${entities.project}`;
   }
 
   const [created] = await db.insert(tasks).values(newTask as never).returning();
@@ -546,6 +570,94 @@ function handleAcknowledgment(): DirectActionResult {
   ];
   const response = responses[Math.floor(Math.random() * responses.length)];
   return { handled: true, response };
+}
+
+async function handleSearchTasks(
+  entities: Record<string, string>,
+  profileId: string,
+): Promise<DirectActionResult> {
+  const query = entities.searchQuery;
+  if (!query) return NOT_HANDLED;
+
+  const task = await fuzzyFindTask(profileId, query);
+  if (!task) {
+    return {
+      handled: true,
+      response: `No task found matching "${query}".`,
+    };
+  }
+
+  const due = task.dueDate
+    ? ` | Due: ${new Date(task.dueDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`
+    : "";
+
+  return {
+    handled: true,
+    response: `**Found:** ${PRIORITY_ICON[task.priority] ?? "[ ]"} ${task.title}${due}`,
+    data: task,
+  };
+}
+
+async function handleStartTask(
+  entities: Record<string, string>,
+  profileId: string,
+): Promise<DirectActionResult> {
+  const query = entities.taskQuery;
+  if (!query) return NOT_HANDLED;
+
+  const task = await fuzzyFindTask(profileId, query, "pending");
+  if (!task) {
+    return {
+      handled: true,
+      response: `No pending task found matching "${query}".`,
+    };
+  }
+
+  await db
+    .update(tasks)
+    .set({ status: "in_progress", updatedAt: new Date() })
+    .where(eq(tasks.id, task.id));
+
+  return {
+    handled: true,
+    response: `**Started:** "${task.title}" is now in progress. Focus up! 💪`,
+    data: { taskId: task.id },
+  };
+}
+
+async function handleCountTasks(
+  entities: Record<string, string>,
+  profileId: string,
+): Promise<DirectActionResult> {
+  const conditions = [eq(tasks.userId, profileId)];
+
+  if (entities.filter === "overdue") {
+    conditions.push(ne(tasks.status, "completed" as never));
+    conditions.push(lte(tasks.dueDate, new Date()));
+  } else if (entities.filter === "completed") {
+    conditions.push(eq(tasks.status, "completed" as never));
+  } else if (entities.filter === "pending") {
+    conditions.push(ne(tasks.status, "completed" as never));
+    conditions.push(ne(tasks.status, "cancelled" as never));
+  } else {
+    // Default: pending
+    conditions.push(ne(tasks.status, "completed" as never));
+    conditions.push(ne(tasks.status, "cancelled" as never));
+  }
+
+  const [result] = await db
+    .select({ count: sql<number>`count(*)`.as("count") })
+    .from(tasks)
+    .where(and(...conditions));
+
+  const count = Number(result?.count ?? 0);
+  const label = entities.filter ?? "pending";
+
+  return {
+    handled: true,
+    response: `You have **${count}** ${label} task${count !== 1 ? "s" : ""}.`,
+    data: { count, filter: label },
+  };
 }
 
 function handleStartFocus(entities: Record<string, string>): DirectActionResult {

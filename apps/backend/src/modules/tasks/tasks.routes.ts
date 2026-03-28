@@ -138,6 +138,9 @@ taskRoutes.post("/", zValidator("json", createTaskSchema), async (c) => {
 
   const task = await taskService.createTask(auth.profileId, input);
 
+  // Invalidate AI cache — task list/progress responses are now stale
+  import("../ai/pipeline/exact-cache.js").then((m) => m.invalidateUserCache(auth.profileId)).catch(() => {});
+
   return c.json(ok(task), 201);
 });
 
@@ -170,6 +173,9 @@ taskRoutes.patch(
       return c.json(err("Task not found"), 404);
     }
 
+    // Invalidate AI cache on task update
+    import("../ai/pipeline/exact-cache.js").then((m) => m.invalidateUserCache(auth.profileId)).catch(() => {});
+
     return c.json(ok(task));
   },
 );
@@ -185,6 +191,9 @@ taskRoutes.delete("/:id", async (c) => {
   if (!deleted) {
     return c.json(err("Task not found"), 404);
   }
+
+  // Invalidate AI cache on task delete
+  import("../ai/pipeline/exact-cache.js").then((m) => m.invalidateUserCache(auth.profileId)).catch(() => {});
 
   return c.json(ok({ deleted: true }));
 });
@@ -202,6 +211,9 @@ taskRoutes.post("/:id/complete", async (c) => {
   if (!task) {
     return c.json(err("Task not found"), 404);
   }
+
+  // Invalidate AI cache on task completion
+  import("../ai/pipeline/exact-cache.js").then((m) => m.invalidateUserCache(auth.profileId)).catch(() => {});
 
   return c.json(ok(task));
 });
