@@ -67,25 +67,52 @@ async function getValkey() {
   }
 }
 
-// ── Hash Function ────────────────────────────────────────────────────
+// ── Hash Functions ───────────────────────────────────────────────────
 
-function cacheKey(userId: string, query: string): string {
+/**
+ * Tier A: Exact query hash (catches identical queries).
+ */
+function exactCacheKey(userId: string, query: string): string {
   const hash = createHash("md5")
     .update(query.toLowerCase().trim())
     .digest("hex");
   return `ai:exact:${userId}:${hash}`;
 }
 
+/**
+ * Tier B: Intent-canonical key (catches same intent with different wording).
+ * e.g., "show my tasks" and "list my tasks" both map to "list_tasks:{}".
+ * This avoids redundant LLM calls for semantically identical queries.
+ */
+function intentCacheKey(
+  userId: string,
+  intent: string,
+  entities: Record<string, string>,
+): string {
+  // Sort entity keys for deterministic hashing
+  const sortedEntities = Object.keys(entities)
+    .sort()
+    .map((k) => `${k}=${entities[k]}`)
+    .join("&");
+  const canonical = `${intent}:${sortedEntities}`;
+  const hash = createHash("md5").update(canonical).digest("hex");
+  return `ai:intent:${userId}:${hash}`;
+}
+
 // ── Public API ──────────────────────────────────────────────────────
 
 /**
  * Look up an exact match in the cache.
+ * Tries Tier A (exact query hash) first, then Tier B (intent-canonical) if provided.
  */
 export async function getFromCache(
   userId: string,
   query: string,
+  intent?: string,
+  entities?: Record<string, string>,
 ): Promise<CacheEntry | null> {
-  const key = cacheKey(userId, query);
+  // Tier A: exact query match
+  const key = exactCacheKey(userId, query);
 
   // Try Valkey first
   const client = await getValkey();
@@ -111,19 +138,46 @@ export async function getFromCache(
   // Expired entry — clean up
   if (memEntry) memoryCache.delete(key);
 
+  // Tier B: intent-canonical match (same intent, different wording)
+  if (intent && entities) {
+    const intentKey = intentCacheKey(userId, intent, entities);
+
+    if (client) {
+      try {
+        const raw = await client.get(intentKey);
+        if (raw) {
+          log.debug({ intentKey }, "Intent-canonical cache HIT (Valkey)");
+          return JSON.parse(raw) as CacheEntry;
+        }
+      } catch {
+        // Fall through
+      }
+    }
+
+    const memIntentEntry = memoryCache.get(intentKey);
+    if (memIntentEntry && memIntentEntry.expiresAt > Date.now()) {
+      log.debug({ intentKey }, "Intent-canonical cache HIT (memory)");
+      return memIntentEntry.value;
+    }
+    if (memIntentEntry) memoryCache.delete(intentKey);
+  }
+
   return null;
 }
 
 /**
  * Store a response in the exact cache.
+ * Stores under both Tier A (exact) and Tier B (intent-canonical) keys.
  */
 export async function setInCache(
   userId: string,
   query: string,
   category: string,
   entry: CacheEntry,
+  intent?: string,
+  entities?: Record<string, string>,
 ): Promise<void> {
-  const key = cacheKey(userId, query);
+  const key = exactCacheKey(userId, query);
   const ttl = TTL_MAP[category] ?? TTL_MAP.default;
   const serialized = JSON.stringify(entry);
 
@@ -148,15 +202,28 @@ export async function setInCache(
     value: entry,
     expiresAt: Date.now() + ttl * 1000,
   });
+
+  // Also store under Tier B (intent-canonical key) for cross-wording cache hits
+  if (intent && entities) {
+    const intentKey = intentCacheKey(userId, intent, entities);
+    if (client) {
+      client.set(intentKey, serialized, { EX: ttl }).catch(() => {});
+    } else {
+      memoryCache.set(intentKey, {
+        value: entry,
+        expiresAt: Date.now() + ttl * 1000,
+      });
+    }
+  }
 }
 
 /**
  * Invalidate cache entries for a user (e.g., after task CRUD).
  */
 export async function invalidateUserCache(userId: string): Promise<void> {
-  // Memory cache: delete all entries for this user
+  // Memory cache: delete all entries for this user (both tiers)
   for (const key of memoryCache.keys()) {
-    if (key.startsWith(`ai:exact:${userId}:`)) {
+    if (key.startsWith(`ai:exact:${userId}:`) || key.startsWith(`ai:intent:${userId}:`)) {
       memoryCache.delete(key);
     }
   }

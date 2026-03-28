@@ -17,7 +17,8 @@ import Fuse from "fuse.js";
 import { eq, and, desc, gte, lte, ne, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { tasks } from "../../../db/schema/index.js";
-import type { ClassifiedIntent } from "./intent-classifier.js";
+import { type ClassifiedIntent, classifyMultipleTasks } from "./intent-classifier.js";
+import { pushUndoableAction, undoLastAction } from "./undo-stack.js";
 import { buildUserContext } from "./context-builder.js";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -150,6 +151,14 @@ export async function handleDirectAction(
   intent: ClassifiedIntent,
   profileId: string,
 ): Promise<DirectActionResult> {
+  // ── Multi-task splitting check ──
+  if (intent.intent === "create_task") {
+    const multiResult = classifyMultipleTasks(intent.entities.title ?? "");
+    if (multiResult && multiResult.length >= 2) {
+      return handleCreateMultipleTasks(multiResult, profileId);
+    }
+  }
+
   switch (intent.intent) {
     case "create_task":
     case "set_reminder":
@@ -186,6 +195,8 @@ export async function handleDirectAction(
       return handleStartTask(intent.entities, profileId);
     case "count_tasks":
       return handleCountTasks(intent.entities, profileId);
+    case "undo_action":
+      return handleUndo(profileId);
 
     // These require LLM
     case "move_task":
@@ -202,6 +213,62 @@ export async function handleDirectAction(
 }
 
 // ── Action Handlers ───────────────────────────────────────────────
+
+async function handleCreateMultipleTasks(
+  intents: ClassifiedIntent[],
+  profileId: string,
+): Promise<DirectActionResult> {
+  const createdTasks: { id: string; title: string }[] = [];
+
+  for (const intent of intents) {
+    const title = intent.entities.title;
+    if (!title || title.length < 2) continue;
+
+    const newTask: Record<string, unknown> = {
+      userId: profileId,
+      title,
+      status: "pending",
+      priority: intent.entities.priority ?? "none",
+    };
+
+    if (intent.entities.dueDate) {
+      const dateStr = intent.entities.dueTime
+        ? `${intent.entities.dueDate}T${intent.entities.dueTime}:00`
+        : intent.entities.dueDate;
+      newTask.dueDate = new Date(dateStr);
+    }
+
+    if (intent.entities.rrule) {
+      newTask.rrule = intent.entities.rrule;
+      newTask.isRecurring = true;
+    }
+
+    try {
+      const [created] = await db.insert(tasks).values(newTask as never).returning();
+      createdTasks.push({ id: created.id, title: created.title });
+    } catch {
+      // Skip failed individual task, continue with others
+    }
+  }
+
+  if (createdTasks.length === 0) {
+    return { handled: true, response: "Failed to create tasks. Please try again." };
+  }
+
+  const lines = createdTasks.map((t, i) => `${i + 1}. ${t.title}`);
+  const sharedDue = intents[0]?.entities.dueDate
+    ? ` | Due: ${new Date(intents[0].entities.dueDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`
+    : "";
+  const sharedPriority = intents[0]?.entities.priority && intents[0].entities.priority !== "none"
+    ? ` | Priority: ${intents[0].entities.priority}`
+    : "";
+
+  return {
+    handled: true,
+    response: `**${createdTasks.length} tasks created:**\n\n${lines.join("\n")}${sharedDue}${sharedPriority}`,
+    data: { tasks: createdTasks, count: createdTasks.length },
+  };
+}
 
 async function handleCreateTask(
   entities: Record<string, string>,
@@ -245,6 +312,14 @@ async function handleCreateTask(
   }
 
   const [created] = await db.insert(tasks).values(newTask as never).returning();
+
+  // Record for undo
+  pushUndoableAction(profileId, {
+    type: "create_task",
+    entityIds: [created.id],
+    previousState: {},
+    description: created.title,
+  });
 
   const parts = [`**Task created:** "${created.title}"`];
   if (created.dueDate) {
@@ -293,9 +368,17 @@ async function handleCompleteTask(
     })
     .where(eq(tasks.id, task.id));
 
+  // Record for undo
+  pushUndoableAction(profileId, {
+    type: "complete_task",
+    entityIds: [task.id],
+    previousState: { status: "pending" },
+    description: task.title,
+  });
+
   return {
     handled: true,
-    response: `**Done!** "${task.title}" marked as completed.`,
+    response: `**Done!** "${task.title}" marked as completed. (say "undo" to revert)`,
     data: { taskId: task.id },
   };
 }
@@ -334,9 +417,17 @@ async function handleBatchComplete(
     };
   }
 
+  // Record for undo
+  pushUndoableAction(profileId, {
+    type: "batch_complete",
+    entityIds: result.map((r) => r.id),
+    previousState: {},
+    description: `${result.length} tasks`,
+  });
+
   return {
     handled: true,
-    response: `**${result.length} task${result.length !== 1 ? "s" : ""} completed!**`,
+    response: `**${result.length} task${result.length !== 1 ? "s" : ""} completed!** (say "undo" to revert)`,
     data: { completedIds: result.map((r) => r.id), count: result.length },
   };
 }
@@ -657,6 +748,15 @@ async function handleCountTasks(
     handled: true,
     response: `You have **${count}** ${label} task${count !== 1 ? "s" : ""}.`,
     data: { count, filter: label },
+  };
+}
+
+async function handleUndo(profileId: string): Promise<DirectActionResult> {
+  const result = await undoLastAction(profileId);
+  return {
+    handled: true,
+    response: result.message,
+    data: { success: result.success },
   };
 }
 

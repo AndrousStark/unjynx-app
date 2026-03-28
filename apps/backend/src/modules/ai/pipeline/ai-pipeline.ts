@@ -65,10 +65,10 @@ export async function processQuery(
     if (actionResult.handled) {
       const latencyMs = Date.now() - startTime;
 
-      // Cache the response
+      // Cache the response (both exact + intent-canonical keys)
       setInCache(userId, query, classified.intent, {
         response: actionResult.response,
-      });
+      }, classified.intent, classified.entities);
 
       // Log
       logAiInteraction({
@@ -98,8 +98,13 @@ export async function processQuery(
     }
   }
 
-  // ── Layer 2: Exact Cache ──────────────────────────────────────
-  const cached = await getFromCache(userId, query);
+  // ── Layer 2: Exact Cache (Tier A: exact + Tier B: intent-canonical) ──
+  const cached = await getFromCache(
+    userId,
+    query,
+    classified?.intent,
+    classified?.entities,
+  );
 
   if (cached) {
     const latencyMs = Date.now() - startTime;
@@ -160,10 +165,10 @@ export async function processQuery(
     const latencyMs = Date.now() - startTime;
 
     // ── Layer 6: Cache + Log ──────────────────────────────────
-    // Cache the LLM response for future exact matches
+    // Cache the LLM response for future exact + intent-canonical matches
     setInCache(userId, query, classified?.intent ?? "ai_chat", {
       response: result.content,
-    });
+    }, classified?.intent, classified?.entities);
 
     logAiInteraction({
       userId,
@@ -295,10 +300,10 @@ export async function* processStreamingChat(
     response: fullResponse.slice(0, 200),
   });
 
-  // Cache the full response
+  // Cache the full response (both exact + intent-canonical)
   setInCache(userId, query, classified?.intent ?? "ai_chat", {
     response: fullResponse,
-  });
+  }, classified?.intent, classified?.entities);
 
   return {
     model: usage?.model ?? "unknown",

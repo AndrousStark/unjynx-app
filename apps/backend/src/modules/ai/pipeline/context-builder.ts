@@ -16,6 +16,12 @@ import { tasks, profiles, progressSnapshots } from "../../../db/schema/index.js"
 
 // ── Types ──────────────────────────────────────────────────────────
 
+export interface TopTask {
+  readonly title: string;
+  readonly priority: string;
+  readonly dueDate: Date | null;
+}
+
 export interface UserContext {
   readonly name: string;
   readonly tasksToday: number;
@@ -23,6 +29,7 @@ export interface UserContext {
   readonly totalPending: number;
   readonly overdueCount: number;
   readonly streak: number;
+  readonly topTasks: readonly TopTask[];
   readonly topProject: string | null;
   readonly currentHour: number;
   readonly dayOfWeek: string;
@@ -69,7 +76,7 @@ export async function buildUserContext(
   todayEnd.setHours(23, 59, 59, 999);
 
   // Parallel DB queries for speed
-  const [profile, todayStats, pendingCount, overdueCount, recentProgress] = await Promise.all([
+  const [profile, todayStats, pendingCount, overdueCount, recentProgress, topTaskRows] = await Promise.all([
     // User profile
     db
       .select({ name: profiles.name, adminRole: profiles.adminRole })
@@ -129,6 +136,30 @@ export async function buildUserContext(
       .orderBy(desc(progressSnapshots.snapshotDate))
       .limit(30)
       .then((r) => r),
+
+    // Top 3 pending tasks by priority + deadline proximity
+    db
+      .select({
+        title: tasks.title,
+        priority: tasks.priority,
+        dueDate: tasks.dueDate,
+      })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.userId, profileId),
+          ne(tasks.status, "completed" as never),
+          ne(tasks.status, "cancelled" as never),
+        ),
+      )
+      .orderBy(
+        sql`CASE ${tasks.priority}
+          WHEN 'urgent' THEN 1 WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END`,
+        tasks.dueDate,
+      )
+      .limit(3)
+      .then((r) => r),
   ]);
 
   // Calculate streak — consecutive days with completions
@@ -147,6 +178,11 @@ export async function buildUserContext(
     totalPending: Number(pendingCount),
     overdueCount: Number(overdueCount),
     streak,
+    topTasks: topTaskRows.map((t) => ({
+      title: t.title,
+      priority: t.priority,
+      dueDate: t.dueDate,
+    })),
     topProject: null,
     currentHour: hour,
     dayOfWeek: DAYS[now.getDay()],
@@ -174,6 +210,15 @@ export function serializeContext(ctx: UserContext): string {
 
   if (ctx.streak > 0) {
     lines.push(`Streak: ${ctx.streak}d`);
+  }
+
+  if (ctx.topTasks.length > 0) {
+    const taskList = ctx.topTasks.map((t) => {
+      const p = t.priority !== "none" ? `[${t.priority}]` : "";
+      const d = t.dueDate ? ` due ${new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "";
+      return `${p}${t.title}${d}`;
+    }).join("; ");
+    lines.push(`Top tasks: ${taskList}`);
   }
 
   lines.push(`Advice: ${ctx.timeAdvice}`);

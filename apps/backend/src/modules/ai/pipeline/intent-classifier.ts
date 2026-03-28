@@ -259,6 +259,9 @@ function parseSlashCommand(text: string): ClassifiedIntent | null {
     insights: "show_insights",
     focus: "start_focus",
     ghost: "start_focus",
+    undo: "undo_action",
+    revert: "undo_action",
+    oops: "undo_action",
   };
 
   const intent = commands[command];
@@ -708,6 +711,17 @@ const INTENT_PATTERNS: readonly IntentPattern[] = [
     ],
   },
 
+  // ── Undo (confidence: 0.95) ──
+  {
+    intent: "undo_action",
+    confidence: 0.95,
+    patterns: [
+      /^(?:undo|revert|take\s+(?:that|it)\s+back|go\s+back|oops)/i,
+      /^(?:that\s+was\s+(?:wrong|a\s+mistake)|actually\s+no|never\s*mind|cancel\s+that)/i,
+      /^(?:undo\s+(?:last|that|the\s+last))\s*(?:action|task|change)?/i,
+    ],
+  },
+
   // ── Thank You / Acknowledgment (confidence: 0.75) ──
   {
     intent: "acknowledgment",
@@ -784,4 +798,106 @@ export function classifyIntent(text: string): ClassifiedIntent | null {
  */
 export function parseTaskFromText(text: string): Record<string, string> {
   return extractTaskEntities(text);
+}
+
+// ── Multi-Task Splitting ──────────────────────────────────────────
+//
+// Detects compound task requests like "buy milk and call dentist"
+// and splits them into individual task entities.
+//
+// Heuristics:
+//   1. Split on ", and ", " and " when both sides look like task phrases
+//   2. Split on comma-separated lists: "groceries, laundry, dishes"
+//   3. Shared date/priority applies to all split tasks
+//   4. Minimum 2 words per segment to avoid false splits ("ham and cheese")
+
+/**
+ * Split compound task text into individual task phrases.
+ * Returns null if no splitting is needed (single task).
+ */
+export function splitMultipleTasks(text: string): string[] | null {
+  const cleaned = text.trim();
+
+  // Pattern 1: Explicit list with "and" connector
+  // "buy milk and call dentist and clean house"
+  const andParts = cleaned.split(/\s+and\s+/i);
+  if (andParts.length >= 2 && andParts.every((p) => p.trim().split(/\s+/).length >= 2)) {
+    return andParts.map((p) => p.trim());
+  }
+
+  // Pattern 2: Comma-separated list (3+ items to avoid false positives)
+  // "groceries, laundry, dishes, cooking"
+  const commaParts = cleaned.split(/\s*,\s*/);
+  if (commaParts.length >= 3 && commaParts.every((p) => p.trim().length >= 2)) {
+    return commaParts.map((p) => p.trim());
+  }
+
+  // Pattern 3: Colon-separated list
+  // "tasks: buy milk, call dentist, clean house"
+  const colonMatch = cleaned.match(/^(?:tasks?|todos?|add|create)\s*:\s*(.+)/i);
+  if (colonMatch) {
+    const listParts = colonMatch[1].split(/\s*,\s*|\s+and\s+/i);
+    if (listParts.length >= 2 && listParts.every((p) => p.trim().length >= 2)) {
+      return listParts.map((p) => p.trim());
+    }
+  }
+
+  // Pattern 4: Numbered list
+  // "1. buy milk 2. call dentist 3. clean house"
+  const numberedParts = cleaned.split(/\s*\d+[.)]\s*/);
+  const filtered = numberedParts.filter((p) => p.trim().length >= 2);
+  if (filtered.length >= 2) {
+    return filtered.map((p) => p.trim());
+  }
+
+  return null; // Single task, no splitting needed
+}
+
+/**
+ * Classify a compound message that may contain multiple tasks.
+ * Returns an array of ClassifiedIntents (one per task) or null.
+ */
+export function classifyMultipleTasks(text: string): ClassifiedIntent[] | null {
+  // First check if it's a create_task intent
+  const single = classifyIntent(text);
+  if (!single || single.intent !== "create_task") return null;
+
+  // Try splitting the raw title
+  const titleText = single.entities.title ?? text;
+  const parts = splitMultipleTasks(titleText);
+  if (!parts || parts.length < 2) return null;
+
+  // Extract shared entities (date, priority, project, channel) from original text
+  const shared = extractTaskEntities(text);
+
+  // Create individual intents for each part
+  return parts.map((part) => {
+    const partEntities = extractTaskEntities(part);
+    return {
+      intent: "create_task",
+      confidence: single.confidence * 0.95, // Slight confidence reduction for splits
+      entities: {
+        // Part-specific title
+        title: partEntities.title || part,
+        // Part-specific entities take precedence, shared as fallback
+        dueDate: partEntities.dueDate ?? shared.dueDate,
+        dueTime: partEntities.dueTime ?? shared.dueTime,
+        priority: partEntities.priority ?? shared.priority,
+        project: partEntities.project ?? shared.project,
+        channel: partEntities.channel ?? shared.channel,
+        rrule: partEntities.rrule ?? shared.rrule,
+        // Remove undefined values
+        ...Object.fromEntries(
+          Object.entries({
+            dueDate: partEntities.dueDate ?? shared.dueDate,
+            dueTime: partEntities.dueTime ?? shared.dueTime,
+            priority: partEntities.priority ?? shared.priority,
+            project: partEntities.project ?? shared.project,
+            channel: partEntities.channel ?? shared.channel,
+            rrule: partEntities.rrule ?? shared.rrule,
+          }).filter(([, v]) => v !== undefined),
+        ),
+      },
+    } as ClassifiedIntent;
+  });
 }
