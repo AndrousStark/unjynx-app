@@ -14,7 +14,7 @@
 import { classifyIntent } from "./intent-classifier.js";
 import { getFromCache, setInCache, invalidateUserCache } from "./exact-cache.js";
 import { handleDirectAction } from "./direct-actions.js";
-import { buildUserContext, serializeContext } from "./context-builder.js";
+import { buildUserContext, serializeContext, serializeContextForIntent } from "./context-builder.js";
 import { logAiInteraction } from "./ai-logger.js";
 import * as claudeService from "../../../services/claude.js";
 import { getPersonaPrompt } from "../prompts.js";
@@ -132,9 +132,9 @@ export async function processQuery(
   // ── Layer 3: [Future] Semantic Cache (pgvector) ───────────────
   // Will be added when pgvector is installed.
 
-  // ── Layer 4: Context Builder ──────────────────────────────────
+  // ── Layer 4: Context Builder (intent-aware) ──────────────────
   const userContext = await buildUserContext(userId);
-  const contextStr = serializeContext(userContext);
+  const contextStr = serializeContextForIntent(userContext, classified?.intent ?? null);
 
   // ── Layer 5: LLM (Claude with cascade routing) ────────────────
   // Build the system prompt with user context
@@ -246,9 +246,9 @@ export async function* processStreamingChat(
     }
   }
 
-  // ── Layer 4: Context Builder ──────────────────────────────────
+  // ── Layer 4: Context Builder (intent-aware) ──────────────────
   const userContext = await buildUserContext(userId);
-  const contextStr = serializeContext(userContext);
+  const contextStr = serializeContextForIntent(userContext, classified?.intent ?? null);
 
   // Inject context into persona prompt
   const basePrompt = getPersonaPrompt(persona);
