@@ -26,6 +26,7 @@ import { calendarRoutes } from "./calendar/calendar.routes.js";
 import { modesRoutes } from "./modes/modes.routes.js";
 import { aiRoutes } from "./ai/ai.routes.js";
 import { logtoWebhookRoutes } from "./auth/logto-webhook.routes.js";
+import { planningRoutes } from "./planning/planning.routes.js";
 
 /**
  * Register all domain modules on the Hono app instance.
@@ -75,7 +76,6 @@ export function registerModules(app: Hono): void {
   app.route("/api/v1/ai", aiRoutes);
 
   // v2: Daily Planning Ritual
-  const { planningRoutes } = require("./planning/planning.routes.js") as { planningRoutes: Hono };
   app.route("/api/v1/planning", planningRoutes);
 
   // Webhooks (no auth — providers call these directly)
