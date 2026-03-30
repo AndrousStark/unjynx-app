@@ -43,7 +43,7 @@ function createQueue(
   connection: QueueConnectionPort,
 ): Queue<NotificationJobData> {
   const queueOptions: QueueOptions = {
-    connection: connection.connection,
+    connection: connection.connection as QueueOptions["connection"],
     defaultJobOptions: buildDefaultJobOptions(channelKey),
     prefix: "unjynx",
   };

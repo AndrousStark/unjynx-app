@@ -91,7 +91,7 @@ export async function upsertSubscription(
 export async function updateSubscriptionStatus(
   userId: string,
   status: "active" | "past_due" | "cancelled" | "expired",
-  extra?: Partial<Pick<Subscription, "cancelledAt" | "currentPeriodEnd" | "plan">>,
+  extra?: Partial<Pick<Subscription, "cancelledAt" | "currentPeriodStart" | "currentPeriodEnd" | "plan">>,
 ): Promise<Subscription | undefined> {
   const [updated] = await db
     .update(subscriptions)

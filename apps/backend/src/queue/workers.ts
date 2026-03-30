@@ -394,7 +394,7 @@ export function initializeWorkers(
     const conn = createWorkerConnection(redisUrl, channelKey);
 
     const workerOptions: WorkerOptions = {
-      connection: conn.connection,
+      connection: conn.connection as WorkerOptions["connection"],
       prefix: "unjynx",
       concurrency: channelKey === "push" ? 10 : 5,
       limiter:

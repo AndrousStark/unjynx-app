@@ -69,14 +69,17 @@ export async function findUsers(
 
   const where = conditionList.length > 0 ? and(...conditionList) : undefined;
 
-  // Determine sort column
-  const sortColumnMap: Record<string, typeof profiles.createdAt> = {
+  // Determine sort column — use sql helper for type-safe column mapping
+  const sortColumnMap = {
     createdAt: profiles.createdAt,
     updatedAt: profiles.updatedAt,
-    name: profiles.name as unknown as typeof profiles.createdAt,
-    email: profiles.email as unknown as typeof profiles.createdAt,
-  };
-  const sortCol = (sortBy && sortColumnMap[sortBy]) ?? profiles.createdAt;
+    name: profiles.name,
+    email: profiles.email,
+  } as const;
+  type SortKey = keyof typeof sortColumnMap;
+  const sortCol = (sortBy && sortBy in sortColumnMap)
+    ? sortColumnMap[sortBy as SortKey]
+    : profiles.createdAt;
   const orderFn = sortOrder === "asc" ? asc : desc;
 
   const [rows, [{ total }]] = await Promise.all([
