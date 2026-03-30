@@ -16,6 +16,13 @@ import { getFromCache, setInCache, invalidateUserCache } from "./exact-cache.js"
 import { handleDirectAction } from "./direct-actions.js";
 import { buildUserContext, serializeContext, serializeContextForIntent } from "./context-builder.js";
 import { logAiInteraction } from "./ai-logger.js";
+import {
+  buildFullMemoryContext,
+  updateMemoryAfterAction,
+  hasAnaphoricReference,
+  resolveAnaphora,
+  loadWorkingMemory,
+} from "./memory-injector.js";
 import * as claudeService from "../../../services/claude.js";
 import { getPersonaPrompt } from "../prompts.js";
 
@@ -55,8 +62,20 @@ export async function processQuery(
   const startTime = Date.now();
   const { query, userId, persona, planTier } = request;
 
+  // ── Layer 0: Anaphora Resolution ──────────────────────────────
+  // Resolve "it", "that", "this" before intent classification
+  let resolvedQuery = query;
+  if (hasAnaphoricReference(query)) {
+    const wm = await loadWorkingMemory(userId);
+    const resolved = resolveAnaphora(wm, query);
+    if (resolved?.title) {
+      // Replace the pronoun with the actual entity name
+      resolvedQuery = query.replace(/\b(it|that|this|this one)\b/i, `"${resolved.title}"`);
+    }
+  }
+
   // ── Layer 1: Intent Classification ────────────────────────────
-  const classified = classifyIntent(query);
+  const classified = classifyIntent(resolvedQuery);
 
   if (classified) {
     // Try direct action first (no LLM needed)
@@ -64,6 +83,15 @@ export async function processQuery(
 
     if (actionResult.handled) {
       const latencyMs = Date.now() - startTime;
+
+      // Update working memory with what happened
+      const actionData = actionResult.data as { taskId?: string; title?: string } | undefined;
+      updateMemoryAfterAction(userId, await loadWorkingMemory(userId), {
+        type: classified.intent,
+        entityId: actionData?.taskId,
+        entityTitle: actionData?.title,
+        userMessage: query,
+      }).catch(() => {});
 
       // Cache the response (both exact + intent-canonical keys)
       setInCache(userId, query, classified.intent, {
@@ -137,14 +165,13 @@ export async function processQuery(
   // ── Layer 3: [Future] Semantic Cache (pgvector) ───────────────
   // Will be added when pgvector is installed.
 
-  // ── Layer 4: Context Builder (intent-aware) ──────────────────
-  const userContext = await buildUserContext(userId);
-  const contextStr = serializeContextForIntent(userContext, classified?.intent ?? null);
+  // ── Layer 4: Full Memory Context (working + semantic + profile) ──
+  const memoryCtx = await buildFullMemoryContext(userId, classified?.intent ?? null);
 
   // ── Layer 5: LLM (Claude with cascade routing) ────────────────
-  // Build the system prompt with user context
+  // Build the system prompt with full memory context
   const basePrompt = getPersonaPrompt(persona);
-  const systemPrompt = `${basePrompt}\n\nUser Context: ${contextStr}`;
+  const systemPrompt = `${basePrompt}\n\n${memoryCtx.contextString}`;
 
   // Build messages (include conversation history if provided)
   const messages: { role: "user" | "assistant"; content: string }[] = [];
@@ -226,13 +253,31 @@ export async function* processStreamingChat(
   const { query, userId, persona, planTier } = request;
   const startTime = Date.now();
 
+  // ── Layer 0: Anaphora Resolution ──────────────────────────────
+  let resolvedQuery = query;
+  if (hasAnaphoricReference(query)) {
+    const wm = await loadWorkingMemory(userId);
+    const resolved = resolveAnaphora(wm, query);
+    if (resolved?.title) {
+      resolvedQuery = query.replace(/\b(it|that|this|this one)\b/i, `"${resolved.title}"`);
+    }
+  }
+
   // ── Layer 1: Quick intent check for direct actions ────────────
-  const classified = classifyIntent(query);
+  const classified = classifyIntent(resolvedQuery);
   if (classified) {
     const actionResult = await handleDirectAction(classified, userId);
     if (actionResult.handled) {
-      // Yield the direct action response as a single chunk
       yield actionResult.response;
+
+      // Update working memory
+      const actionData = actionResult.data as { taskId?: string; title?: string } | undefined;
+      updateMemoryAfterAction(userId, await loadWorkingMemory(userId), {
+        type: classified.intent,
+        entityId: actionData?.taskId,
+        entityTitle: actionData?.title,
+        userMessage: query,
+      }).catch(() => {});
 
       logAiInteraction({
         userId,
@@ -251,11 +296,10 @@ export async function* processStreamingChat(
     }
   }
 
-  // ── Layer 4: Context Builder (intent-aware) ──────────────────
-  const userContext = await buildUserContext(userId);
-  const contextStr = serializeContextForIntent(userContext, classified?.intent ?? null);
+  // ── Layer 4: Full Memory Context ──────────────────────────────
+  const memoryCtx = await buildFullMemoryContext(userId, classified?.intent ?? null);
 
-  // Inject context into persona prompt
+  // Inject full memory context into persona prompt
   const basePrompt = getPersonaPrompt(persona);
 
   // Build messages
