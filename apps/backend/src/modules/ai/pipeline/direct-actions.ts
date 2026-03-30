@@ -19,6 +19,7 @@ import { db } from "../../../db/index.js";
 import { tasks } from "../../../db/schema/index.js";
 import { type ClassifiedIntent, classifyMultipleTasks } from "./intent-classifier.js";
 import { pushUndoableAction, undoLastAction } from "./undo-stack.js";
+import { checkCorrectionsBeforeSearch, scheduleFalsePositiveCheck } from "./correction-tracker.js";
 import { buildUserContext } from "./context-builder.js";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -104,6 +105,17 @@ async function fuzzyFindTask(
   query: string,
   statusFilter?: string,
 ): Promise<{ id: string; title: string; priority: string; dueDate: Date | null } | null> {
+  // Check correction aliases first (learned from past mistakes)
+  const aliasMatch = await checkCorrectionsBeforeSearch(profileId, query);
+  if (aliasMatch) {
+    // Verify the aliased task still exists
+    const [task] = await db
+      .select({ id: tasks.id, title: tasks.title, priority: tasks.priority, dueDate: tasks.dueDate })
+      .from(tasks)
+      .where(eq(tasks.id, aliasMatch.taskId))
+      .limit(1);
+    if (task) return task;
+  }
   const conditions = [
     eq(tasks.userId, profileId),
   ];
@@ -320,6 +332,9 @@ async function handleCreateTask(
     previousState: {},
     description: created.title,
   });
+
+  // Schedule false-positive check (30s later, checks if task was undone)
+  scheduleFalsePositiveCheck(profileId, created.id, "create_task");
 
   const parts = [`**Task created:** "${created.title}"`];
   if (created.dueDate) {

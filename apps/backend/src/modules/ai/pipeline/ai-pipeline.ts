@@ -23,6 +23,7 @@ import {
   resolveAnaphora,
   loadWorkingMemory,
 } from "./memory-injector.js";
+import { getThreshold } from "./correction-tracker.js";
 import * as claudeService from "../../../services/claude.js";
 import { getPersonaPrompt } from "../prompts.js";
 
@@ -78,6 +79,12 @@ export async function processQuery(
   const classified = classifyIntent(resolvedQuery);
 
   if (classified) {
+    // Check per-user calibrated threshold (learning from past false positives)
+    const userThreshold = await getThreshold(userId, classified.intent, 0.55);
+    if (classified.confidence < userThreshold) {
+      // User has high false-positive rate for this intent — skip direct action,
+      // let the LLM handle it with full context for better accuracy
+    } else {
     // Try direct action first (no LLM needed)
     const actionResult = await handleDirectAction(classified, userId);
 
@@ -124,6 +131,7 @@ export async function processQuery(
         data: actionResult.data,
       };
     }
+    } // close threshold else
   }
 
   // ── Layer 2: Exact Cache (Tier A: exact + Tier B: intent-canonical) ──
