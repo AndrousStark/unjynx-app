@@ -25,6 +25,13 @@ export function createApp(): Hono {
   app.use("*", loggerMiddleware);
   app.onError(errorHandler);
 
+  // Prometheus metrics (no auth, no rate limit — scraped internally)
+  app.get("/metrics", async (c) => {
+    const { metricsRegistry } = await import("./metrics/ai-metrics.js");
+    const metrics = await metricsRegistry.metrics();
+    return c.text(metrics, 200, { "Content-Type": metricsRegistry.contentType });
+  });
+
   // Domain modules
   registerModules(app);
 
