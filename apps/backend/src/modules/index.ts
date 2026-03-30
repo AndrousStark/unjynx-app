@@ -74,6 +74,10 @@ export function registerModules(app: Hono): void {
   // Phase 6: AI / ML intelligence
   app.route("/api/v1/ai", aiRoutes);
 
+  // v2: Daily Planning Ritual
+  const { planningRoutes } = require("./planning/planning.routes.js") as { planningRoutes: Hono };
+  app.route("/api/v1/planning", planningRoutes);
+
   // Webhooks (no auth — providers call these directly)
   app.route("/api/v1/webhooks", webhookRoutes);
   app.route("/api/v1/webhooks", logtoWebhookRoutes);
