@@ -20,6 +20,7 @@ import { tasks } from "../../../db/schema/index.js";
 import { type ClassifiedIntent, classifyMultipleTasks } from "./intent-classifier.js";
 import { pushUndoableAction, undoLastAction } from "./undo-stack.js";
 import { checkCorrectionsBeforeSearch, scheduleFalsePositiveCheck } from "./correction-tracker.js";
+import { suggestTemplates, useTemplate } from "../../templates/templates.service.js";
 import { buildUserContext } from "./context-builder.js";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -209,6 +210,8 @@ export async function handleDirectAction(
       return handleCountTasks(intent.entities, profileId);
     case "undo_action":
       return handleUndo(profileId);
+    case "use_template":
+      return handleUseTemplate(intent.entities, profileId);
 
     // These require LLM
     case "move_task":
@@ -763,6 +766,70 @@ async function handleCountTasks(
     handled: true,
     response: `You have **${count}** ${label} task${count !== 1 ? "s" : ""}.`,
     data: { count, filter: label },
+  };
+}
+
+async function handleUseTemplate(
+  entities: Record<string, string>,
+  profileId: string,
+): Promise<DirectActionResult> {
+  const query = entities.templateQuery;
+
+  // If no query, show available templates
+  if (!query) {
+    const suggestions = await suggestTemplates(profileId, "", 5);
+    if (suggestions.length === 0) {
+      return {
+        handled: true,
+        response: "No templates available yet. Create one with `/template` or save an AI task breakdown as a template.",
+      };
+    }
+    const lines = suggestions.map((s, i) =>
+      `${i + 1}. **${s.template.title}** — ${s.template.category ?? "general"}`,
+    );
+    return {
+      handled: true,
+      response: `**Available templates:**\n\n${lines.join("\n")}\n\nSay "use template Sprint Planning" to apply one.`,
+    };
+  }
+
+  // Search for matching template
+  const matches = await suggestTemplates(profileId, query, 3);
+  if (matches.length === 0) {
+    return {
+      handled: true,
+      response: `No template found matching "${query}". Try \`/template\` to see all available templates.`,
+    };
+  }
+
+  // If strong match, use it directly
+  const best = matches[0];
+  if (best.score > 0.7) {
+    try {
+      const result = await useTemplate(profileId, best.template.id);
+      const subtaskInfo = result.subtaskCount > 0
+        ? ` with **${result.subtaskCount} subtasks**`
+        : "";
+      return {
+        handled: true,
+        response: `**Template applied:** "${best.template.title}"${subtaskInfo} created. (say "undo" to revert)`,
+        data: { taskId: result.taskId, templateId: best.template.id },
+      };
+    } catch (e) {
+      return {
+        handled: true,
+        response: `Failed to apply template: ${e instanceof Error ? e.message : "unknown error"}`,
+      };
+    }
+  }
+
+  // Multiple close matches — show options
+  const options = matches.map((m, i) =>
+    `${i + 1}. **${m.template.title}** (${Math.round(m.score * 100)}% match)`,
+  );
+  return {
+    handled: true,
+    response: `**Did you mean?**\n\n${options.join("\n")}\n\nSay "use template [name]" to apply.`,
   };
 }
 

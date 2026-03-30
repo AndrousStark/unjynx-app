@@ -27,6 +27,7 @@ import { modesRoutes } from "./modes/modes.routes.js";
 import { aiRoutes } from "./ai/ai.routes.js";
 import { logtoWebhookRoutes } from "./auth/logto-webhook.routes.js";
 import { planningRoutes } from "./planning/planning.routes.js";
+import { templateRoutes } from "./templates/templates.routes.js";
 import { metricsRoutes } from "../metrics/metrics.routes.js";
 
 /**
@@ -78,6 +79,9 @@ export function registerModules(app: Hono): void {
 
   // v2: Daily Planning Ritual
   app.route("/api/v1/planning", planningRoutes);
+
+  // v2: Task Templates
+  app.route("/api/v1/templates", templateRoutes);
 
   // Prometheus metrics (no auth — scraped by Prometheus internally)
   app.route("/metrics", metricsRoutes);

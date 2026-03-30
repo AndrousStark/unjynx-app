@@ -262,6 +262,8 @@ function parseSlashCommand(text: string): ClassifiedIntent | null {
     undo: "undo_action",
     revert: "undo_action",
     oops: "undo_action",
+    template: "use_template",
+    templates: "use_template",
   };
 
   const intent = commands[command];
@@ -709,6 +711,20 @@ const INTENT_PATTERNS: readonly IntentPattern[] = [
       /^(?:how\s+does?\s+(?:this|unjynx|the\s+ai)\s+work)/i,
       /^(?:show\s+me\s+(?:what\s+you\s+can\s+do|the\s+commands|examples))/i,
     ],
+  },
+
+  // ── Use Template (confidence: 0.90) ──
+  {
+    intent: "use_template",
+    confidence: 0.90,
+    patterns: [
+      /^(?:use|apply|start\s+with|create\s+from)\s+(?:the\s+)?(?:template|preset)\s+(.+)/i,
+      /^(?:template)\s*:?\s+(.+)/i,
+      /^(?:show|list)\s+(?:my\s+)?templates?\b/i,
+    ],
+    extractor: (_text, match) => ({
+      templateQuery: (match[1] ?? "").trim(),
+    }),
   },
 
   // ── Undo (confidence: 0.95) ──
