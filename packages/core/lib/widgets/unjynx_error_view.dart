@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/unjynx_extensions.dart';
-import 'pressable_scale.dart';
+import 'package:unjynx_core/theme/unjynx_extensions.dart';
+import 'package:unjynx_core/widgets/pressable_scale.dart';
 
 /// The kind of error to display. Each variant maps to a distinct icon,
 /// title, and subtitle so screens can show contextual error feedback.
@@ -90,7 +90,7 @@ class _UnjynxErrorViewState extends State<UnjynxErrorView>
       parent: _animController,
       curve: Curves.easeOut,
     );
-    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.92, end: 1).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
     );
     _animController.forward();

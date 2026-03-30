@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'unjynx_colors.dart';
-
 /// UNJYNX elevation shadow system.
 ///
 /// Light mode: Purple-tinted shadows (rgba(26,5,51,x)) — NEVER generic gray.

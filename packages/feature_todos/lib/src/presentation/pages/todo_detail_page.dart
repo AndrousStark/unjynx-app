@@ -477,7 +477,7 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
     try {
       final api = ref.read(projectApiProvider);
       final response = await api.getProjects();
-      projects = (response.data as List?)?.cast<Map<String, dynamic>>() ?? [];
+      projects = response.data?.cast<Map<String, dynamic>>() ?? [];
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -743,9 +743,4 @@ class _TodoDetailPageState extends ConsumerState<TodoDetailPage>
     );
   }
 
-  void _showComingSoon(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
-    );
-  }
 }

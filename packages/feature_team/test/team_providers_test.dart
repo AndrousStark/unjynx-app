@@ -8,13 +8,6 @@ import 'package:feature_team/feature_team.dart';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Pumps the Dart event queue so async StateNotifier operations settle.
-Future<void> _pumpEventQueue({int times = 5}) async {
-  for (var i = 0; i < times; i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
-}
-
 /// Creates a [ProviderContainer] with API providers overridden to throw,
 /// so that `_tryRead` returns null and notifiers operate in local-only mode.
 ProviderContainer _makeContainer() {

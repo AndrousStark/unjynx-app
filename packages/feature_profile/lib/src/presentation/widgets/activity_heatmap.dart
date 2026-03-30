@@ -53,7 +53,7 @@ class ActivityHeatmap extends StatelessWidget {
 
     // Pad data to 52*7 if shorter.
     final paddedData = List<int>.filled(52 * 7, 0);
-    final offset = paddedData.length - data!.length;
+    final offset = paddedData.length - data.length;
     for (int i = 0; i < data.length && i < paddedData.length; i++) {
       final targetIdx = offset + i;
       if (targetIdx >= 0) {

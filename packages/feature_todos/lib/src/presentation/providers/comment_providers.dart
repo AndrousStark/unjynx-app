@@ -36,7 +36,7 @@ final commentsProvider =
   try {
     final response = await api.getComments(taskId, limit: 50);
     if (response.success && response.data != null) {
-      final items = (response.data! as List)
+      final items = response.data!
           .cast<Map<String, dynamic>>()
           .map((json) => TaskComment.fromJson(json))
           .toList();

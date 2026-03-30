@@ -3,7 +3,6 @@ import 'package:unjynx_core/core.dart';
 
 import 'presentation/pages/create_edit_project_page.dart';
 import 'presentation/pages/enhanced_project_list_page.dart';
-import 'presentation/pages/project_list_page.dart';
 import 'presentation/pages/workspace_page.dart';
 
 /// Project plugin for UNJYNX Plugin-Play architecture.

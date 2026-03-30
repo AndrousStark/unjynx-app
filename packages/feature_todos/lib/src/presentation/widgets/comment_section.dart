@@ -499,7 +499,6 @@ class _CommentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final ux = context.unjynx;
     final isLight = context.isLightMode;
 
     return GestureDetector(
@@ -728,7 +727,6 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
 
     if (avatarUrl != null && avatarUrl!.isNotEmpty) {
       return CircleAvatar(

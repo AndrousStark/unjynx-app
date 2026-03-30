@@ -286,7 +286,7 @@ class _CreateEditProjectPageState
                     final teamApi = ref.read(teamApiProvider);
                     // Fetch user's teams, then members of the first team
                     final teamsResp = await teamApi.getTeams();
-                    final teams = (teamsResp.data as List?) ?? [];
+                    final teams = teamsResp.data ?? [];
                     if (teams.isEmpty) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -295,9 +295,9 @@ class _CreateEditProjectPageState
                       }
                       return;
                     }
-                    final teamId = (teams.first as Map)['id'] as String;
+                    final teamId = (teams.first as Map<dynamic, dynamic>)['id'] as String;
                     final membersResp = await teamApi.getMembers(teamId);
-                    final members = (membersResp.data as List?) ?? [];
+                    final members = membersResp.data ?? [];
 
                     if (!mounted) return;
                     await showModalBottomSheet<void>(

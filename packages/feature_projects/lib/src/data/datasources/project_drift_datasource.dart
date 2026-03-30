@@ -91,14 +91,6 @@ class ProjectDriftDatasource {
 
   /// Count active (non-completed) tasks in a project.
   Future<int> taskCount(String projectId) async {
-    final query = _db.select(_db.localTasks)
-      ..where(
-        (t) =>
-            t.projectId.equals(projectId) &
-            t.status.equals('pending').not() |
-                t.status.equals('in_progress'),
-      );
-
     // Simpler approach: just count non-completed tasks
     final countQuery = _db.selectOnly(_db.localTasks)
       ..addColumns([_db.localTasks.id.count()])

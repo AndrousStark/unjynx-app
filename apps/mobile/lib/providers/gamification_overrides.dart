@@ -91,7 +91,7 @@ Future<List<Achievement>> _achievementsFromApi(Ref ref) async {
   try {
     final response = await api.getAchievements();
     if (response.success && response.data != null) {
-      final items = (response.data! as List)
+      final items = response.data!
           .cast<Map<String, dynamic>>()
           .map(Achievement.fromJson)
           .toList();
@@ -135,7 +135,7 @@ Future<List<LeaderboardEntry>> _leaderboardFromApi(Ref ref) async {
       period: periodParam,
     );
     if (response.success && response.data != null) {
-      final items = (response.data! as List)
+      final items = response.data!
           .cast<Map<String, dynamic>>()
           .map(LeaderboardEntry.fromJson)
           .toList();
@@ -163,7 +163,7 @@ Future<List<Challenge>> _challengesFromApi(Ref ref) async {
   try {
     final response = await api.getChallenges(status: 'active');
     if (response.success && response.data != null) {
-      final items = (response.data! as List)
+      final items = response.data!
           .cast<Map<String, dynamic>>()
           .map(Challenge.fromJson)
           .toList();
@@ -192,7 +192,7 @@ Future<List<AccountabilityPartner>> _partnersFromApi(Ref ref) async {
   try {
     final response = await api.getPartners();
     if (response.success && response.data != null) {
-      final items = (response.data! as List)
+      final items = response.data!
           .cast<Map<String, dynamic>>()
           .map(AccountabilityPartner.fromJson)
           .toList();
@@ -220,7 +220,7 @@ Future<List<SharedGoal>> _sharedGoalsFromApi(Ref ref) async {
   try {
     final response = await api.getSharedGoals();
     if (response.success && response.data != null) {
-      final items = (response.data! as List)
+      final items = response.data!
           .cast<Map<String, dynamic>>()
           .map(SharedGoal.fromJson)
           .toList();

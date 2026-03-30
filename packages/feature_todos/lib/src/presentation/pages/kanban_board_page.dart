@@ -221,7 +221,6 @@ class _GroupByToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
 
     return PopupMenuButton<KanbanGroupBy>(
       icon: const Icon(Icons.view_column_outlined),

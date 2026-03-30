@@ -18,8 +18,6 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
-    final isLight = context.isLightMode;
     final userAsync = ref.watch(currentUserProvider);
     final statsAsync = ref.watch(userStatsProvider);
     final heatmapAsync = ref.watch(profileActivityHeatmapProvider);

@@ -246,7 +246,7 @@ class DriftDatabasePort implements DatabasePort {
   }
 
   /// All table references for Drift stream invalidation.
-  Set<TableInfo> get _allTableSets => {
+  Set<TableInfo<Table, dynamic>> get _allTableSets => {
         db.localTasks,
         db.localProjects,
         db.localDailyContent,

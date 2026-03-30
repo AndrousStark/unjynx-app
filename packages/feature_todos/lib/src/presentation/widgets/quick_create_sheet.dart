@@ -496,7 +496,6 @@ class _QuickCreateSheetState extends ConsumerState<QuickCreateSheet>
       backgroundColor: Colors.transparent,
       builder: (context) {
         final cs = Theme.of(context).colorScheme;
-        final uxInner = context.unjynx;
         return Container(
           decoration: BoxDecoration(
             color: cs.surface,

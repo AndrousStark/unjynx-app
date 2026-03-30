@@ -34,7 +34,6 @@ class _TodoListPageState extends ConsumerState<TodoListPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
     final todosAsync = ref.watch(todoListProvider);
     final viewMode = ref.watch(taskViewModeProvider);
     final selectedIds = ref.watch(selectedTodoIdsProvider);

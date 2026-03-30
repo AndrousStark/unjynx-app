@@ -56,15 +56,13 @@ void main() {
 
   group('FilterChipBar widget', () {
     testWidgets('renders All chip selected by default', (tester) async {
-      TodoFilter? lastFilter;
-
       await tester.pumpWidget(
         MaterialApp(
           theme: UnjynxTheme.dark,
           home: Scaffold(
             body: FilterChipBar(
               filter: const TodoFilter(),
-              onFilterChanged: (f) => lastFilter = f,
+              onFilterChanged: (_) {},
             ),
           ),
         ),

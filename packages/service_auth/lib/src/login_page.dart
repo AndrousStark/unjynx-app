@@ -30,7 +30,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
   String? _activeProvider;
   _AuthMode _authMode = _AuthMode.buttons;
   bool _obscurePassword = true;
-  bool _isRegistering = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
@@ -126,7 +125,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         defaultValue: 'https://api.unjynx.me',
       );
 
-    final response = await dio.post(
+    final response = await dio.post<Map<String, dynamic>>(
       '/api/v1/auth/register',
       data: {
         'email': _emailController.text.trim(),

@@ -116,7 +116,6 @@ class TemplatesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
 
     // Group templates by category
     final grouped = <String, List<TaskTemplate>>{};
@@ -177,7 +176,7 @@ class TemplatesPage extends ConsumerWidget {
     final ux = context.unjynx;
     final createTodo = ref.read(createTodoProvider);
 
-    final result = await createTodo(
+    await createTodo(
       title: template.name,
       priority: template.priority ?? TodoPriority.none,
     );
@@ -202,9 +201,7 @@ class TemplatesPage extends ConsumerWidget {
   }
 
   void _showInfo(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) {
         final cs = Theme.of(context).colorScheme;
@@ -428,7 +425,7 @@ class _TemplateCard extends StatelessWidget {
   }
 
   void _showDetail(BuildContext context) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
