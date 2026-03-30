@@ -166,25 +166,28 @@ export default function FocusPage() {
   const completeMutation = useMutation({
     mutationFn: (rating?: number) => completePomodoro(rating),
     onSuccess: () => {
-      setSessionCount((p) => p + 1);
+      setSessionCount((prev) => {
+        const next = prev + 1;
+        // Break timer: 5 min normally, 15 min after every 4th session
+        const breakMin = next % 4 === 0 ? 15 : 5;
+        setTotalSeconds(breakMin * 60);
+        setSecondsLeft(breakMin * 60);
+        return next;
+      });
       setPhase('break');
       setActiveSession(null);
       queryClient.invalidateQueries({ queryKey: ['pomodoro'] });
-      // Break timer: 5 min normally, 15 min after every 4th session
-      const breakMin = (sessionCount + 1) % 4 === 0 ? 15 : 5;
-      setTotalSeconds(breakMin * 60);
-      setSecondsLeft(breakMin * 60);
     },
   });
 
-  // Timer countdown
+  // Timer countdown — secondsLeft NOT in deps to avoid recreating interval every tick
   useEffect(() => {
-    if (phase === 'running' && !isPaused && secondsLeft > 0) {
+    if ((phase === 'running' && !isPaused) || phase === 'break') {
       intervalRef.current = setInterval(() => {
         setSecondsLeft((s) => {
           if (s <= 1) {
-            // Timer done — go to rating
-            setPhase('rating');
+            if (phase === 'running') setPhase('rating');
+            else setPhase('idle'); // break ended
             return 0;
           }
           return s - 1;
@@ -192,14 +195,8 @@ export default function FocusPage() {
       }, 1000);
       return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
     }
-    if (phase === 'break' && secondsLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
-      }, 1000);
-      return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-    }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [phase, isPaused, secondsLeft]);
+  }, [phase, isPaused]); // secondsLeft removed — prevents interval recreation every tick
 
   // Browser tab title timer
   useEffect(() => {

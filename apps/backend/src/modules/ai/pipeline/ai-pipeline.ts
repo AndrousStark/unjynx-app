@@ -192,12 +192,13 @@ export async function processQuery(
   messages.push({ role: "user", content: query });
 
   try {
-    // Non-streaming completion with auto model selection
+    // Non-streaming completion with full memory context
     const result = await claudeService.chatCompletion({
       messages,
       persona,
       profileId: userId,
       planTier,
+      systemPromptOverride: systemPrompt,
     });
 
     const latencyMs = Date.now() - startTime;
@@ -321,6 +322,7 @@ export async function* processStreamingChat(
 
   // Inject full memory context into persona prompt
   const basePrompt = getPersonaPrompt(persona);
+  const systemPrompt = `${basePrompt}\n\n${memoryCtx.contextString}`;
 
   // Build messages
   const messages: { role: "user" | "assistant"; content: string }[] = [];
@@ -329,12 +331,13 @@ export async function* processStreamingChat(
   }
   messages.push({ role: "user", content: query });
 
-  // ── Layer 5: Stream from Claude ───────────────────────────────
+  // ── Layer 5: Stream from Claude (with full memory context) ────
   const generator = claudeService.chatStream({
     messages,
     persona,
     profileId: userId,
     planTier,
+    systemPromptOverride: systemPrompt,
   });
 
   let fullResponse = "";

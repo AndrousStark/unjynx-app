@@ -184,11 +184,18 @@ export async function getTemplates(
 /**
  * Get a single template by ID.
  */
-export async function getTemplate(id: string): Promise<TaskTemplate | null> {
+export async function getTemplate(id: string, userId?: string): Promise<TaskTemplate | null> {
+  const conditions = [eq(taskTemplates.id, id)];
+  // Security: only return global templates or templates owned by this user
+  if (userId) {
+    conditions.push(
+      or(eq(taskTemplates.isGlobal, true), eq(taskTemplates.userId, userId)) as never,
+    );
+  }
   const [template] = await db
     .select()
     .from(taskTemplates)
-    .where(eq(taskTemplates.id, id))
+    .where(and(...conditions))
     .limit(1);
   return template ?? null;
 }

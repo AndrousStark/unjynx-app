@@ -389,6 +389,11 @@ export default function AiChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Cleanup SSE stream on unmount (prevents memory leak)
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
+
   // AI usage
   const { data: usage } = useQuery({
     queryKey: ['ai', 'usage'],

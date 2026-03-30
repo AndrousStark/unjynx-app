@@ -72,7 +72,7 @@ const PRIORITY_MAP: readonly [RegExp, string, number][] = [
   [/\bp1\b|!\s*!\s*!\s*!|\b(urgent|asap|critical|immediately)\b/i, "urgent", 0.95],
   [/\bp2\b|!\s*!\s*!|\b(high\s*(?:priority)?|important)\b/i, "high", 0.90],
   [/\bp3\b|!\s*!|\b(medium\s*(?:priority)?|normal|moderate)\b/i, "medium", 0.85],
-  [/\bp4\b|!|\b(low\s*(?:priority)?|whenever|someday|eventually)\b/i, "low", 0.80],
+  [/\bp4\b|\b(low\s*(?:priority)?|whenever|someday|eventually)\b/i, "low", 0.80],
 ];
 
 function parsePriority(text: string): { priority: string | null; confidence: number } {
@@ -347,8 +347,10 @@ function extractTaskEntities(text: string): Record<string, string> {
   let title = stripDateTime(text);
   title = stripPriority(title);
   title = stripTags(title);
-  // Strip recurring patterns
-  title = title.replace(/\bevery\s+\w+(\s+\w+)?\b/gi, "").trim();
+  // Strip recurring patterns only if rrule was actually extracted
+  if (entities.rrule) {
+    title = title.replace(/\bevery\s+\w+(\s+\w+)?\b/gi, "").trim();
+  }
   // Strip common prefixes
   title = title
     .replace(/^(?:create|add|new|make)\s+(?:a\s+)?(?:task|todo|reminder)\s*/i, "")
@@ -828,16 +830,13 @@ export function classifyIntent(text: string): ClassifiedIntent | null {
   }
 
   // ── Tier 3: Implicit task creation fallback ──
-  // If nothing matched and the input is short, has no question marks,
-  // and contains date/priority markers, treat as implicit task creation.
-  // This handles bare phrases like "Milk", "Call dentist 3pm", "meeting tmrw p1"
-  if (normalized.length < 100 && !normalized.includes("?")) {
+  // Only trigger if we extracted concrete entities (date, priority, channel, rrule).
+  // Bare text without entities passes through to the LLM for proper interpretation.
+  if (normalized.length < 80 && !normalized.includes("?") && !normalized.includes("!")) {
     const entities = extractTaskEntities(normalized);
-    // Only trigger if we extracted at least a date, priority, or the text looks like a task
     const hasEntities = entities.dueDate || entities.priority || entities.channel || entities.rrule;
-    const looksLikeTask = /^[A-Z]/.test(normalized) || normalized.split(/\s+/).length <= 8;
 
-    if (hasEntities || looksLikeTask) {
+    if (hasEntities) {
       return {
         intent: "create_task",
         confidence: 0.60,

@@ -192,7 +192,8 @@ export async function handleDirectAction(
         profileId,
       );
     case "snooze_task":
-      return handleSnooze(intent.entities, profileId);
+      // Snooze requires notification scheduling — not yet wired to BullMQ
+      return NOT_HANDLED;
     case "greeting":
       return handleGreeting(profileId);
     case "help":
@@ -200,7 +201,8 @@ export async function handleDirectAction(
     case "acknowledgment":
       return handleAcknowledgment();
     case "start_focus":
-      return handleStartFocus(intent.entities);
+      // Focus mode requires notification suppression — not yet wired
+      return NOT_HANDLED;
     case "search_tasks":
       return handleSearchTasks(intent.entities, profileId);
     case "show_completed":
@@ -331,7 +333,12 @@ async function handleCreateTask(
       : `Project: ${entities.project}`;
   }
 
-  const [created] = await db.insert(tasks).values(newTask as never).returning();
+  let created;
+  try {
+    [created] = await db.insert(tasks).values(newTask as never).returning();
+  } catch {
+    return { handled: true, response: "Failed to create task. Please try again." };
+  }
 
   // Record for undo
   pushUndoableAction(profileId, {
@@ -418,9 +425,12 @@ async function handleBatchComplete(
   if (entities.filter === "overdue") {
     conditions.push(lte(tasks.dueDate, new Date()));
   } else if (entities.filter === "today") {
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    conditions.push(lte(tasks.dueDate, today));
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    conditions.push(gte(tasks.dueDate, todayStart));
+    conditions.push(lte(tasks.dueDate, todayEnd));
   }
 
   const result = await db

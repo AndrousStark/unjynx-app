@@ -181,39 +181,41 @@ export async function setInCache(
   const ttl = TTL_MAP[category] ?? TTL_MAP.default;
   const serialized = JSON.stringify(entry);
 
-  // Try Valkey
+  // Try Valkey for Tier A
   const client = await getValkey();
+  let valkeyOk = false;
   if (client) {
     try {
       await client.set(key, serialized, { EX: ttl });
-      return;
+      valkeyOk = true;
     } catch {
       // Fall through to memory cache
     }
   }
 
-  // Memory cache fallback with LRU eviction
-  if (memoryCache.size >= MAX_MEMORY_ENTRIES) {
-    const oldest = memoryCache.keys().next().value;
-    if (oldest) memoryCache.delete(oldest);
+  // Memory cache fallback (only if Valkey failed)
+  if (!valkeyOk) {
+    if (memoryCache.size >= MAX_MEMORY_ENTRIES) {
+      const oldest = memoryCache.keys().next().value;
+      if (oldest) memoryCache.delete(oldest);
+    }
+    memoryCache.set(key, {
+      value: entry,
+      expiresAt: Date.now() + ttl * 1000,
+    });
   }
 
-  memoryCache.set(key, {
-    value: entry,
-    expiresAt: Date.now() + ttl * 1000,
-  });
-
-  // Also store under Tier B (intent-canonical key) for cross-wording cache hits
+  // Tier B: intent-canonical key (ALWAYS write, regardless of Tier A result)
   if (intent && entities) {
     const intentKey = intentCacheKey(userId, intent, entities);
     if (client) {
       client.set(intentKey, serialized, { EX: ttl }).catch(() => {});
-    } else {
-      memoryCache.set(intentKey, {
-        value: entry,
-        expiresAt: Date.now() + ttl * 1000,
-      });
     }
+    // Always store in memory too for fast lookups
+    memoryCache.set(intentKey, {
+      value: entry,
+      expiresAt: Date.now() + ttl * 1000,
+    });
   }
 }
 

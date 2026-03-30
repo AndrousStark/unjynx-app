@@ -14,7 +14,7 @@
 //   - TickTick pattern: timer embedded in task, max 3 pauses
 //   - Forest pattern: gamification (XP for completed sessions)
 
-import { eq, and, desc, gte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, ne, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { pomodoroSessions, tasks } from "../../db/schema/index.js";
 import { logger } from "../../middleware/logger.js";
@@ -79,21 +79,23 @@ export async function startSession(
     await abandonSession(userId);
   }
 
-  // Resolve task title if taskId provided
+  // Resolve task title if taskId provided (verify ownership)
   let taskTitle: string | null = null;
   if (taskId) {
     const [task] = await db
       .select({ title: tasks.title })
       .from(tasks)
-      .where(eq(tasks.id, taskId))
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
       .limit(1);
     taskTitle = task?.title ?? null;
 
-    // Mark task as in_progress
-    await db
-      .update(tasks)
-      .set({ status: "in_progress", updatedAt: new Date() })
-      .where(eq(tasks.id, taskId));
+    // Only update if task belongs to this user
+    if (taskTitle) {
+      await db
+        .update(tasks)
+        .set({ status: "in_progress", updatedAt: new Date() })
+        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+    }
   }
 
   const [session] = await db

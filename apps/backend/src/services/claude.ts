@@ -175,6 +175,8 @@ export interface ChatOptions {
   readonly model?: ModelTier;
   readonly profileId: string;
   readonly planTier?: string;
+  /** Override the system prompt (includes persona + memory context). */
+  readonly systemPromptOverride?: string;
 }
 
 export interface ChatResult {
@@ -198,7 +200,7 @@ export async function chatCompletion(
 
   const tier = selectModel(options.model, options.messages.length);
   const model = CLAUDE_MODELS[tier];
-  const systemPrompt = getPersonaPrompt(options.persona);
+  const systemPrompt = options.systemPromptOverride ?? getPersonaPrompt(options.persona);
 
   const messages: MessageParam[] = options.messages.map((m) => ({
     role: m.role,
@@ -252,7 +254,7 @@ export async function* chatStream(
 
   const tier = selectModel(options.model, options.messages.length);
   const model = CLAUDE_MODELS[tier];
-  const systemPrompt = getPersonaPrompt(options.persona);
+  const systemPrompt = options.systemPromptOverride ?? getPersonaPrompt(options.persona);
 
   const messages: MessageParam[] = options.messages.map((m) => ({
     role: m.role,

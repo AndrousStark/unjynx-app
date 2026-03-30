@@ -17,7 +17,7 @@
 
 import { eq, and, ne, lte, gte, desc, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { tasks, progressSnapshots } from "../../db/schema/index.js";
+import { tasks, progressSnapshots, auditLog } from "../../db/schema/index.js";
 import { buildUserContext } from "../ai/pipeline/context-builder.js";
 import { getTodayCalendarContext } from "../calendar/calendar-context.js";
 import { logger } from "../../middleware/logger.js";
@@ -497,5 +497,3 @@ export async function carryForward(
   return carried;
 }
 
-// Need to import auditLog for persistence
-import { auditLog } from "../../db/schema/index.js";

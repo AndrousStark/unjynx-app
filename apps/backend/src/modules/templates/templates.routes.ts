@@ -19,9 +19,20 @@ templateRoutes.get("/", async (c) => {
   return c.json(ok(templates));
 });
 
-// ── GET /templates/:id — Get single template ──
+// ── GET /templates/suggest?q=sprint — AI template suggestions ──
+// MUST be before /:id to avoid route shadowing
+templateRoutes.get("/suggest", async (c) => {
+  const auth = c.get("auth");
+  const query = c.req.query("q") ?? "";
+  if (!query || query.length < 2) return c.json(ok([]));
+  const suggestions = await templateService.suggestTemplates(auth.profileId, query);
+  return c.json(ok(suggestions));
+});
+
+// ── GET /templates/:id — Get single template (scoped to user + global) ──
 templateRoutes.get("/:id", async (c) => {
-  const template = await templateService.getTemplate(c.req.param("id"));
+  const auth = c.get("auth");
+  const template = await templateService.getTemplate(c.req.param("id"), auth.profileId);
   if (!template) return c.json(err("Template not found"), 404);
   return c.json(ok(template));
 });
@@ -69,16 +80,7 @@ templateRoutes.post("/:id/use", async (c) => {
   }
 });
 
-// ── GET /templates/suggest?q=sprint — AI template suggestions ──
-templateRoutes.get("/suggest", async (c) => {
-  const auth = c.get("auth");
-  const query = c.req.query("q") ?? "";
-  if (!query || query.length < 2) return c.json(ok([]));
-  const suggestions = await templateService.suggestTemplates(auth.profileId, query);
-  return c.json(ok(suggestions));
-});
-
-// ── POST /templates/seed — Seed system templates (admin only) ──
+// ── POST /templates/seed — Seed system templates ──
 templateRoutes.post("/seed", async (c) => {
   const count = await templateService.seedSystemTemplates();
   return c.json(ok({ seeded: count }));
