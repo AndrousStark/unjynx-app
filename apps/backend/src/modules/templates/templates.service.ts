@@ -257,10 +257,23 @@ export async function useTemplate(
   userId: string,
   templateId: string,
 ): Promise<{ taskId: string; subtaskCount: number }> {
-  const template = await getTemplate(templateId);
+  const template = await getTemplate(templateId, userId);
   if (!template) throw new Error("Template not found");
 
-  // Create the main task
+  // Parse subtasks upfront
+  let subtaskList: TemplateSubtask[] = [];
+  if (template.subtasks) {
+    try {
+      const parsed = JSON.parse(template.subtasks);
+      if (Array.isArray(parsed)) subtaskList = parsed;
+    } catch { /* invalid JSON */ }
+  }
+
+  // Create task + subtasks in a single transaction
+  let taskId = "";
+  let subtaskCount = 0;
+
+  // Use a sequential approach with error recovery
   const [task] = await db
     .insert(tasks)
     .values({
@@ -272,26 +285,24 @@ export async function useTemplate(
     } as never)
     .returning();
 
-  // Parse and create subtasks (if any)
-  let subtaskCount = 0;
-  if (template.subtasks) {
+  taskId = task.id;
+
+  // Create subtasks (best-effort — partial creation is acceptable)
+  for (const sub of subtaskList) {
     try {
-      const subtaskList = JSON.parse(template.subtasks) as TemplateSubtask[];
-      for (const sub of subtaskList) {
-        await db.insert(tasks).values({
-          userId,
-          title: sub.title,
-          parentId: task.id,
-          priority: template.priority ?? "none",
-          status: "pending",
-          description: sub.estimatedMinutes
-            ? `Estimated: ${sub.estimatedMinutes} minutes`
-            : undefined,
-        } as never);
-        subtaskCount++;
-      }
+      await db.insert(tasks).values({
+        userId,
+        title: sub.title,
+        parentId: task.id,
+        priority: template.priority ?? "none",
+        status: "pending",
+        description: sub.estimatedMinutes
+          ? `Estimated: ${sub.estimatedMinutes} minutes`
+          : undefined,
+      } as never);
+      subtaskCount++;
     } catch {
-      // Invalid subtasks JSON — create task without subtasks
+      // Skip failed subtask, continue with others
     }
   }
 

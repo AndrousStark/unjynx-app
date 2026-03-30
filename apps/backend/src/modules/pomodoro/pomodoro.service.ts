@@ -61,8 +61,26 @@ export interface NextTaskSuggestion {
 
 // ── Session Management ───────────────────────────────────────────
 
-// Active sessions per user (in-memory — only one active at a time)
-const activeSessions = new Map<string, { sessionId: string; startedAt: number; taskId: string | null }>();
+// In-memory cache (hot path only — DB is source of truth)
+const sessionCache = new Map<string, { sessionId: string; startedAt: number; taskId: string | null }>();
+
+/**
+ * Find active session from DB (source of truth, survives restarts).
+ */
+async function findActiveSessionFromDB(userId: string): Promise<{ id: string; startedAt: Date; taskId: string | null } | null> {
+  const [row] = await db
+    .select({ id: pomodoroSessions.id, startedAt: pomodoroSessions.startedAt, taskId: pomodoroSessions.taskId })
+    .from(pomodoroSessions)
+    .where(
+      and(
+        eq(pomodoroSessions.userId, userId),
+        sql`${pomodoroSessions.completedAt} IS NULL`,
+      ),
+    )
+    .orderBy(desc(pomodoroSessions.startedAt))
+    .limit(1);
+  return row ?? null;
+}
 
 /**
  * Start a new Pomodoro session.
@@ -72,10 +90,9 @@ export async function startSession(
   taskId?: string,
   durationMinutes: number = 25,
 ): Promise<PomodoroSessionData> {
-  // Ensure no active session
-  const existing = activeSessions.get(userId);
+  // Ensure no active session (check DB, not just cache)
+  const existing = await findActiveSessionFromDB(userId);
   if (existing) {
-    // Auto-abandon the previous session
     await abandonSession(userId);
   }
 
@@ -108,7 +125,7 @@ export async function startSession(
     })
     .returning();
 
-  activeSessions.set(userId, {
+  sessionCache.set(userId, {
     sessionId: session.id,
     startedAt: Date.now(),
     taskId: taskId ?? null,
@@ -135,8 +152,13 @@ export async function completeSession(
   userId: string,
   focusRating?: number,
 ): Promise<PomodoroSessionData | null> {
-  const active = activeSessions.get(userId);
-  if (!active) return null;
+  // Check cache first, then DB (survives restart)
+  let active = sessionCache.get(userId);
+  if (!active) {
+    const dbSession = await findActiveSessionFromDB(userId);
+    if (!dbSession) return null;
+    active = { sessionId: dbSession.id, startedAt: dbSession.startedAt.getTime(), taskId: dbSession.taskId };
+  }
 
   const now = new Date();
 
@@ -149,7 +171,7 @@ export async function completeSession(
     .where(eq(pomodoroSessions.id, active.sessionId))
     .returning();
 
-  activeSessions.delete(userId);
+  sessionCache.delete(userId);
 
   if (!updated) return null;
 
@@ -182,15 +204,19 @@ export async function completeSession(
  * Abandon an active session (user quit early).
  */
 export async function abandonSession(userId: string): Promise<boolean> {
-  const active = activeSessions.get(userId);
-  if (!active) return false;
+  let active = sessionCache.get(userId);
+  if (!active) {
+    const dbSession = await findActiveSessionFromDB(userId);
+    if (!dbSession) return false;
+    active = { sessionId: dbSession.id, startedAt: dbSession.startedAt.getTime(), taskId: dbSession.taskId };
+  }
 
   await db
     .update(pomodoroSessions)
     .set({ completedAt: new Date(), focusRating: 0 }) // 0 = abandoned
     .where(eq(pomodoroSessions.id, active.sessionId));
 
-  activeSessions.delete(userId);
+  sessionCache.delete(userId);
   log.info({ userId, sessionId: active.sessionId }, "Pomodoro abandoned");
   return true;
 }
@@ -198,17 +224,33 @@ export async function abandonSession(userId: string): Promise<boolean> {
 /**
  * Get the current active session (if any).
  */
-export function getActiveSession(userId: string): {
+export async function getActiveSession(userId: string): Promise<{
   sessionId: string;
   elapsedMs: number;
   taskId: string | null;
-} | null {
-  const active = activeSessions.get(userId);
-  if (!active) return null;
+} | null> {
+  // Check cache first
+  const cached = sessionCache.get(userId);
+  if (cached) {
+    return {
+      sessionId: cached.sessionId,
+      elapsedMs: Date.now() - cached.startedAt,
+      taskId: cached.taskId,
+    };
+  }
+  // Fallback to DB (survives restart)
+  const dbSession = await findActiveSessionFromDB(userId);
+  if (!dbSession) return null;
+  // Warm cache
+  sessionCache.set(userId, {
+    sessionId: dbSession.id,
+    startedAt: dbSession.startedAt.getTime(),
+    taskId: dbSession.taskId,
+  });
   return {
-    sessionId: active.sessionId,
-    elapsedMs: Date.now() - active.startedAt,
-    taskId: active.taskId,
+    sessionId: dbSession.id,
+    elapsedMs: Date.now() - dbSession.startedAt.getTime(),
+    taskId: dbSession.taskId,
   };
 }
 

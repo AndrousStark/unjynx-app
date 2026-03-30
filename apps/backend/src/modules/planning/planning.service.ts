@@ -118,12 +118,51 @@ function defaultEstimate(priority: string): number {
   }
 }
 
-// ── In-Memory Plan Store (Valkey in production) ──────────────────
+// ── Plan Store (in-memory cache + audit_log persistence) ─────────
 
-const activePlans = new Map<string, DailyPlan>();
+const planCache = new Map<string, DailyPlan>();
 
 function planKey(userId: string, date: string): string {
   return `plan:${userId}:${date}`;
+}
+
+/** Persist plan to DB (audit_log with entityType=daily_plan). */
+async function persistPlan(plan: DailyPlan): Promise<void> {
+  try {
+    await db.insert(auditLog).values({
+      userId: plan.userId,
+      action: "planning.state",
+      entityType: "daily_plan",
+      entityId: plan.date,
+      metadata: JSON.stringify(plan),
+    });
+  } catch (err) {
+    log.error({ err, userId: plan.userId }, "Failed to persist plan");
+  }
+}
+
+/** Load plan from DB if not in cache (survives restarts). */
+async function loadPlanFromDB(userId: string, date: string): Promise<DailyPlan | null> {
+  try {
+    const [row] = await db
+      .select({ metadata: auditLog.metadata })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.userId, userId),
+          eq(auditLog.entityType, "daily_plan"),
+          eq(auditLog.entityId, date),
+          eq(auditLog.action, "planning.state"),
+        ),
+      )
+      .orderBy(desc(auditLog.createdAt))
+      .limit(1);
+
+    if (!row?.metadata) return null;
+    return JSON.parse(row.metadata) as DailyPlan;
+  } catch {
+    return null;
+  }
 }
 
 // ── Public API ──────────────────────────────────────────────────────
@@ -340,8 +379,9 @@ export async function createPlan(
     updatedAt: new Date().toISOString(),
   };
 
-  // Store in memory (Valkey in production)
-  activePlans.set(planKey(userId, today), plan);
+  // Store in cache + persist to DB (survives restarts)
+  planCache.set(planKey(userId, today), plan);
+  persistPlan(plan).catch(() => {});
 
   // Also persist to audit_log for history
   db.insert(auditLog).values({
@@ -365,9 +405,20 @@ export async function createPlan(
 /**
  * Get today's active plan.
  */
-export function getTodayPlan(userId: string): DailyPlan | null {
+export async function getTodayPlan(userId: string): Promise<DailyPlan | null> {
   const today = new Date().toISOString().slice(0, 10);
-  return activePlans.get(planKey(userId, today)) ?? null;
+  const key = planKey(userId, today);
+
+  // Check cache first
+  const cached = planCache.get(key);
+  if (cached) return cached;
+
+  // Fallback to DB (survives restarts)
+  const fromDB = await loadPlanFromDB(userId, today);
+  if (fromDB) {
+    planCache.set(key, fromDB); // Warm cache
+  }
+  return fromDB;
 }
 
 /**
@@ -380,7 +431,7 @@ export function completeBlock(
 ): DailyPlan | null {
   const today = new Date().toISOString().slice(0, 10);
   const key = planKey(userId, today);
-  const plan = activePlans.get(key);
+  const plan = planCache.get(key);
   if (!plan) return null;
 
   const updatedBlocks = plan.blocks.map((b) =>
@@ -403,7 +454,8 @@ export function completeBlock(
     updatedAt: new Date().toISOString(),
   };
 
-  activePlans.set(key, updatedPlan);
+  planCache.set(key, updatedPlan);
+  persistPlan(updatedPlan).catch(() => {});
   return updatedPlan;
 }
 
@@ -413,7 +465,7 @@ export function completeBlock(
 export function skipBlock(userId: string, taskId: string): DailyPlan | null {
   const today = new Date().toISOString().slice(0, 10);
   const key = planKey(userId, today);
-  const plan = activePlans.get(key);
+  const plan = planCache.get(key);
   if (!plan) return null;
 
   const updatedBlocks = plan.blocks.map((b) =>
@@ -428,21 +480,22 @@ export function skipBlock(userId: string, taskId: string): DailyPlan | null {
     updatedAt: new Date().toISOString(),
   };
 
-  activePlans.set(key, updatedPlan);
+  planCache.set(key, updatedPlan);
+  persistPlan(updatedPlan).catch(() => {});
   return updatedPlan;
 }
 
 /**
  * Get evening review data.
  */
-export function getEveningReview(userId: string): {
+export async function getEveningReview(userId: string): Promise<{
   plan: DailyPlan | null;
   completedCount: number;
   skippedCount: number;
   pendingCount: number;
   accuracy: number;
-} {
-  const plan = getTodayPlan(userId);
+}> {
+  const plan = await getTodayPlan(userId);
   if (!plan) {
     return { plan: null, completedCount: 0, skippedCount: 0, pendingCount: 0, accuracy: 0 };
   }
@@ -482,14 +535,14 @@ export async function carryForward(
   // Mark these blocks as "carried" in today's plan
   const today = new Date().toISOString().slice(0, 10);
   const key = planKey(userId, today);
-  const plan = activePlans.get(key);
+  const plan = planCache.get(key);
   if (plan) {
     const updatedBlocks = plan.blocks.map((b) =>
       taskIds.includes(b.taskId) && b.status === "pending"
         ? { ...b, status: "carried" as const }
         : b,
     );
-    activePlans.set(key, {
+    planCache.set(key, {
       ...plan,
       blocks: updatedBlocks,
       status: "reviewed",

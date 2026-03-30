@@ -85,7 +85,7 @@ planningRoutes.post(
 // ── GET /planning/today — Get today's active plan ──
 planningRoutes.get("/today", async (c) => {
   const auth = c.get("auth");
-  const plan = planningService.getTodayPlan(auth.profileId);
+  const plan = await planningService.getTodayPlan(auth.profileId);
   if (!plan) {
     return c.json(ok(null));
   }
@@ -138,7 +138,7 @@ planningRoutes.post(
 // ── GET /planning/review — Evening review data ──
 planningRoutes.get("/review", async (c) => {
   const auth = c.get("auth");
-  const review = planningService.getEveningReview(auth.profileId);
+  const review = await planningService.getEveningReview(auth.profileId);
   return c.json(ok(review));
 });
 

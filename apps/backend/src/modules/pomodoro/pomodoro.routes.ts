@@ -67,7 +67,7 @@ pomodoroRoutes.post("/abandon", async (c) => {
 // ── GET /pomodoro/active — Get current active session ──
 pomodoroRoutes.get("/active", async (c) => {
   const auth = c.get("auth");
-  const active = pomodoroService.getActiveSession(auth.profileId);
+  const active = await pomodoroService.getActiveSession(auth.profileId);
   return c.json(ok(active));
 });
 

@@ -25,8 +25,18 @@ export function createApp(): Hono {
   app.use("*", loggerMiddleware);
   app.onError(errorHandler);
 
-  // Prometheus metrics (no auth, no rate limit — scraped internally)
+  // Prometheus metrics (internal only — bearer token or localhost)
   app.get("/metrics", async (c) => {
+    // Allow from localhost (Prometheus scraper) or with bearer token
+    const authHeader = c.req.header("Authorization");
+    const metricsToken = process.env.METRICS_TOKEN ?? "unjynx-metrics-2026";
+    const isLocalhost = c.req.header("X-Forwarded-For") === undefined; // No proxy = internal
+    const hasValidToken = authHeader === `Bearer ${metricsToken}`;
+
+    if (!isLocalhost && !hasValidToken) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
     const { metricsRegistry } = await import("./metrics/ai-metrics.js");
     const metrics = await metricsRegistry.metrics();
     return c.text(metrics, 200, { "Content-Type": metricsRegistry.contentType });

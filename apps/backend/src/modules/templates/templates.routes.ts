@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { authMiddleware } from "../../middleware/auth.js";
+import { adminGuard } from "../../middleware/admin-guard.js";
 import { ok, err } from "../../types/api.js";
 import * as templateService from "./templates.service.js";
 
@@ -80,8 +81,8 @@ templateRoutes.post("/:id/use", async (c) => {
   }
 });
 
-// ── POST /templates/seed — Seed system templates ──
-templateRoutes.post("/seed", async (c) => {
+// ── POST /templates/seed — Seed system templates (admin only) ──
+templateRoutes.post("/seed", adminGuard("owner", "admin"), async (c) => {
   const count = await templateService.seedSystemTemplates();
   return c.json(ok({ seeded: count }));
 });
