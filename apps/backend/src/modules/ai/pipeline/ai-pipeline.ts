@@ -24,6 +24,7 @@ import {
   loadWorkingMemory,
 } from "./memory-injector.js";
 import { getThreshold } from "./correction-tracker.js";
+import { recordAiMetrics } from "../../../metrics/ai-metrics.js";
 import * as claudeService from "../../../services/claude.js";
 import { getPersonaPrompt } from "../prompts.js";
 
@@ -105,7 +106,7 @@ export async function processQuery(
         response: actionResult.response,
       }, classified.intent, classified.entities);
 
-      // Log
+      // Log + Metrics
       logAiInteraction({
         userId,
         query,
@@ -118,6 +119,7 @@ export async function processQuery(
         latencyMs,
         response: actionResult.response,
       });
+      recordAiMetrics({ layer: "intent", status: "hit", latencyMs });
 
       return {
         response: actionResult.response,
@@ -157,6 +159,7 @@ export async function processQuery(
       latencyMs,
       response: cached.response,
     });
+    recordAiMetrics({ layer: "cache", status: "hit", latencyMs });
 
     return {
       response: cached.response,
@@ -217,6 +220,14 @@ export async function processQuery(
       latencyMs,
       response: result.content,
     });
+    recordAiMetrics({
+      layer: "llm",
+      status: "hit",
+      model: result.usage.model,
+      tokensInput: result.usage.inputTokens,
+      tokensOutput: result.usage.outputTokens,
+      latencyMs,
+    });
 
     return {
       response: result.content,
@@ -244,6 +255,7 @@ export async function processQuery(
       latencyMs,
       response: `ERROR: ${message}`,
     });
+    recordAiMetrics({ layer: "llm", status: "error", latencyMs });
 
     throw error;
   }

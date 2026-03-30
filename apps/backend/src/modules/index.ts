@@ -27,6 +27,7 @@ import { modesRoutes } from "./modes/modes.routes.js";
 import { aiRoutes } from "./ai/ai.routes.js";
 import { logtoWebhookRoutes } from "./auth/logto-webhook.routes.js";
 import { planningRoutes } from "./planning/planning.routes.js";
+import { metricsRoutes } from "../metrics/metrics.routes.js";
 
 /**
  * Register all domain modules on the Hono app instance.
@@ -77,6 +78,9 @@ export function registerModules(app: Hono): void {
 
   // v2: Daily Planning Ritual
   app.route("/api/v1/planning", planningRoutes);
+
+  // Prometheus metrics (no auth — scraped by Prometheus internally)
+  app.route("/metrics", metricsRoutes);
 
   // Webhooks (no auth — providers call these directly)
   app.route("/api/v1/webhooks", webhookRoutes);
