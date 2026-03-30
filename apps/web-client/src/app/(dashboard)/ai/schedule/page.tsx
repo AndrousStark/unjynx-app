@@ -252,14 +252,11 @@ export default function AiSchedulePage() {
     setDecisions((prev) => ({ ...prev, [taskId]: 'rejected' }));
   }, []);
 
-  // Accept all pending
+  // Accept all pending (parallel for speed)
   const handleAcceptAll = useCallback(async () => {
     if (!scheduleResult) return;
-    for (const slot of scheduleResult.schedule) {
-      if (decisions[slot.taskId] === 'pending') {
-        await handleAccept(slot);
-      }
-    }
+    const pending = scheduleResult.schedule.filter((s) => decisions[s.taskId] === 'pending');
+    await Promise.allSettled(pending.map((slot) => handleAccept(slot)));
   }, [scheduleResult, decisions, handleAccept]);
 
   // Back to selection

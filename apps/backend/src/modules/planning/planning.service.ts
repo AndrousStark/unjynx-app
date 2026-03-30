@@ -156,7 +156,9 @@ export async function getYesterdaySummary(
       ),
     );
 
-  // Get carried forward tasks (overdue, not completed)
+  // Get carried forward tasks (overdue from last 30 days, not completed)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const carriedTasks = await db
     .select({ id: tasks.id, title: tasks.title, priority: tasks.priority })
     .from(tasks)
@@ -165,6 +167,7 @@ export async function getYesterdaySummary(
         eq(tasks.userId, userId),
         ne(tasks.status, "completed" as never),
         ne(tasks.status, "cancelled" as never),
+        gte(tasks.dueDate, thirtyDaysAgo),
         lte(tasks.dueDate, yesterdayEnd),
       ),
     )
@@ -382,14 +385,15 @@ export function completeBlock(
 
   const updatedBlocks = plan.blocks.map((b) =>
     b.taskId === taskId
-      ? { ...b, status: "completed" as const }
+      ? { ...b, status: "completed" as const, actualMinutes: actualMinutes ?? b.estimatedMinutes }
       : b,
   );
 
   const completedCount = updatedBlocks.filter((b) => b.status === "completed").length;
+  // Use per-block actualMinutes (set when each block was completed), not the current call's value
   const completedMinutes = updatedBlocks
     .filter((b) => b.status === "completed")
-    .reduce((sum, b) => sum + (actualMinutes ?? b.estimatedMinutes), 0);
+    .reduce((sum, b) => sum + ((b as { actualMinutes?: number }).actualMinutes ?? b.estimatedMinutes), 0);
 
   const updatedPlan: DailyPlan = {
     ...plan,

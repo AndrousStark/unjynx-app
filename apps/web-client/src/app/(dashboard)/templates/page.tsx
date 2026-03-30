@@ -45,7 +45,7 @@ function getTemplates(category?: string): Promise<readonly Template[]> {
   return apiClient.get(`/api/v1/templates${params}`);
 }
 
-function useTemplateApi(id: string): Promise<{ taskId: string; subtaskCount: number }> {
+function applyTemplate(id: string): Promise<{ taskId: string; subtaskCount: number }> {
   return apiClient.post(`/api/v1/templates/${id}/use`);
 }
 
@@ -186,17 +186,14 @@ export default function TemplatesPage() {
     staleTime: 60_000,
   });
 
-  const useMutation2 = useMutation({
-    mutationFn: (id: string) => {
-      setUsingId(id);
-      return useTemplateApi(id);
-    },
+  const applyMutation = useMutation({
+    mutationFn: (id: string) => applyTemplate(id),
+    onMutate: (id) => { setUsingId(id); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setUsingId(null);
     },
-    onError: () => setUsingId(null),
+    onSettled: () => { setUsingId(null); },
   });
 
   const deleteMutation = useMutation({
@@ -274,7 +271,7 @@ export default function TemplatesPage() {
             <TemplateCard
               key={template.id}
               template={template}
-              onUse={() => useMutation2.mutate(template.id)}
+              onUse={() => applyMutation.mutate(template.id)}
               onDelete={() => deleteMutation.mutate(template.id)}
               isUsing={usingId === template.id}
             />

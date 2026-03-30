@@ -47,7 +47,7 @@ export interface PipelineResult {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers (reuse from client.ts to avoid duplication)
 // ---------------------------------------------------------------------------
 
 function getAuthToken(): string | null {
@@ -57,11 +57,7 @@ function getAuthToken(): string | null {
   return localStorage.getItem('unjynx_token');
 }
 
-function getBaseUrl(): string {
-  return typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.unjynx.me')
-    : 'https://api.unjynx.me';
-}
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.unjynx.me';
 
 // ---------------------------------------------------------------------------
 // Pipeline Query (non-streaming — fast for direct actions + cached)
@@ -103,7 +99,7 @@ export function streamChat(options: StreamChatOptions): AbortController {
   (async () => {
     try {
       const token = getAuthToken();
-      const baseUrl = getBaseUrl();
+      const baseUrl = BASE_URL;
 
       const res = await fetch(`${baseUrl}/api/v1/ai/chat`, {
         method: 'POST',
@@ -143,6 +139,7 @@ export function streamChat(options: StreamChatOptions): AbortController {
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let currentEventType = ''; // Track event type for proper SSE correlation
 
       while (true) {
         const { done, value } = await reader.read();
@@ -150,43 +147,56 @@ export function streamChat(options: StreamChatOptions): AbortController {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        // Keep the last incomplete line in buffer
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
-          if (!line.startsWith('data: ') && !line.startsWith('event: ')) continue;
+          // Empty line = end of SSE event block
+          if (line.trim() === '') {
+            currentEventType = '';
+            continue;
+          }
 
-          // Parse SSE event type
-          const eventMatch = line.match(/^event:\s*(.+)/);
-          if (eventMatch) continue; // Event type line, data follows on next line
+          // Track event type
+          if (line.startsWith('event: ')) {
+            currentEventType = line.slice(7).trim();
+            continue;
+          }
 
           if (line.startsWith('data: ')) {
             const data = line.slice(6).trim();
-            if (data === '[DONE]') {
+
+            // Handle by event type (proper SSE correlation)
+            if (currentEventType === 'done' || data === '[DONE]') {
               options.onDone();
               return;
             }
 
-            // Try to parse as JSON
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.message) {
-                options.onError(parsed.message);
-                return;
+            if (currentEventType === 'error') {
+              try {
+                const parsed = JSON.parse(data);
+                options.onError(parsed.message ?? 'AI error');
+              } catch {
+                options.onError(data);
               }
-              // Usage event
-              if (parsed.model || parsed.inputTokens) {
+              return;
+            }
+
+            if (currentEventType === 'usage') {
+              try {
+                const parsed = JSON.parse(data);
                 options.onDone({
                   model: parsed.model ?? 'unknown',
                   tokensUsed: (parsed.inputTokens ?? 0) + (parsed.outputTokens ?? 0),
                 });
-                return;
+              } catch {
+                options.onDone();
               }
-            } catch {
-              // Raw text chunk — this is the streaming content
-              if (data) {
-                options.onChunk(data);
-              }
+              return;
+            }
+
+            // Default: text content chunk (event type "text" or empty)
+            if (data) {
+              options.onChunk(data);
             }
           }
         }

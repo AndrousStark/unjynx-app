@@ -69,25 +69,26 @@ function getNextSuggestion() {
 
 // ─── Timer Ring SVG ─────────────────────────────────────────────
 
+let timerRingCounter = 0;
+
 function TimerRing({ progress, size = 280 }: { progress: number; size?: number }) {
+  const [gradientId] = useState(() => `timerGradient-${++timerRingCounter}`);
   const stroke = 6;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - progress);
 
   return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      {/* Background ring */}
+    <svg width={size} height={size} className="transform -rotate-90" role="img" aria-label={`Timer progress: ${Math.round(progress * 100)}%`}>
       <circle
         cx={size / 2} cy={size / 2} r={radius}
         fill="none" stroke="var(--border)" strokeWidth={stroke}
         opacity={0.3}
       />
-      {/* Progress ring */}
       <circle
         cx={size / 2} cy={size / 2} r={radius}
         fill="none"
-        stroke="url(#timerGradient)"
+        stroke={`url(#${gradientId})`}
         strokeWidth={stroke}
         strokeLinecap="round"
         strokeDasharray={circumference}
@@ -95,7 +96,7 @@ function TimerRing({ progress, size = 280 }: { progress: number; size?: number }
         className="transition-all duration-1000 ease-linear"
       />
       <defs>
-        <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#6C5CE7" />
           <stop offset="50%" stopColor="#A855F7" />
           <stop offset="100%" stopColor="#FFD700" />
@@ -225,9 +226,11 @@ export default function FocusPage() {
   }, [completeMutation]);
 
   const handleAbandon = useCallback(() => {
-    abandonPomodoro();
+    abandonPomodoro().catch(() => {}); // server-side cleanup, non-blocking
     setPhase('idle');
     setActiveSession(null);
+    setSecondsLeft(25 * 60);
+    setTotalSeconds(25 * 60);
     if (intervalRef.current) clearInterval(intervalRef.current);
   }, []);
 

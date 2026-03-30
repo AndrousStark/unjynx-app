@@ -88,7 +88,8 @@ pomodoroRoutes.get("/suggest", async (c) => {
 // ── GET /pomodoro/history — Recent session history ──
 pomodoroRoutes.get("/history", async (c) => {
   const auth = c.get("auth");
-  const limit = parseInt(c.req.query("limit") ?? "10", 10);
+  const rawLimit = parseInt(c.req.query("limit") ?? "10", 10);
+  const limit = Number.isNaN(rawLimit) ? 10 : Math.min(Math.max(rawLimit, 1), 100);
   const sessions = await pomodoroService.getRecentSessions(auth.profileId, limit);
   return c.json(ok(sessions));
 });

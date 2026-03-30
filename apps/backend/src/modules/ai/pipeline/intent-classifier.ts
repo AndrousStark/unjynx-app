@@ -449,7 +449,7 @@ const INTENT_PATTERNS: readonly IntentPattern[] = [
     confidence: 0.90,
     patterns: [
       /^(?:snooze|delay|push\s+back|remind\s+me\s+(?:again\s+)?(?:in|later))\s+(.+)/i,
-      /^(?:not\s+now|later|come\s+back\s+(?:in|to\s+this))\s*(.+)?/i,
+      /^(?:not\s+now|come\s+back\s+(?:in|to\s+this))\s*(.+)?/i,
     ],
     extractor: (text) => {
       const entities: Record<string, string> = {};

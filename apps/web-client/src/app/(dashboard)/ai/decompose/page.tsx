@@ -184,19 +184,22 @@ export default function AiDecomposePage() {
 
     setIsCreating(true);
     try {
-      for (const sub of included) {
-        await createTask({
-          title: sub.title,
-          priority: sub.priority as 'high' | 'medium' | 'low',
-          description: `Part of: ${taskTitle}`,
-        });
-      }
+      await Promise.allSettled(
+        included.map((sub) =>
+          createTask({
+            title: sub.title,
+            priority: sub.priority as 'high' | 'medium' | 'low',
+            description: `Part of: ${taskTitle}`,
+          }),
+        ),
+      );
       setCreated(true);
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     } catch {
-      // Handle error silently — partial creation is OK
+      // Partial creation is OK
+    } finally {
+      setIsCreating(false);
     }
-    setIsCreating(false);
   }, [subtasks, taskTitle, queryClient]);
 
   // Reset
