@@ -1,4 +1,7 @@
 import { env } from "../env.js";
+import { logger } from "../middleware/logger.js";
+
+const log = logger.child({ module: "logto-m2m" });
 
 /**
  * Logto Machine-to-Machine token utility.
@@ -50,11 +53,7 @@ export async function getManagementToken(): Promise<string | null> {
     });
 
     if (!response.ok) {
-      console.error(
-        "[logto-m2m] Token request failed:",
-        response.status,
-        await response.text().catch(() => ""),
-      );
+      log.error({ status: response.status }, "Token request failed");
       return null;
     }
 
@@ -69,7 +68,7 @@ export async function getManagementToken(): Promise<string | null> {
 
     return cachedM2mToken.token;
   } catch (error) {
-    console.error("[logto-m2m] Token request error:", error);
+    log.error({ err: error }, "Token request error");
     return null;
   }
 }

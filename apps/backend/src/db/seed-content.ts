@@ -5,11 +5,10 @@
  */
 
 import { db } from "./index.js";
-import { dailyContent } from "./schema/index.js";
-import { sql } from "drizzle-orm";
+import { dailyContent, type NewDailyContentItem } from "./schema/index.js";
 
 interface Quote {
-  readonly category: string;
+  readonly category: NewDailyContentItem["category"];
   readonly content: string;
   readonly author: string;
 }
@@ -357,7 +356,7 @@ const quotes: readonly Quote[] = [
 ];
 
 async function seed() {
-  console.log(`Seeding ${quotes.length} daily content entries...`);
+  process.stdout.write(`Seeding ${quotes.length} daily content entries...\n`);
 
   // Clear existing content
   await db.delete(dailyContent).execute();
@@ -373,14 +372,14 @@ async function seed() {
         isActive: true,
       })),
     );
-    console.log(`  Inserted ${Math.min(i + 50, quotes.length)}/${quotes.length}`);
+    process.stdout.write(`  Inserted ${Math.min(i + 50, quotes.length)}/${quotes.length}\n`);
   }
 
-  console.log("Content seeding complete!");
+  process.stdout.write("Content seeding complete!\n");
   process.exit(0);
 }
 
 seed().catch((err) => {
-  console.error("Seed failed:", err);
+  process.stderr.write(`Seed failed: ${err}\n`);
   process.exit(1);
 });

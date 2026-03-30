@@ -60,7 +60,7 @@ export function registerModules(app: Hono): void {
   app.route("/api/v1/notifications", notificationRoutes);
   app.route("/api/v1/channels", channelRoutes);
 
-  // Phase 4: Billing, Gamification, Accountability, Teams, Import/Export, Admin
+  // Premium & Team features
   app.route("/api/v1/billing", billingRoutes);
   app.route("/api/v1/gamification", gamificationRoutes);
   app.route("/api/v1/accountability", accountabilityRoutes);
@@ -69,25 +69,19 @@ export function registerModules(app: Hono): void {
   app.route("/api/v1/admin", adminRoutes);
   app.route("/api/v1/dev", devPortalRoutes);
 
-  // Phase 6: Calendar integration (Google Calendar read-only)
+  // Calendar integration (Google Calendar read-only)
   app.route("/api/v1/calendar", calendarRoutes);
 
-  // Phase 7: Industry Modes
+  // Industry modes
   app.route("/api/v1/modes", modesRoutes);
 
-  // Phase 6: AI / ML intelligence
+  // AI & ML intelligence
   app.route("/api/v1/ai", aiRoutes);
-
-  // v2: Daily Planning Ritual
   app.route("/api/v1/planning", planningRoutes);
-
-  // v2: Task Templates
   app.route("/api/v1/templates", templateRoutes);
-
-  // v2: Pomodoro Timer
   app.route("/api/v1/pomodoro", pomodoroRoutes);
 
-  // Prometheus metrics (no auth — scraped by Prometheus internally)
+  // Prometheus metrics (bearer token protected)
   app.route("/metrics", metricsRoutes);
 
   // Webhooks (no auth — providers call these directly)

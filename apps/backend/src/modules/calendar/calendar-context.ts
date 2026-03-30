@@ -275,7 +275,7 @@ export function serializeCalendarContext(ctx: CalendarContext): string {
 
   // Warnings
   if (ctx.warnings.length > 0) {
-    parts.push(`⚠ ${ctx.warnings[0]}`);
+    parts.push(`Warning: ${ctx.warnings[0]}`);
   }
 
   return `Calendar: ${parts.join(". ")}`;

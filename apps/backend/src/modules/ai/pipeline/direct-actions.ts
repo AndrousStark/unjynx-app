@@ -524,7 +524,7 @@ async function handleListTasks(
     const due = t.dueDate
       ? ` — due ${new Date(t.dueDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`
       : "";
-    const overdue = t.dueDate && new Date(t.dueDate) < new Date() ? " ⚠️" : "";
+    const overdue = t.dueDate && new Date(t.dueDate) < new Date() ? " [OVERDUE]" : "";
     return `${i + 1}. ${icon} ${t.title}${due}${overdue}`;
   });
 

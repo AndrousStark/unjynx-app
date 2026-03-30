@@ -14,7 +14,7 @@
 //   - TickTick pattern: timer embedded in task, max 3 pauses
 //   - Forest pattern: gamification (XP for completed sessions)
 
-import { eq, and, desc, gte, ne, sql } from "drizzle-orm";
+import { eq, and, desc, gte, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { pomodoroSessions, tasks } from "../../db/schema/index.js";
 import { logger } from "../../middleware/logger.js";

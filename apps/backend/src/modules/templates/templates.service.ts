@@ -185,17 +185,15 @@ export async function getTemplates(
  * Get a single template by ID.
  */
 export async function getTemplate(id: string, userId?: string): Promise<TaskTemplate | null> {
-  const conditions = [eq(taskTemplates.id, id)];
   // Security: only return global templates or templates owned by this user
-  if (userId) {
-    conditions.push(
-      or(eq(taskTemplates.isGlobal, true), eq(taskTemplates.userId, userId)) as never,
-    );
-  }
+  const ownershipFilter = userId
+    ? and(eq(taskTemplates.id, id), or(eq(taskTemplates.isGlobal, true), eq(taskTemplates.userId, userId)))
+    : eq(taskTemplates.id, id);
+
   const [template] = await db
     .select()
     .from(taskTemplates)
-    .where(and(...conditions))
+    .where(ownershipFilter)
     .limit(1);
   return template ?? null;
 }
@@ -269,11 +267,7 @@ export async function useTemplate(
     } catch { /* invalid JSON */ }
   }
 
-  // Create task + subtasks in a single transaction
-  let taskId = "";
-  let subtaskCount = 0;
-
-  // Use a sequential approach with error recovery
+  // Create parent task
   const [task] = await db
     .insert(tasks)
     .values({
@@ -285,9 +279,8 @@ export async function useTemplate(
     } as never)
     .returning();
 
-  taskId = task.id;
-
   // Create subtasks (best-effort — partial creation is acceptable)
+  let subtaskCount = 0;
   for (const sub of subtaskList) {
     try {
       await db.insert(tasks).values({
@@ -348,15 +341,17 @@ export async function seedSystemTemplates(): Promise<number> {
   // Only insert templates that don't already exist
   const toInsert = SYSTEM_TEMPLATES.filter((t) => !existingTitles.has(t.title));
 
-  for (const tmpl of toInsert) {
-    await db.insert(taskTemplates).values({
-      title: tmpl.title,
-      description: tmpl.description,
-      priority: tmpl.priority,
-      category: tmpl.category,
-      subtasks: JSON.stringify(tmpl.subtasks),
-      isGlobal: true,
-    });
+  if (toInsert.length > 0) {
+    await db.insert(taskTemplates).values(
+      toInsert.map((tmpl) => ({
+        title: tmpl.title,
+        description: tmpl.description,
+        priority: tmpl.priority,
+        category: tmpl.category,
+        subtasks: JSON.stringify(tmpl.subtasks),
+        isGlobal: true,
+      })),
+    );
   }
 
   return toInsert.length;

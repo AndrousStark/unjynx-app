@@ -37,7 +37,7 @@ import type { NotificationJobData } from "../../queue/types.js";
 import { db } from "../../db/index.js";
 import { profiles, featureFlags, userSessions } from "../../db/schema/index.js";
 
-const log = logger.child({ module: "admin-broadcast" });
+const log = logger.child({ module: "admin" });
 
 // ── Users ─────────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ export async function updateUser(
           name: input.name,
         });
       } catch (error) {
-        console.error("[admin] Failed to sync user update to Logto:", error);
+        log.error({ err: error }, "Failed to sync user update to Logto");
         // Continue with local update even if Logto sync fails
       }
     }
@@ -111,7 +111,7 @@ export async function updateUser(
     try {
       await logtoManagement.suspendLogtoUser(profile.logtoId, input.isBanned);
     } catch (error) {
-      console.error("[admin] Failed to sync ban status to Logto:", error);
+      log.error({ err: error }, "Failed to sync ban status to Logto");
     }
   }
 
@@ -167,10 +167,7 @@ export async function createUser(
     try {
       await logtoManagement.deleteLogtoUser(logtoId);
     } catch (rollbackError) {
-      console.error(
-        "[admin] Failed to rollback Logto user after profile creation failure:",
-        rollbackError,
-      );
+      log.error({ err: rollbackError }, "Failed to rollback Logto user after profile creation failure");
     }
     throw error;
   }
@@ -204,10 +201,7 @@ export async function deleteUser(
     try {
       await logtoManagement.deleteLogtoUser(profile.logtoId);
     } catch (error) {
-      console.error(
-        "[admin] Failed to delete Logto user after profile deletion:",
-        error,
-      );
+      log.error({ err: error }, "Failed to delete Logto user after profile deletion");
       // Profile is already deleted locally — log but don't throw
     }
   }

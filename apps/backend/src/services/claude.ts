@@ -28,6 +28,9 @@ import {
 
 // ── Constants ───────────────────────────────────────────────────────
 
+/** Default timezone — used when user profile has no timezone set. */
+export const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE ?? "Asia/Kolkata";
+
 export const CLAUDE_MODELS = {
   haiku: "claude-haiku-4-5-20241022",
   sonnet: "claude-sonnet-4-20250514",
@@ -419,7 +422,7 @@ export async function scheduleSuggestion(
     tasks,
     context: {
       currentHour: userContext.currentHour ?? new Date().getHours(),
-      timezone: userContext.timezone ?? "Asia/Kolkata",
+      timezone: userContext.timezone ?? DEFAULT_TIMEZONE,
       energyForecast: userContext.energyForecast ?? [],
     },
   });

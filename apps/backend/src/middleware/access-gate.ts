@@ -436,8 +436,9 @@ export function accessGate(featureKey: string) {
     }
 
     // Attach limit to context for handlers to check
+    // Hono's typed context requires generics — cast is intentional for custom keys
     if (result.limit !== undefined) {
-      c.set("featureLimit" as never, result.limit as never);
+      (c as { set(key: string, value: unknown): void }).set("featureLimit", result.limit);
     }
 
     await next();
