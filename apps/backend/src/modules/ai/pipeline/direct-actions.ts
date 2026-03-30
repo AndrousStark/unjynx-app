@@ -21,6 +21,7 @@ import { type ClassifiedIntent, classifyMultipleTasks } from "./intent-classifie
 import { pushUndoableAction, undoLastAction } from "./undo-stack.js";
 import { checkCorrectionsBeforeSearch, scheduleFalsePositiveCheck } from "./correction-tracker.js";
 import { suggestTemplates, useTemplate } from "../../templates/templates.service.js";
+import * as pomodoroService from "../../pomodoro/pomodoro.service.js";
 import { buildUserContext } from "./context-builder.js";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -212,6 +213,10 @@ export async function handleDirectAction(
       return handleUndo(profileId);
     case "use_template":
       return handleUseTemplate(intent.entities, profileId);
+    case "start_pomodoro":
+      return handleStartPomodoro(intent.entities, profileId);
+    case "stop_pomodoro":
+      return handleStopPomodoro(intent.entities, profileId);
 
     // These require LLM
     case "move_task":
@@ -766,6 +771,86 @@ async function handleCountTasks(
     handled: true,
     response: `You have **${count}** ${label} task${count !== 1 ? "s" : ""}.`,
     data: { count, filter: label },
+  };
+}
+
+async function handleStartPomodoro(
+  entities: Record<string, string>,
+  profileId: string,
+): Promise<DirectActionResult> {
+  const duration = entities.durationMinutes ? parseInt(entities.durationMinutes, 10) : 25;
+  let taskId: string | undefined;
+
+  // If task query provided, fuzzy match it
+  if (entities.taskQuery) {
+    const task = await fuzzyFindTask(profileId, entities.taskQuery);
+    if (task) taskId = task.id;
+  }
+
+  // If no task specified, get AI suggestion
+  if (!taskId) {
+    const suggestion = await pomodoroService.suggestNextTask(profileId);
+    if (suggestion) {
+      taskId = suggestion.taskId;
+    }
+  }
+
+  const session = await pomodoroService.startSession(profileId, taskId, duration);
+
+  const taskInfo = session.taskTitle ? ` on **${session.taskTitle}**` : "";
+  const lines = [
+    `**Pomodoro started!** ${duration} minutes${taskInfo}.`,
+    "",
+    "_Stay focused. I'll be here when you're done._",
+    "",
+    `Say "done" or "/stop" when finished. Rate your focus 1-5.`,
+  ];
+
+  return {
+    handled: true,
+    response: lines.join("\n"),
+    data: { sessionId: session.id, taskId: session.taskId, durationMinutes: duration },
+  };
+}
+
+async function handleStopPomodoro(
+  entities: Record<string, string>,
+  profileId: string,
+): Promise<DirectActionResult> {
+  const focusRating = entities.focusRating ? parseInt(entities.focusRating, 10) : undefined;
+
+  const session = await pomodoroService.completeSession(profileId, focusRating);
+  if (!session) {
+    return {
+      handled: true,
+      response: "No active Pomodoro session. Start one with `/pomodoro` or \"start a pomodoro\".",
+    };
+  }
+
+  const taskInfo = session.taskTitle ? ` on "${session.taskTitle}"` : "";
+  const ratingInfo = session.focusRating ? ` Focus: ${"⭐".repeat(session.focusRating)}` : "";
+
+  // Get suggestion for next session
+  const nextSuggestion = await pomodoroService.suggestNextTask(profileId);
+  const nextLine = nextSuggestion
+    ? `\n\n**Next up:** ${nextSuggestion.taskTitle} (${nextSuggestion.reason})`
+    : "";
+
+  // Get today's stats
+  const stats = await pomodoroService.getStats(profileId);
+
+  return {
+    handled: true,
+    response: [
+      `**Pomodoro complete!** ${session.durationMinutes}min${taskInfo}.${ratingInfo}`,
+      "",
+      `Today: **${stats.today.sessions}** sessions, **${stats.today.totalMinutes}min** focused.`,
+      stats.streak > 1 ? `Streak: **${stats.streak} days**.` : "",
+      nextLine,
+      "",
+      "_Take a 5-minute break. You earned it._",
+    ].filter(Boolean).join("\n"),
+    data: { session, stats },
   };
 }
 

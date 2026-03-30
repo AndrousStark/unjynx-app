@@ -264,6 +264,11 @@ function parseSlashCommand(text: string): ClassifiedIntent | null {
     oops: "undo_action",
     template: "use_template",
     templates: "use_template",
+    pomodoro: "start_pomodoro",
+    pomo: "start_pomodoro",
+    timer: "start_pomodoro",
+    stoppomodoro: "stop_pomodoro",
+    stoptimer: "stop_pomodoro",
   };
 
   const intent = commands[command];
@@ -711,6 +716,42 @@ const INTENT_PATTERNS: readonly IntentPattern[] = [
       /^(?:how\s+does?\s+(?:this|unjynx|the\s+ai)\s+work)/i,
       /^(?:show\s+me\s+(?:what\s+you\s+can\s+do|the\s+commands|examples))/i,
     ],
+  },
+
+  // ── Start Pomodoro (confidence: 0.90) ──
+  {
+    intent: "start_pomodoro",
+    confidence: 0.90,
+    patterns: [
+      /^(?:start|begin)\s+(?:a\s+)?(?:pomodoro|pomo|timer|focus\s+(?:session|timer))\s*(?:on|for)?\s*(.+)?/i,
+      /^(?:pomodoro|pomo)\s+(?:on|for)\s+(.+)/i,
+      /^(?:focus\s+on)\s+(.+)\s+(?:for\s+)?(\d+)\s*(?:min|minutes)?/i,
+      /^(?:25\s*min(?:utes?)?\s+(?:on|for))\s+(.+)/i,
+    ],
+    extractor: (text, match) => {
+      const entities: Record<string, string> = {};
+      if (match[1]) entities.taskQuery = match[1].trim();
+      const duration = parseDuration(text);
+      if (duration) entities.durationMinutes = String(duration);
+      return entities;
+    },
+  },
+
+  // ── Stop Pomodoro (confidence: 0.90) ──
+  {
+    intent: "stop_pomodoro",
+    confidence: 0.90,
+    patterns: [
+      /^(?:stop|end|finish|complete|done\s+with)\s+(?:the\s+)?(?:pomodoro|pomo|timer|focus\s+(?:session|timer))/i,
+      /^(?:i'?m\s+done|finished|time'?s?\s+up)/i,
+    ],
+    extractor: (text) => {
+      const entities: Record<string, string> = {};
+      // Check for focus rating: "done, 4 stars" or "finished, rate 5"
+      const ratingMatch = text.match(/(?:rate|rating|stars?)\s*[:=]?\s*(\d)/i);
+      if (ratingMatch) entities.focusRating = ratingMatch[1];
+      return entities;
+    },
   },
 
   // ── Use Template (confidence: 0.90) ──
