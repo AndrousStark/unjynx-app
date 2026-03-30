@@ -19,6 +19,7 @@ import { eq, and, ne, lte, gte, desc, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { tasks, progressSnapshots } from "../../db/schema/index.js";
 import { buildUserContext } from "../ai/pipeline/context-builder.js";
+import { getTodayCalendarContext } from "../calendar/calendar-context.js";
 import { logger } from "../../middleware/logger.js";
 
 const log = logger.child({ module: "planning" });
@@ -232,11 +233,11 @@ export async function getPlanSuggestions(
   // Separate overdue
   const overdue = scored.filter((t) => t.isOverdue);
 
-  // Calculate available minutes (default 8h workday minus estimate for meetings)
-  const ctx = await buildUserContext(userId);
-  const workHours = 8;
-  const meetingEstimate = 2; // rough default
-  const availableMinutes = (workHours - meetingEstimate) * 60;
+  // Calculate available minutes from real calendar data (if connected)
+  const calendarCtx = await getTodayCalendarContext(userId).catch(() => null);
+  const availableMinutes = calendarCtx
+    ? calendarCtx.totalAvailableMinutes
+    : 360; // Fallback: 6 hours if no calendar connected
 
   // Top 3 MITs (Most Important Tasks)
   const mits = scored.slice(0, 3).map((t) => t.id);

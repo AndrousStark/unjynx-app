@@ -30,6 +30,7 @@ import {
 } from "./semantic-memory.js";
 
 import { buildUserContext, serializeContextForIntent } from "./context-builder.js";
+import { getTodayCalendarContext, serializeCalendarContext } from "../../calendar/calendar-context.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -57,10 +58,11 @@ export async function buildFullMemoryContext(
   intent: string | null,
 ): Promise<FullMemoryContext> {
   // Load all tiers in parallel
-  const [wm, facts, userCtx] = await Promise.all([
+  const [wm, facts, userCtx, calendarCtx] = await Promise.all([
     loadWorkingMemory(userId),
     loadFacts(userId),
     buildUserContext(userId),
+    getTodayCalendarContext(userId).catch(() => null),
   ]);
 
   // Build each tier's contribution
@@ -69,6 +71,12 @@ export async function buildFullMemoryContext(
   // Tier 4 (inverted order for prompt): User profile + task context
   const profileContext = serializeContextForIntent(userCtx, intent);
   if (profileContext) parts.push(profileContext);
+
+  // Calendar context (meetings, available time, warnings)
+  if (calendarCtx) {
+    const calStr = serializeCalendarContext(calendarCtx);
+    if (calStr) parts.push(calStr);
+  }
 
   // Tier 3: Semantic memory (persistent facts)
   const factsStr = serializeFacts(facts);

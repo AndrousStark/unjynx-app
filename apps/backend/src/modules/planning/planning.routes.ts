@@ -6,6 +6,7 @@ import { z } from "zod";
 import { authMiddleware } from "../../middleware/auth.js";
 import { ok, err } from "../../types/api.js";
 import * as planningService from "./planning.service.js";
+import { getTodayCalendarContext } from "../calendar/calendar-context.js";
 
 export const planningRoutes = new Hono();
 
@@ -156,3 +157,21 @@ planningRoutes.post(
     return c.json(ok({ carried, total: body.taskIds.length }));
   },
 );
+
+// ── GET /planning/calendar — Today's calendar context ──
+planningRoutes.get("/calendar", async (c) => {
+  const auth = c.get("auth");
+  try {
+    const ctx = await getTodayCalendarContext(auth.profileId);
+    return c.json(ok(ctx));
+  } catch {
+    return c.json(ok({
+      events: [],
+      availableSlots: [],
+      totalMeetingMinutes: 0,
+      totalAvailableMinutes: 360,
+      warnings: [],
+      hasCalendar: false,
+    }));
+  }
+});
