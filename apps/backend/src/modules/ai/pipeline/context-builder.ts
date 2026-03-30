@@ -30,7 +30,6 @@ export interface UserContext {
   readonly overdueCount: number;
   readonly streak: number;
   readonly topTasks: readonly TopTask[];
-  readonly topProject: string | null;
   readonly currentHour: number;
   readonly dayOfWeek: string;
   readonly plan: string;
@@ -183,7 +182,6 @@ export async function buildUserContext(
       priority: t.priority,
       dueDate: t.dueDate,
     })),
-    topProject: null,
     currentHour: hour,
     dayOfWeek: DAYS[now.getDay()],
     plan: "free",

@@ -236,8 +236,6 @@ export async function getPlanSuggestions(
   userId: string,
 ): Promise<PlanSuggestions> {
   const now = new Date();
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
 
   // Get all pending tasks (overdue + today + upcoming)
   const pendingTasks = await db
@@ -363,7 +361,15 @@ export async function createPlan(
   blocks: readonly PlanBlock[],
   mode: "guided" | "quick" | "auto" = "guided",
 ): Promise<DailyPlan> {
+  // Note: uses server UTC date. For user-local dates, pass timezone from client.
   const today = new Date().toISOString().slice(0, 10);
+
+  // Prevent duplicate plans for the same day
+  const existing = await getTodayPlan(userId);
+  if (existing && existing.status === "active") {
+    // Overwrite the existing plan (user is re-planning)
+    log.info({ userId, date: today }, "Overwriting existing daily plan");
+  }
   const totalMinutes = blocks.reduce((sum, b) => sum + b.estimatedMinutes, 0);
 
   const plan: DailyPlan = {

@@ -207,7 +207,7 @@ function parseDuration(text: string): number | null {
 
   const patterns: [RegExp, (m: RegExpMatchArray) => number][] = [
     [/(\d+(?:\.\d+)?)\s*(?:h(?:ou)?rs?)\b/, (m) => parseFloat(m[1]) * 60],
-    [/(\d+(?:\.\d+)?)\s*(?:m(?:in(?:ute)?s?)?)\b/, (m) => parseFloat(m[1])],
+    [/(\d+(?:\.\d+)?)\s*(?:min(?:ute)?s?)\b/, (m) => parseFloat(m[1])],
     [/half\s+(?:an?\s+)?hour/, () => 30],
     [/quarter\s+(?:of\s+)?(?:an?\s+)?hour/, () => 15],
     [/(\d+)\s*h\s*(\d+)\s*m/, (m) => parseInt(m[1]) * 60 + parseInt(m[2])],

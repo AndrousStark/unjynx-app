@@ -272,7 +272,7 @@ function Message({ message, isStreaming, onRegenerate }: MessageProps) {
               <button
                 onClick={handleCopy}
                 className="p-1 rounded hover:bg-[var(--background-surface)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                title="Copy"
+                aria-label="Copy message"
               >
                 {copied ? <Check size={13} /> : <Copy size={13} />}
               </button>
@@ -282,7 +282,7 @@ function Message({ message, isStreaming, onRegenerate }: MessageProps) {
                   'p-1 rounded hover:bg-[var(--background-surface)] transition-colors',
                   feedbackGiven === 'up' ? 'text-emerald-400' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
                 )}
-                title="Good response"
+                aria-label="Good response"
               >
                 <ThumbsUp size={13} />
               </button>
@@ -292,7 +292,7 @@ function Message({ message, isStreaming, onRegenerate }: MessageProps) {
                   'p-1 rounded hover:bg-[var(--background-surface)] transition-colors',
                   feedbackGiven === 'down' ? 'text-rose-400' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
                 )}
-                title="Poor response"
+                aria-label="Poor response"
               >
                 <ThumbsDown size={13} />
               </button>
@@ -567,7 +567,7 @@ export default function AiChatPage() {
             <div>
               <h1 className="font-outfit text-lg font-bold text-[var(--foreground)]">AI Chat</h1>
               <p className="text-[10px] text-[var(--muted-foreground)]">
-                Powered by Claude {usage ? `| ${usage.dailyLimit - 0}/${usage.dailyLimit} calls left` : ''}
+                Powered by Claude {usage ? `| ${usage.dailyLimit} calls/day` : ''}
               </p>
             </div>
           </div>

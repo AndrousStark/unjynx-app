@@ -36,7 +36,10 @@ const generateSchema = z.object({
   })).min(1).max(20),
   workStartHour: z.number().min(0).max(23).optional(),
   workEndHour: z.number().min(1).max(24).optional(),
-});
+}).refine(
+  (d) => !d.workStartHour || !d.workEndHour || d.workStartHour < d.workEndHour,
+  { message: "workStartHour must be before workEndHour" },
+);
 
 planningRoutes.post(
   "/generate",

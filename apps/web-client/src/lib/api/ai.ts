@@ -103,6 +103,7 @@ export function streamChat(options: StreamChatOptions): AbortController {
 
       const res = await fetch(`${baseUrl}/api/v1/ai/chat`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'text/event-stream',

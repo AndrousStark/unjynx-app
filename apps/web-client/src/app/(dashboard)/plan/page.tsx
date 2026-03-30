@@ -415,7 +415,7 @@ export default function PlanPage() {
       )}
 
       {/* Active Plan */}
-      {(activePlan || step === 'active') && (
+      {activePlan && activePlan.blocks.length > 0 && (
         <div className="space-y-4 animate-fade-in">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--foreground)]">Today&apos;s Plan</h2>

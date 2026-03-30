@@ -337,33 +337,29 @@ export async function saveDecompositionAsTemplate(
  * Seed system templates (run once, idempotent).
  */
 export async function seedSystemTemplates(): Promise<number> {
-  let seeded = 0;
-  for (const tmpl of SYSTEM_TEMPLATES) {
-    // Check if already exists
-    const [existing] = await db
-      .select({ id: taskTemplates.id })
-      .from(taskTemplates)
-      .where(
-        and(
-          eq(taskTemplates.title, tmpl.title),
-          eq(taskTemplates.isGlobal, true),
-        ),
-      )
-      .limit(1);
+  // Batch check: fetch all existing global template titles in ONE query
+  const existing = await db
+    .select({ title: taskTemplates.title })
+    .from(taskTemplates)
+    .where(eq(taskTemplates.isGlobal, true));
 
-    if (!existing) {
-      await db.insert(taskTemplates).values({
-        title: tmpl.title,
-        description: tmpl.description,
-        priority: tmpl.priority,
-        category: tmpl.category,
-        subtasks: JSON.stringify(tmpl.subtasks),
-        isGlobal: true,
-      });
-      seeded++;
-    }
+  const existingTitles = new Set(existing.map((e) => e.title));
+
+  // Only insert templates that don't already exist
+  const toInsert = SYSTEM_TEMPLATES.filter((t) => !existingTitles.has(t.title));
+
+  for (const tmpl of toInsert) {
+    await db.insert(taskTemplates).values({
+      title: tmpl.title,
+      description: tmpl.description,
+      priority: tmpl.priority,
+      category: tmpl.category,
+      subtasks: JSON.stringify(tmpl.subtasks),
+      isGlobal: true,
+    });
   }
-  return seeded;
+
+  return toInsert.length;
 }
 
 // ── AI Template Matching ──────────────────────────────────────────

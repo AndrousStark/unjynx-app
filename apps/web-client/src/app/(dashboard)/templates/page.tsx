@@ -41,8 +41,9 @@ interface ParsedSubtask {
 // ─── API ────────────────────────────────────────────────────────
 
 function getTemplates(category?: string): Promise<readonly Template[]> {
-  const params = category ? `?category=${category}` : '';
-  return apiClient.get(`/api/v1/templates${params}`);
+  return apiClient.get('/api/v1/templates', {
+    params: category ? { category } as Record<string, string> : undefined,
+  });
 }
 
 function applyTemplate(id: string): Promise<{ taskId: string; subtaskCount: number }> {

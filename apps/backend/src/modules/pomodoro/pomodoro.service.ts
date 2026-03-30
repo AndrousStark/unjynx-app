@@ -352,10 +352,18 @@ export async function getStats(userId: string): Promise<PomodoroStats> {
     .orderBy(desc(sql`date(${pomodoroSessions.startedAt})`))
     .limit(30);
 
+  // Count consecutive calendar days (not just consecutive rows)
   let streak = 0;
-  for (const day of recentDays) {
-    if (Number(day.count) >= 1) streak++; // At least 1 session = counts for streak
-    else break;
+  const today = new Date();
+  for (let i = 0; i < recentDays.length; i++) {
+    const expected = new Date(today);
+    expected.setDate(today.getDate() - i);
+    const expectedDate = expected.toISOString().slice(0, 10);
+    if (recentDays[i]?.day === expectedDate && Number(recentDays[i].count) >= 1) {
+      streak++;
+    } else {
+      break;
+    }
   }
 
   return {

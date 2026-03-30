@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { decomposeTask } from '@/lib/api/ai';
 import { createTask } from '@/lib/api/tasks';
@@ -45,6 +45,9 @@ function SubtaskCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(subtask.title);
+
+  // Sync editValue when prop changes (parent updates title)
+  useEffect(() => { setEditValue(subtask.title); }, [subtask.title]);
 
   const handleSave = () => {
     onEdit(editValue.trim());

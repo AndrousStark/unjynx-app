@@ -216,19 +216,6 @@ export async function getThreshold(
 }
 
 /**
- * Record a trigger event (AI performed an action).
- * Call this after every direct action.
- */
-export function recordTrigger(
-  userId: string,
-  intentType: string,
-): { triggerId: string; checkAfterMs: number } {
-  const triggerId = `trigger_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  // Return the trigger ID and the time to check for false positive
-  return { triggerId, checkAfterMs: 30_000 }; // 30 seconds
-}
-
-/**
  * Record whether a trigger was a true positive or false positive.
  * Call this 30 seconds after the action (via setTimeout or BullMQ delayed job).
  */

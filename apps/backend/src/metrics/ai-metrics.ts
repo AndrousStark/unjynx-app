@@ -88,8 +88,8 @@ export const aiActiveSessions = new Gauge({
 
 export const aiLatencySeconds = new Histogram({
   name: "unjynx_ai_latency_seconds",
-  help: "AI pipeline latency distribution by layer",
-  labelNames: ["layer"] as const,
+  help: "AI pipeline latency distribution by layer (intent, cache, llm, total)",
+  labelNames: ["layer"] as const, // Valid values: "intent" | "cache" | "llm" | "total"
   buckets: [0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
   registers: [metricsRegistry],
 });

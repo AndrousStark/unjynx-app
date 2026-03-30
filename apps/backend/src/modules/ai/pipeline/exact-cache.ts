@@ -73,7 +73,7 @@ async function getValkey() {
  * Tier A: Exact query hash (catches identical queries).
  */
 function exactCacheKey(userId: string, query: string): string {
-  const hash = createHash("md5")
+  const hash = createHash("sha256")
     .update(query.toLowerCase().trim())
     .digest("hex");
   return `ai:exact:${userId}:${hash}`;
@@ -95,7 +95,7 @@ function intentCacheKey(
     .map((k) => `${k}=${entities[k]}`)
     .join("&");
   const canonical = `${intent}:${sortedEntities}`;
-  const hash = createHash("md5").update(canonical).digest("hex");
+  const hash = createHash("sha256").update(canonical).digest("hex");
   return `ai:intent:${userId}:${hash}`;
 }
 
@@ -196,8 +196,13 @@ export async function setInCache(
   // Memory cache fallback (only if Valkey failed)
   if (!valkeyOk) {
     if (memoryCache.size >= MAX_MEMORY_ENTRIES) {
-      const oldest = memoryCache.keys().next().value;
-      if (oldest) memoryCache.delete(oldest);
+      // Evict entry closest to expiry (pseudo-LRU)
+      let oldestKey: string | null = null;
+      let oldestExpiry = Infinity;
+      for (const [k, v] of memoryCache) {
+        if (v.expiresAt < oldestExpiry) { oldestExpiry = v.expiresAt; oldestKey = k; }
+      }
+      if (oldestKey) memoryCache.delete(oldestKey);
     }
     memoryCache.set(key, {
       value: entry,

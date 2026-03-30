@@ -131,7 +131,11 @@ export async function getTodayCalendarContext(
     const merged: { start: number; end: number }[] = [];
     for (const block of bufferedBlocks) {
       if (merged.length > 0 && block.start <= merged[merged.length - 1].end) {
-        merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, block.end);
+        // Immutable: replace last entry instead of mutating
+        merged[merged.length - 1] = {
+          start: merged[merged.length - 1].start,
+          end: Math.max(merged[merged.length - 1].end, block.end),
+        };
       } else {
         merged.push({ ...block });
       }
@@ -151,7 +155,10 @@ export async function getTodayCalendarContext(
     const finalBlocked: { start: number; end: number }[] = [];
     for (const block of allBlocks) {
       if (finalBlocked.length > 0 && block.start <= finalBlocked[finalBlocked.length - 1].end) {
-        finalBlocked[finalBlocked.length - 1].end = Math.max(finalBlocked[finalBlocked.length - 1].end, block.end);
+        finalBlocked[finalBlocked.length - 1] = {
+          start: finalBlocked[finalBlocked.length - 1].start,
+          end: Math.max(finalBlocked[finalBlocked.length - 1].end, block.end),
+        };
       } else {
         finalBlocked.push({ ...block });
       }
@@ -193,18 +200,20 @@ export async function getTodayCalendarContext(
     // Detect warnings
     const warnings: string[] = [];
 
-    // Back-to-back meetings
+    // Back-to-back meetings (emit ONE warning for the worst streak)
     let consecutiveCount = 1;
+    let maxConsecutive = 1;
     for (let i = 1; i < timedEvents.length; i++) {
       const gap = timeToMinutes(timedEvents[i].start) - timeToMinutes(timedEvents[i - 1].end);
       if (gap < 15) {
         consecutiveCount++;
-        if (consecutiveCount >= 3) {
-          warnings.push(`${consecutiveCount} consecutive meetings with no breaks.`);
-        }
+        maxConsecutive = Math.max(maxConsecutive, consecutiveCount);
       } else {
         consecutiveCount = 1;
       }
+    }
+    if (maxConsecutive >= 3) {
+      warnings.push(`${maxConsecutive} consecutive meetings with no breaks.`);
     }
 
     // Heavy meeting day
