@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_riverpod/misc.dart' show Override, WidgetRef;
 import 'package:unjynx_core/contracts/auth_port.dart';
 
 import 'mock_auth_port.dart';
@@ -84,3 +84,31 @@ class AuthNotifier extends Notifier<AsyncValue<bool>> {
 /// Auth state notifier provider.
 final authNotifierProvider =
     NotifierProvider<AuthNotifier, AsyncValue<bool>>(AuthNotifier.new);
+
+// ── Organization Context Providers ────────────────────────────────
+
+/// Currently selected organization ID (null = personal workspace).
+final selectedOrgIdProvider = StateProvider<String?>((ref) {
+  final auth = ref.watch(authPortProvider);
+  return auth.selectedOrgId;
+});
+
+/// Whether this is the user's first login (needs onboarding).
+final isFirstLoginProvider = FutureProvider<bool>((ref) async {
+  final auth = ref.watch(authPortProvider);
+  return auth.isFirstLogin();
+});
+
+/// Switch organization.
+Future<void> switchOrganization(WidgetRef ref, String? orgId) async {
+  final auth = ref.read(authPortProvider);
+  await auth.setSelectedOrg(orgId);
+  ref.read(selectedOrgIdProvider.notifier).state = orgId;
+}
+
+/// Mark onboarding as complete.
+Future<void> markOnboardingComplete(WidgetRef ref) async {
+  final auth = ref.read(authPortProvider);
+  await auth.completeOnboarding();
+  ref.invalidate(isFirstLoginProvider);
+}

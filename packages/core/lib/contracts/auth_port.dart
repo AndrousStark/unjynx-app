@@ -29,6 +29,22 @@ abstract class AuthPort {
     required String provider,
     required String idToken,
   });
+
+  // ── Organization Context ────────────────────────────────────────
+
+  /// Get the currently selected organization ID.
+  /// Returns null if using personal workspace.
+  String? get selectedOrgId;
+
+  /// Set the selected organization ID.
+  /// Pass null to switch to personal workspace.
+  Future<void> setSelectedOrg(String? orgId);
+
+  /// Check if this is the user's first login (no onboarding completed).
+  Future<bool> isFirstLogin();
+
+  /// Mark onboarding as complete.
+  Future<void> completeOnboarding();
 }
 
 /// Authenticated user info from the auth provider.

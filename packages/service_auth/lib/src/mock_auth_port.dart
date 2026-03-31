@@ -104,4 +104,25 @@ class MockAuthPort implements AuthPort {
         .map((s) => '${s[0].toUpperCase()}${s.substring(1)}')
         .join(' ');
   }
+
+  // ── Organization Context (Mock) ────────────────────────────────
+
+  String? _selectedOrgId;
+  bool _onboarded = false;
+
+  @override
+  String? get selectedOrgId => _selectedOrgId;
+
+  @override
+  Future<void> setSelectedOrg(String? orgId) async {
+    _selectedOrgId = orgId;
+  }
+
+  @override
+  Future<bool> isFirstLogin() async => !_onboarded;
+
+  @override
+  Future<void> completeOnboarding() async {
+    _onboarded = true;
+  }
 }

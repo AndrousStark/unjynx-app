@@ -297,4 +297,38 @@ class LogtoAuthPort implements AuthPort {
     final digest = sha256.convert(bytes);
     return base64Url.encode(digest.bytes).replaceAll('=', '');
   }
+
+  // ── Organization Context ──────────────────────────────────────
+
+  String? _selectedOrgId;
+
+  @override
+  String? get selectedOrgId => _selectedOrgId;
+
+  @override
+  Future<void> setSelectedOrg(String? orgId) async {
+    _selectedOrgId = orgId;
+    if (orgId != null) {
+      await _storage.write(key: 'unjynx_selected_org', value: orgId);
+    } else {
+      await _storage.delete(key: 'unjynx_selected_org');
+    }
+  }
+
+  @override
+  Future<bool> isFirstLogin() async {
+    final onboarded = await _storage.read(key: 'unjynx_onboarded');
+    return onboarded != 'true';
+  }
+
+  @override
+  Future<void> completeOnboarding() async {
+    await _storage.write(key: 'unjynx_onboarded', value: 'true');
+  }
+
+  /// Load saved org selection from secure storage.
+  /// Call this after init/sign-in to restore org context.
+  Future<void> loadSavedOrgSelection() async {
+    _selectedOrgId = await _storage.read(key: 'unjynx_selected_org');
+  }
 }
