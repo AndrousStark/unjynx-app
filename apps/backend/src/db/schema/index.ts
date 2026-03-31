@@ -141,6 +141,13 @@ export {
   type NewTaskActivityEntry,
 } from "./task-relations.js";
 
+// ── Report Snapshots ─────────────────────────────────────────────────
+export {
+  reportSnapshots,
+  type ReportSnapshot,
+  type NewReportSnapshot,
+} from "./report-snapshots.js";
+
 // ── AI Operations ────────────────────────────────────────────────────
 export {
   aiOperations,
