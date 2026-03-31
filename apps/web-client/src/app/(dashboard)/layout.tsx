@@ -10,6 +10,7 @@ import { ViewsBar } from '@/components/layout/views-bar';
 import { DetailPanel } from '@/components/layout/detail-panel';
 import { CommandPalette } from '@/components/layout/command-palette';
 import { ShortcutsHelp } from '@/components/layout/shortcuts-help';
+import { useWebSocket } from '@/lib/hooks/use-websocket';
 
 // ─── Dashboard Layout ───────────────────────────────────────────
 //
@@ -34,6 +35,9 @@ export default function DashboardLayout({
 
   // Initialize org context (fetches user's orgs, sets default org)
   useOrgInit();
+
+  // Connect WebSocket for real-time updates (messages, tasks, etc.)
+  useWebSocket();
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
