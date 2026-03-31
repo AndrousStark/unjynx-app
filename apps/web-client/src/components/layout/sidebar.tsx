@@ -36,6 +36,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { OrgSwitcher } from './org-switcher';
+import { useVocabulary } from '@/lib/hooks/use-vocabulary';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -56,6 +57,11 @@ interface NavGroup {
 }
 
 // ─── Navigation Data ────────────────────────────────────────────
+
+// Labels that should be translated via vocabulary:
+// "Task" → mode term (e.g., "Matter" in Legal)
+// "Project" → mode term (e.g., "Case" in Legal)
+// Nav items use the raw English terms; translation happens at render time.
 
 const NAV_GROUPS: readonly NavGroup[] = [
   {
@@ -389,6 +395,21 @@ function SidebarContent({
   const pathname = usePathname();
   const expandedSections = useSidebarStore((s) => s.expandedSections);
   const toggleSection = useSidebarStore((s) => s.toggleSection);
+  const t = useVocabulary();
+
+  // Translate nav labels using vocabulary (e.g., "My Tasks" → "My Matters" in Legal mode)
+  const translateLabel = useCallback(
+    (label: string): string => {
+      // Replace known terms within the label
+      return label
+        .replace(/\bTasks?\b/g, (m) => t(m))
+        .replace(/\bProjects?\b/g, (m) => t(m))
+        .replace(/\bTags?\b/g, (m) => t(m))
+        .replace(/\bAssignee\b/g, t('Assignee'))
+        .replace(/\bSprints?\b/g, (m) => t(m.endsWith('s') ? 'Section' : 'Section') + 's');
+    },
+    [t],
+  );
 
   const isActive = useCallback(
     (href: string): boolean => {
