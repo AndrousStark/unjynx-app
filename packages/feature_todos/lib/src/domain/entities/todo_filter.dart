@@ -16,9 +16,15 @@ enum DateRange {
 @freezed
 abstract class TodoFilter with _$TodoFilter {
   const factory TodoFilter({
+    /// Filter by organization (null = all orgs / personal).
+    String? orgId,
     TodoStatus? status,
     TodoPriority? priority,
+    TodoType? taskType,
     String? projectId,
+    String? sprintId,
+    String? assigneeId,
+    String? epicId,
     String? searchQuery,
     DateRange? dateRange,
     @Default(TodoSortBy.createdAt) TodoSortBy sortBy,

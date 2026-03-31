@@ -9,6 +9,7 @@ import '../entities/todo_filter.dart';
 /// - [TodoRepositoryImpl] - combines local + remote datasources
 abstract class TodoRepository {
   /// Get all TODOs matching the filter.
+  /// When [orgId] is set in the filter, results are scoped to that org.
   Future<Result<List<Todo>>> getAll({TodoFilter? filter});
 
   /// Get a single TODO by ID.
@@ -19,7 +20,12 @@ abstract class TodoRepository {
     required String title,
     String description,
     TodoPriority priority,
+    TodoType taskType,
+    String? orgId,
     String? projectId,
+    String? assigneeId,
+    String? sprintId,
+    int? estimatePoints,
     DateTime? dueDate,
     String? rrule,
   });
