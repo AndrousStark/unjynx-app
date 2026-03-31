@@ -30,7 +30,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Target,
+  LayoutList,
+  MessageCircle,
+  Zap,
 } from 'lucide-react';
+import { OrgSwitcher } from './org-switcher';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -84,6 +89,17 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { label: 'Instagram', href: '/channels?type=instagram', icon: Instagram },
       { label: 'Slack', href: '/channels?type=slack', icon: Hash },
       { label: 'Discord', href: '/channels?type=discord', icon: Gamepad2 },
+    ],
+  },
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    collapsible: true,
+    items: [
+      { label: 'Messaging', href: '/messaging', icon: MessageCircle },
+      { label: 'Sprints', href: '/sprints', icon: Zap },
+      { label: 'Goals', href: '/goals', icon: Target },
+      { label: 'Reports', href: '/reports', icon: BarChart3 },
     ],
   },
   {
@@ -530,6 +546,7 @@ export function Sidebar() {
         )}
       >
         <SidebarLogo collapsed={sidebarCollapsed} />
+        <OrgSwitcher collapsed={sidebarCollapsed} />
         <div className="mx-3 border-b border-[var(--border)]" />
         <SidebarContent collapsed={sidebarCollapsed} />
         <CollapseToggle
@@ -548,6 +565,7 @@ export function Sidebar() {
         )}
       >
         <SidebarLogo collapsed={false} />
+        <OrgSwitcher collapsed={false} />
         <div className="mx-3 border-b border-[var(--border)]" />
         <SidebarContent collapsed={false} onNavigate={() => setSidebarOpen(false)} />
       </aside>

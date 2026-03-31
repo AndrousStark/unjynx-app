@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils/cn';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { useDetailPanelStore } from '@/lib/store/detail-panel-store';
+import { useOrgInit } from '@/lib/hooks/use-org-init';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Navbar } from '@/components/layout/navbar';
 import { ViewsBar } from '@/components/layout/views-bar';
@@ -29,6 +30,9 @@ export default function DashboardLayout({
 }>) {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const isDetailOpen = useDetailPanelStore((s) => s.isOpen);
+
+  // Initialize org context (fetches user's orgs, sets default org)
+  useOrgInit();
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
