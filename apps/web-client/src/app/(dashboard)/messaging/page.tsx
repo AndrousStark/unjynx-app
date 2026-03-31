@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Shimmer } from '@/components/ui/shimmer';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { ChannelList } from '@/components/messaging/channel-list';
-import { MessageBubble, MessageInput } from '@/components/messaging/message-view';
+import { MessageBubble } from '@/components/messaging/message-view';
+import { RichMessageInput } from '@/components/messaging/rich-message-input';
 import {
   getChannels,
   getChannel,
@@ -304,8 +305,8 @@ export default function MessagingPage() {
               )}
             </div>
 
-            {/* Input */}
-            <MessageInput
+            {/* Rich Text Input */}
+            <RichMessageInput
               onSend={(content) => sendMutation.mutate(content)}
               disabled={sendMutation.isPending}
               placeholder={`Message #${activeChannel.name ?? 'channel'}...`}
