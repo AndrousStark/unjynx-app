@@ -12,6 +12,7 @@ import {
   memberIdParamSchema,
 } from "./organizations.schema.js";
 import * as orgService from "./organizations.service.js";
+import * as gdprService from "./gdpr.service.js";
 
 export const organizationRoutes = new Hono();
 
@@ -221,6 +222,42 @@ organizationRoutes.post(
     try {
       const member = await orgService.acceptInvite(inviteCode, auth.profileId);
       return c.json(ok(member), 201);
+    } catch (e) {
+      return c.json(err((e as Error).message), 400);
+    }
+  },
+);
+
+// ── GDPR Data Export & Deletion ──────────────────────────────────────
+
+// GET /orgs/:orgId/export — Export all org data (owner only)
+organizationRoutes.get(
+  "/:orgId/export",
+  zValidator("param", orgIdParamSchema),
+  tenantMiddleware,
+  requireOrgRole("owner"),
+  async (c) => {
+    const { orgId } = c.req.valid("param");
+    try {
+      const data = await gdprService.exportOrgData(orgId);
+      return c.json(ok(data));
+    } catch (e) {
+      return c.json(err((e as Error).message), 400);
+    }
+  },
+);
+
+// DELETE /orgs/:orgId/data — Permanently delete all org data (owner only, GDPR erasure)
+organizationRoutes.delete(
+  "/:orgId/data",
+  zValidator("param", orgIdParamSchema),
+  tenantMiddleware,
+  requireOrgRole("owner"),
+  async (c) => {
+    const { orgId } = c.req.valid("param");
+    try {
+      const result = await gdprService.deleteOrgData(orgId);
+      return c.json(ok(result));
     } catch (e) {
       return c.json(err((e as Error).message), 400);
     }
