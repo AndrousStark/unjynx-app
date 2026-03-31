@@ -62,7 +62,10 @@ function CallbackContent() {
         // Clean up PKCE state
         sessionStorage.removeItem('unjynx_code_verifier');
         sessionStorage.removeItem('unjynx_auth_state');
-        router.replace('/');
+
+        // Check if user needs onboarding (first login)
+        const onboarded = localStorage.getItem('unjynx_onboarded');
+        router.replace(onboarded ? '/' : '/onboarding');
       })
       .catch((err: unknown) => {
         const message =
