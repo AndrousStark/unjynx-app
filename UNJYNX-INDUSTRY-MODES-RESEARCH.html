@@ -1,0 +1,2440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNJYNX v2 — Implementation Blueprint: Multi-Tenant Jira+Slack+AI Platform</title>
+<style>
+  :root {
+    --bg: #0a0a12;
+    --surface: #12121e;
+    --card: #1a1a2e;
+    --border: #2a2a3e;
+    --text: #e0e0f0;
+    --muted: #8888aa;
+    --violet: #6c5ce7;
+    --pink: #fd79a8;
+    --cyan: #00cec9;
+    --green: #00b894;
+    --amber: #fdcb6e;
+    --red: #e17055;
+    --blue: #74b9ff;
+    --gradient: linear-gradient(135deg, #6c5ce7, #fd79a8);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+  h1 { font-size: 2.5rem; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.8rem; color: var(--violet); margin: 3rem 0 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+  h3 { font-size: 1.3rem; color: var(--cyan); margin: 2rem 0 0.8rem; }
+  h4 { font-size: 1.1rem; color: var(--amber); margin: 1.5rem 0 0.5rem; }
+  h5 { font-size: 1rem; color: var(--pink); margin: 1rem 0 0.3rem; }
+  p, li { color: var(--text); }
+  .subtitle { color: var(--muted); font-size: 1rem; margin-bottom: 2rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin: 1rem 0; }
+  .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; }
+  .card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface); color: var(--violet); font-weight: 600; position: sticky; top: 0; }
+  tr:hover td { background: rgba(108,92,231,0.05); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin: 2px; }
+  .tag-violet { background: rgba(108,92,231,0.2); color: var(--violet); }
+  .tag-green { background: rgba(0,184,148,0.2); color: var(--green); }
+  .tag-amber { background: rgba(253,203,110,0.2); color: var(--amber); }
+  .tag-red { background: rgba(225,112,85,0.2); color: var(--red); }
+  .tag-blue { background: rgba(116,185,255,0.2); color: var(--blue); }
+  .tag-pink { background: rgba(253,121,168,0.2); color: var(--pink); }
+  .tag-cyan { background: rgba(0,206,201,0.2); color: var(--cyan); }
+  code { background: var(--surface); padding: 2px 6px; border-radius: 4px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.85em; color: var(--cyan); }
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  pre code { background: none; padding: 0; }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.3rem 0; }
+  .highlight { background: linear-gradient(90deg, rgba(108,92,231,0.15), transparent); border-left: 3px solid var(--violet); padding: 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .warning { background: linear-gradient(90deg, rgba(253,203,110,0.1), transparent); border-left: 3px solid var(--amber); padding: 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .success { background: linear-gradient(90deg, rgba(0,184,148,0.1), transparent); border-left: 3px solid var(--green); padding: 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .danger { background: linear-gradient(90deg, rgba(225,112,85,0.1), transparent); border-left: 3px solid var(--red); padding: 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; text-align: center; }
+  .stat-value { font-size: 2rem; font-weight: 700; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .toc { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin: 2rem 0; }
+  .toc a { color: var(--blue); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .badge-done { background: rgba(0,184,148,0.2); color: var(--green); }
+  .badge-new { background: rgba(108,92,231,0.2); color: var(--violet); }
+  .badge-critical { background: rgba(225,112,85,0.2); color: var(--red); }
+  .flow-diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; margin: 1rem 0; text-align: center; }
+  .flow-step { display: inline-block; background: var(--card); border: 1px solid var(--violet); border-radius: 8px; padding: 8px 16px; margin: 4px; font-size: 0.85rem; }
+  .flow-arrow { display: inline-block; color: var(--violet); margin: 0 4px; font-size: 1.2rem; }
+  .comparison-row { display: grid; grid-template-columns: 200px 1fr 1fr 1fr; gap: 0; }
+  @media (max-width: 768px) { .grid, .grid-3, .comparison-row { grid-template-columns: 1fr; } h1 { font-size: 1.8rem; } }
+  .section-number { color: var(--muted); font-size: 0.8em; margin-right: 8px; }
+  .competitor-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; }
+  .competitor-card h5 { margin-top: 0; }
+  .price { color: var(--green); font-weight: 700; }
+  .feature-list { list-style: none; padding: 0; }
+  .feature-list li::before { content: ""; color: var(--green); margin-right: 6px; }
+  .feature-list li.missing::before { content: ""; color: var(--red); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- HEADER -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h1>UNJYNX v2 Implementation Blueprint</h1>
+<p class="subtitle">Multi-Tenant Jira + Slack + AI-Powered Reminders Platform<br>
+Chosen Architecture, Design System, Code Audit, and Phased Implementation Roadmap<br>
+<span style="color:var(--violet)">METAminds AI Agency</span> &bull; March 30, 2026</p>
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-value">41</div><div class="stat-label">Existing DB Tables</div></div>
+  <div class="stat-card"><div class="stat-value">+40</div><div class="stat-label">New Tables Needed</div></div>
+  <div class="stat-card"><div class="stat-value">206+</div><div class="stat-label">Existing Endpoints</div></div>
+  <div class="stat-card"><div class="stat-value">27</div><div class="stat-label">Existing Web Pages</div></div>
+  <div class="stat-card"><div class="stat-value">10</div><div class="stat-label">Implementation Phases</div></div>
+  <div class="stat-card"><div class="stat-value">11</div><div class="stat-label">Industry Modes</div></div>
+</div>
+
+<div class="danger">
+<strong>IMPORTANT:</strong> This document contains the CHOSEN architecture only &mdash; no alternatives. Every decision is final and ready for implementation. Design system (colors, typography, layout) is locked. The roadmap below is the execution plan.
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<div class="toc">
+<h3 style="margin-top:0">Implementation Blueprint</h3>
+<p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem">Part A: Architecture &amp; Design (What to Build) | Part B: Code Audit (What Exists) | Part C: Roadmap (How to Build)</p>
+<ol>
+  <li><strong>Part A: Architecture</strong>
+    <ol type="a">
+      <li><a href="#sec1">Platform Identity &amp; Chosen Architecture</a></li>
+      <li><a href="#sec2">Multi-Tenancy: Hybrid RLS Model (Chosen)</a></li>
+      <li><a href="#sec3">Industry Modes: 11 Verticals (Vocabulary + Templates + Widgets)</a></li>
+      <li><a href="#sec5">Database Schema: Organizations + Channels + Workflows</a></li>
+      <li><a href="#sec6">Vocabulary Engine</a> | <a href="#sec7">Widgets</a> | <a href="#sec8">Templates (70)</a> | <a href="#sec9">Compliance</a></li>
+    </ol>
+  </li>
+  <li><strong>Part B: Design System</strong> (LOCKED &mdash; do not change)
+    <ol type="a">
+      <li><a href="#sec13">Color Themes: Lavender Light + Deep Purple Dark + Gold</a></li>
+      <li><a href="#sec14">Typography &amp; Spacing Tokens</a></li>
+      <li><a href="#sec15">Page UI Specs (15 pages)</a> | <a href="#sec16">Components</a> | <a href="#sec17">Mobile</a></li>
+      <li><a href="#sec18">Multi-Tenant Portal Design</a></li>
+    </ol>
+  </li>
+  <li><strong>Part C: Platform Architecture</strong>
+    <ol type="a">
+      <li><a href="#sec19">UNJYNX Hierarchy (Jira+Slack+AI)</a></li>
+      <li><a href="#sec20">Complete DB Schema (55 new + 41 existing tables)</a></li>
+      <li><a href="#sec21">AI Integration (15 features, cost model)</a></li>
+      <li><a href="#sec22">Competitive Positioning</a></li>
+    </ol>
+  </li>
+  <li><strong>Part D: Code Audit &amp; Backend Roadmap</strong>
+    <ol type="a">
+      <li><a href="#sec-audit">Existing Code Audit</a></li>
+      <li><a href="#sec-roadmap">10-Phase Backend Roadmap (COMPLETE)</a></li>
+    </ol>
+  </li>
+  <li><strong>Part E: Frontend Implementation</strong>
+    <ol type="a">
+      <li><a href="#sec-fstack">Frontend Component Stack (17 packages, all React 19 compatible)</a></li>
+      <li><a href="#sec-frontend">Frontend Roadmap: 8 Phases, 58 tasks</a>
+        <ol type="i">
+          <li>Phase A: Foundation (stores, API, auth, vocabulary, theme)</li>
+          <li>Phase B: Org Switcher + Mode Selector</li>
+          <li>Phase C: Enhanced Task Views (list, detail, kanban, gantt, My Work)</li>
+          <li>Phase D: Sprint Management (board, burndown, velocity, retro)</li>
+          <li>Phase E: Messaging Channels (Slack-like: channels, threads, reactions)</li>
+          <li>Phase F: Reports + Goals + Custom Fields</li>
+          <li>Phase G: AI Features + Members + Settings</li>
+          <li>Phase H: Polish + Responsive + Accessibility</li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+</ol>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 1: EXECUTIVE SUMMARY -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec1"><span class="section-number">01</span>Platform Identity &amp; Chosen Architecture</h2>
+
+<div class="highlight">
+<strong>UNJYNX = Jira (Project Management) + Slack (Team Communication) + AI-Powered Multi-Channel Reminders + Industry Modes</strong><br><br>
+For teams of 1-500: startups, agencies, law firms, clinics, construction crews, dev teams, marketing teams, HR departments, schools, families.<br><br>
+<strong>Architecture:</strong> Horizontal platform with vertical industry overlays (Salesforce Industry Cloud pattern). One codebase, 11 modes that transform vocabulary, templates, widgets, AI behavior, and workflows.
+</div>
+
+<h3>What a &ldquo;Mode&rdquo; Changes in UNJYNX</h3>
+
+<table>
+<thead><tr><th>Layer</th><th>What Changes</th><th>Example (Legal Mode)</th></tr></thead>
+<tbody>
+<tr><td>Vocabulary</td><td>All UI labels dynamically renamed</td><td>&ldquo;Task&rdquo; &rarr; &ldquo;Matter&rdquo;, &ldquo;Project&rdquo; &rarr; &ldquo;Case&rdquo;, &ldquo;Tag&rdquo; &rarr; &ldquo;Practice Area&rdquo;</td></tr>
+<tr><td>Templates</td><td>Pre-built task/project templates</td><td>&ldquo;New Client Intake&rdquo;, &ldquo;Litigation Timeline&rdquo;, &ldquo;Due Diligence Checklist&rdquo;</td></tr>
+<tr><td>Dashboard</td><td>Mode-specific KPI widgets</td><td>Billable Hours This Week, Court Deadlines, Active Cases</td></tr>
+<tr><td>AI Behavior</td><td>Context-aware prompts + persona</td><td>AI understands legal terms, suggests court deadline reminders</td></tr>
+<tr><td>Priority Labels</td><td>Industry-appropriate priority names</td><td>&ldquo;Urgent&rdquo; &rarr; &ldquo;Emergency Motion&rdquo;, &ldquo;High&rdquo; &rarr; &ldquo;Court Deadline&rdquo;</td></tr>
+<tr><td>Notification Defaults</td><td>Channel + timing preferences</td><td>Email for client comms, SMS for court deadlines</td></tr>
+<tr><td>Fields</td><td>Mode-specific custom fields</td><td>Case Number, Client Name, Opposing Counsel, Jurisdiction</td></tr>
+<tr><td>Integrations</td><td>Suggested 3rd-party connections</td><td>LexisNexis, PACER, Clio, QuickBooks</td></tr>
+</tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 2: MULTI-TENANCY ARCHITECTURE -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec2"><span class="section-number">02</span>Multi-Tenancy: Hybrid RLS Model (Chosen)</h2>
+
+<div class="success">
+<strong>Decision: Shared DB + <code>org_id</code> + PostgreSQL Row-Level Security (RLS)</strong><br>
+Validated by: Linear (shared tables, Cloud SQL, tens of TB), Slack (workspace_id on every table), Notion (shared infra with logical isolation). Optional schema-per-tenant for Enterprise compliance.
+</div>
+
+<h3>2.1 Data Isolation</h3>
+<table>
+<thead><tr><th>Tier</th><th>Model</th><th>How</th></tr></thead>
+<tbody>
+<tr><td>Free / Pro</td><td>Shared DB + RLS</td><td><code>org_id</code> column on every org-scoped table + <code>SET LOCAL app.current_org_id</code> per request in PgBouncer transaction mode</td></tr>
+<tr><td>Team</td><td>Shared DB + RLS + dedicated pool</td><td>Same as above but separate PgBouncer connection pool</td></tr>
+<tr><td>Enterprise</td><td>Optional schema-per-tenant</td><td><code>CREATE SCHEMA tenant_xxx</code> + <code>SET LOCAL search_path</code> for physical isolation</td></tr>
+</tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 3: INDUSTRY VERTICALS -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec3"><span class="section-number">03</span>Industry Vertical Deep Dives</h2>
+
+<!-- ─── 3a. LEGAL ────────────────────────────────────────────────── -->
+<h3 id="legal">3a. Legal <span class="tag tag-violet">Slug: legal</span></h3>
+
+<div class="card">
+<h4>Top Competitors</h4>
+<div class="grid">
+  <div class="competitor-card">
+    <h5>Clio <span class="tag tag-green">$39-149/user/mo</span></h5>
+    <p>Market leader in legal practice management. 150K+ lawyers. Case management, time tracking, billing, client portal, document management.</p>
+    <ul class="feature-list">
+      <li>Matter-centric workflow</li>
+      <li>Trust/IOLTA accounting</li>
+      <li>Court date tracking</li>
+      <li>Client intake forms</li>
+      <li>400+ integrations</li>
+    </ul>
+  </div>
+  <div class="competitor-card">
+    <h5>PracticePanther <span class="tag tag-green">$49-89/user/mo</span></h5>
+    <p>All-in-one legal software. Time/billing, intake, payments, document automation.</p>
+    <ul class="feature-list">
+      <li>Automated workflows</li>
+      <li>Client portal</li>
+      <li>E-signatures</li>
+      <li>Trust accounting</li>
+    </ul>
+  </div>
+  <div class="competitor-card">
+    <h5>MyCase <span class="tag tag-green">$39-79/user/mo</span></h5>
+    <p>Practice management + client communication. Calendar, tasks, documents, billing.</p>
+    <ul class="feature-list">
+      <li>Lead management</li>
+      <li>Text messaging</li>
+      <li>Payment processing</li>
+      <li>Case analytics</li>
+    </ul>
+  </div>
+</div>
+
+<h4>Vocabulary Mapping</h4>
+<table>
+<thead><tr><th>UNJYNX Default</th><th>Legal Mode</th><th>Context</th></tr></thead>
+<tbody>
+<tr><td>Task</td><td>Matter / Action Item</td><td>A matter is the core unit of work</td></tr>
+<tr><td>Project</td><td>Case / Engagement</td><td>Organized by client case</td></tr>
+<tr><td>Section</td><td>Phase / Stage</td><td>Pre-litigation, Discovery, Trial, Appeal</td></tr>
+<tr><td>Tag</td><td>Practice Area</td><td>Corporate, Litigation, IP, Family Law</td></tr>
+<tr><td>Priority: Urgent</td><td>Emergency Motion</td><td>Court-imposed deadline</td></tr>
+<tr><td>Priority: High</td><td>Court Deadline</td><td>Statutory deadline</td></tr>
+<tr><td>Priority: Medium</td><td>Client Request</td><td>Active client need</td></tr>
+<tr><td>Priority: Low</td><td>Internal Review</td><td>Can wait</td></tr>
+<tr><td>Due Date</td><td>Deadline / Filing Date</td><td>Court filing deadlines</td></tr>
+<tr><td>Assignee</td><td>Attorney / Paralegal</td><td>Team member assigned</td></tr>
+<tr><td>Channel</td><td>Client Communication</td><td>How to reach client</td></tr>
+<tr><td>Subtask</td><td>Action Item</td><td>Discrete steps within a matter</td></tr>
+<tr><td>Progress</td><td>Case Status</td><td>Open, Filed, Pending, Closed</td></tr>
+<tr><td>Template</td><td>Playbook / Checklist</td><td>Standard operating procedures</td></tr>
+</tbody>
+</table>
+
+<h4>Templates (10)</h4>
+<ol>
+  <li><strong>New Client Intake</strong> &mdash; Conflict check, engagement letter, retainer, welcome email, add to billing system (5 subtasks)</li>
+  <li><strong>Litigation Timeline</strong> &mdash; Complaint filed, answer due, discovery, depositions, motions, pre-trial, trial (7 subtasks)</li>
+  <li><strong>Due Diligence Checklist</strong> &mdash; Corporate documents, financial statements, IP review, contracts review, regulatory compliance (6 subtasks)</li>
+  <li><strong>Contract Review</strong> &mdash; Read contract, identify key terms, flag risks, draft redlines, client review, final execution (6 subtasks)</li>
+  <li><strong>Court Filing Prep</strong> &mdash; Draft motion, cite check, format per court rules, file electronically, serve opposing counsel (5 subtasks)</li>
+  <li><strong>Estate Planning Package</strong> &mdash; Will, trust, POA, healthcare directive, beneficiary review (5 subtasks)</li>
+  <li><strong>Real Estate Closing</strong> &mdash; Title search, survey, inspections, loan docs, closing statement, recording (6 subtasks)</li>
+  <li><strong>IP Patent Filing</strong> &mdash; Prior art search, draft claims, figures, specification, file provisional (5 subtasks)</li>
+  <li><strong>Criminal Defense Prep</strong> &mdash; Police report review, witness interviews, evidence analysis, motion to suppress, plea strategy (5 subtasks)</li>
+  <li><strong>Monthly Billing Cycle</strong> &mdash; Review time entries, generate invoices, trust reconciliation, send statements, follow up (5 subtasks)</li>
+</ol>
+
+<h4>Dashboard Widgets</h4>
+<ul>
+  <li><strong>Billable Hours This Week</strong> &mdash; Bar chart (target vs actual)</li>
+  <li><strong>Active Cases</strong> &mdash; Count by practice area</li>
+  <li><strong>Upcoming Court Deadlines</strong> &mdash; List sorted by urgency</li>
+  <li><strong>Statute of Limitations Tracker</strong> &mdash; Countdown timers</li>
+  <li><strong>Client Receivables</strong> &mdash; Outstanding invoices aging</li>
+  <li><strong>Trust Account Balance</strong> &mdash; IOLTA compliance widget</li>
+</ul>
+
+<h4>Compliance Requirements</h4>
+<div class="warning">
+<ul>
+  <li><strong>Attorney-Client Privilege:</strong> All data must be encrypted at rest and in transit</li>
+  <li><strong>Bar Association Rules:</strong> Trust accounting regulations vary by state</li>
+  <li><strong>Court Filing Deadlines:</strong> Missing a deadline = malpractice risk</li>
+  <li><strong>Conflict of Interest:</strong> Must check before new client intake</li>
+  <li><strong>Data Retention:</strong> Client files must be retained per bar rules (varies: 5-7 years)</li>
+</ul>
+</div>
+</div>
+
+<!-- ─── 3b. HEALTHCARE ────────────────────────────────────────────── -->
+<h3 id="healthcare">3b. Healthcare <span class="tag tag-green">Slug: healthcare</span></h3>
+
+<div class="card">
+<h4>Top Competitors</h4>
+<div class="grid">
+  <div class="competitor-card">
+    <h5>SimplePractice <span class="tag tag-green">$29-99/mo</span></h5>
+    <p>Leading EHR for private practices (therapists, counselors). HIPAA-compliant telehealth, scheduling, billing, documentation.</p>
+  </div>
+  <div class="competitor-card">
+    <h5>Jane App <span class="tag tag-green">$54-79/mo CAD</span></h5>
+    <p>Practice management for health &amp; wellness. Online booking, charting, billing, telehealth. Popular in physiotherapy/chiropractic.</p>
+  </div>
+  <div class="competitor-card">
+    <h5>Kareo / Tebra <span class="tag tag-green">$125+/provider/mo</span></h5>
+    <p>Full EHR + practice management. Scheduling, clinical notes, insurance billing, patient engagement.</p>
+  </div>
+</div>
+
+<h4>Vocabulary Mapping</h4>
+<table>
+<thead><tr><th>UNJYNX Default</th><th>Healthcare Mode</th></tr></thead>
+<tbody>
+<tr><td>Task</td><td>Appointment / Follow-up</td></tr>
+<tr><td>Project</td><td>Treatment Plan / Patient Case</td></tr>
+<tr><td>Section</td><td>Treatment Phase</td></tr>
+<tr><td>Tag</td><td>Specialty / Condition</td></tr>
+<tr><td>Priority: Urgent</td><td>Emergency</td></tr>
+<tr><td>Priority: High</td><td>Same-Day</td></tr>
+<tr><td>Due Date</td><td>Appointment Date</td></tr>
+<tr><td>Assignee</td><td>Provider / Clinician</td></tr>
+<tr><td>Comment</td><td>Clinical Note</td></tr>
+<tr><td>Channel</td><td>Patient Communication</td></tr>
+<tr><td>Template</td><td>Protocol / Care Pathway</td></tr>
+</tbody>
+</table>
+
+<h4>Templates (8)</h4>
+<ol>
+  <li><strong>New Patient Intake</strong> &mdash; Demographics, insurance verification, consent forms, medical history, initial assessment</li>
+  <li><strong>Annual Physical Exam</strong> &mdash; Vitals, lab orders, screening questions, preventive care checklist, follow-up scheduling</li>
+  <li><strong>Therapy Session Prep</strong> &mdash; Review previous notes, treatment plan check, session agenda, post-session documentation</li>
+  <li><strong>Insurance Pre-Auth</strong> &mdash; Gather clinical info, submit request, track approval, notify patient, schedule procedure</li>
+  <li><strong>Discharge Planning</strong> &mdash; Medication review, follow-up appointments, patient education, referral letters, DME orders</li>
+  <li><strong>Telehealth Setup</strong> &mdash; Test video, review chart, send patient link, conduct visit, document encounter</li>
+  <li><strong>Lab Result Follow-up</strong> &mdash; Review results, flag abnormals, prepare communication, contact patient, update plan</li>
+  <li><strong>Clinical Staff Meeting</strong> &mdash; Case review, policy updates, quality metrics, training items, action items</li>
+</ol>
+
+<h4>Dashboard Widgets</h4>
+<ul>
+  <li><strong>Today's Appointments</strong> &mdash; Timeline view with patient names</li>
+  <li><strong>Pending Lab Results</strong> &mdash; Count + overdue alerts</li>
+  <li><strong>Patient Follow-ups Due</strong> &mdash; List with last visit date</li>
+  <li><strong>Insurance Claims Status</strong> &mdash; Submitted / Approved / Denied</li>
+  <li><strong>No-Show Rate</strong> &mdash; Weekly trend chart</li>
+  <li><strong>Treatment Plan Progress</strong> &mdash; Per-patient completion %</li>
+</ul>
+
+<h4>Compliance</h4>
+<div class="danger">
+<ul>
+  <li><strong>HIPAA (US):</strong> PHI must be encrypted, access logged, BAA required</li>
+  <li><strong>DPDP Act (India):</strong> Health data is &ldquo;sensitive personal data&rdquo; under DPDP 2023</li>
+  <li><strong>Audit Trail:</strong> All access to patient data must be logged</li>
+  <li><strong>Data Minimization:</strong> Only collect what&rsquo;s necessary</li>
+  <li><strong>Consent:</strong> Explicit consent for data processing</li>
+</ul>
+</div>
+</div>
+
+<!-- ─── 3c. DEV TEAMS ────────────────────────────────────────────── -->
+<h3 id="devteams">3c. Dev Teams <span class="tag tag-blue">Slug: dev_teams</span></h3>
+
+<div class="card">
+<h4>Top Competitors</h4>
+<div class="grid">
+  <div class="competitor-card">
+    <h5>Linear <span class="tag tag-green">$8/user/mo</span></h5>
+    <p>Modern issue tracker for product teams. Keyboard-first, cycle-based, GitHub/GitLab integration.</p>
+  </div>
+  <div class="competitor-card">
+    <h5>Jira <span class="tag tag-green">$0-$7.75/user/mo</span></h5>
+    <p>Industry standard. Scrum/Kanban boards, sprints, epics, roadmaps. 10M+ users.</p>
+  </div>
+  <div class="competitor-card">
+    <h5>Shortcut (Clubhouse) <span class="tag tag-green">$8.50/user/mo</span></h5>
+    <p>Balanced PM tool. Stories, epics, iterations, docs. Clean UI. GitHub/Slack integration.</p>
+  </div>
+</div>
+
+<h4>Vocabulary Mapping</h4>
+<table>
+<thead><tr><th>UNJYNX Default</th><th>Dev Teams Mode</th></tr></thead>
+<tbody>
+<tr><td>Task</td><td>Issue / Ticket</td></tr>
+<tr><td>Project</td><td>Repository / Product</td></tr>
+<tr><td>Section</td><td>Sprint / Milestone</td></tr>
+<tr><td>Tag</td><td>Label (bug, feature, chore)</td></tr>
+<tr><td>Priority: Urgent</td><td>P0 / Blocker</td></tr>
+<tr><td>Priority: High</td><td>P1 / Critical</td></tr>
+<tr><td>Priority: Medium</td><td>P2 / Normal</td></tr>
+<tr><td>Priority: Low</td><td>P3 / Minor</td></tr>
+<tr><td>Subtask</td><td>Sub-issue / Checklist</td></tr>
+<tr><td>Template</td><td>Issue Template</td></tr>
+<tr><td>Progress</td><td>Status (Backlog &rarr; Todo &rarr; In Progress &rarr; In Review &rarr; Done)</td></tr>
+</tbody>
+</table>
+
+<h4>Templates (8)</h4>
+<ol>
+  <li><strong>Sprint Planning</strong> &mdash; Review backlog, groom stories, estimate points, set sprint goal, assign owners</li>
+  <li><strong>Bug Report</strong> &mdash; Reproduce steps, expected vs actual, screenshots, severity, assign to owner</li>
+  <li><strong>Feature RFC</strong> &mdash; Problem statement, proposed solution, alternatives, technical design, implementation plan</li>
+  <li><strong>Code Review Checklist</strong> &mdash; Read PR, check tests, security review, performance check, approve/request changes</li>
+  <li><strong>Release Checklist</strong> &mdash; Freeze branch, run CI, update changelog, tag release, deploy, monitor</li>
+  <li><strong>Incident Response</strong> &mdash; Detect, triage, mitigate, communicate, postmortem, action items</li>
+  <li><strong>Onboarding New Dev</strong> &mdash; Repo access, dev environment setup, architecture walkthrough, first PR, code review</li>
+  <li><strong>Sprint Retrospective</strong> &mdash; What went well, what didn't, action items, velocity review</li>
+</ol>
+
+<h4>Dashboard Widgets</h4>
+<ul>
+  <li><strong>Sprint Burndown</strong> &mdash; Points remaining vs ideal line</li>
+  <li><strong>Open Issues by Priority</strong> &mdash; P0/P1/P2/P3 bar chart</li>
+  <li><strong>PR Review Queue</strong> &mdash; Pending reviews count</li>
+  <li><strong>Velocity Trend</strong> &mdash; Points completed per sprint (line chart)</li>
+  <li><strong>Bug Count Trend</strong> &mdash; Open bugs over time</li>
+  <li><strong>Deployment Frequency</strong> &mdash; Deploys this week</li>
+</ul>
+</div>
+
+<!-- ─── 3d. CONSTRUCTION ────────────────────────────────────────── -->
+<h3 id="construction">3d. Construction <span class="tag tag-amber">Slug: construction</span></h3>
+
+<div class="card">
+<h4>Top Competitors</h4>
+<div class="grid">
+  <div class="competitor-card">
+    <h5>Procore <span class="tag tag-green">Custom pricing</span></h5>
+    <p>#1 construction management. Project management, quality &amp; safety, financials. 2M+ projects managed.</p>
+  </div>
+  <div class="competitor-card">
+    <h5>Buildertrend <span class="tag tag-green">$99-499/mo</span></h5>
+    <p>Residential construction. Pre-sale, project management, financial tools, client portal.</p>
+  </div>
+  <div class="competitor-card">
+    <h5>CoConstruct <span class="tag tag-green">$99+/mo</span></h5>
+    <p>Custom home builders. Specs, selections, budgets, scheduling, communication.</p>
+  </div>
+</div>
+
+<h4>Vocabulary Mapping</h4>
+<table>
+<thead><tr><th>UNJYNX Default</th><th>Construction Mode</th></tr></thead>
+<tbody>
+<tr><td>Task</td><td>Work Order / Punch Item</td></tr>
+<tr><td>Project</td><td>Job Site / Build</td></tr>
+<tr><td>Section</td><td>Phase (Foundation, Framing, Electrical, Plumbing, Finish)</td></tr>
+<tr><td>Tag</td><td>Trade / CSI Division</td></tr>
+<tr><td>Priority: Urgent</td><td>Safety Hazard</td></tr>
+<tr><td>Priority: High</td><td>Inspection Required</td></tr>
+<tr><td>Assignee</td><td>Subcontractor / Foreman</td></tr>
+<tr><td>Due Date</td><td>Inspection Date / Milestone</td></tr>
+<tr><td>Comment</td><td>Daily Log / RFI</td></tr>
+<tr><td>Attachment</td><td>Photo / Drawing / Permit</td></tr>
+</tbody>
+</table>
+
+<h4>Templates (6)</h4>
+<ol>
+  <li><strong>Pre-Construction Checklist</strong> &mdash; Permits, site survey, soil test, utility locate, insurance, contracts</li>
+  <li><strong>Daily Safety Inspection</strong> &mdash; PPE check, scaffolding, fall protection, electrical, fire extinguishers, sign log</li>
+  <li><strong>Punch List</strong> &mdash; Walk-through, document deficiencies, assign trades, verify corrections, final sign-off</li>
+  <li><strong>Change Order Process</strong> &mdash; Request, scope review, cost estimate, client approval, update budget, schedule impact</li>
+  <li><strong>Inspection Prep</strong> &mdash; Pre-inspect, document readiness, schedule inspector, attend, address deficiencies</li>
+  <li><strong>Project Closeout</strong> &mdash; Final inspection, as-builts, warranty docs, lien releases, certificate of occupancy</li>
+</ol>
+
+<h4>Dashboard Widgets</h4>
+<ul>
+  <li><strong>Active Job Sites</strong> &mdash; Map view with status indicators</li>
+  <li><strong>Upcoming Inspections</strong> &mdash; Calendar with pass/fail history</li>
+  <li><strong>Budget vs Actual</strong> &mdash; Per-project cost tracking</li>
+  <li><strong>Open RFIs</strong> &mdash; Requests for Information pending</li>
+  <li><strong>Safety Incidents</strong> &mdash; Month-over-month trend</li>
+  <li><strong>Weather Forecast</strong> &mdash; Impact on outdoor work</li>
+</ul>
+</div>
+
+<!-- ─── 3e. REAL ESTATE ─────────────────────────────────────────── -->
+<h3 id="realestate">3e. Real Estate <span class="tag tag-pink">Slug: real_estate</span></h3>
+
+<div class="card">
+<h4>Vocabulary Mapping</h4>
+<table>
+<thead><tr><th>UNJYNX Default</th><th>Real Estate Mode</th></tr></thead>
+<tbody>
+<tr><td>Task</td><td>Follow-up / Action Item</td></tr>
+<tr><td>Project</td><td>Listing / Deal / Transaction</td></tr>
+<tr><td>Section</td><td>Pipeline Stage (Lead &rarr; Showing &rarr; Offer &rarr; Under Contract &rarr; Closed)</td></tr>
+<tr><td>Tag</td><td>Property Type (Residential, Commercial, Land)</td></tr>
+<tr><td>Assignee</td><td>Agent / Broker</td></tr>
+<tr><td>Comment</td><td>Showing Notes</td></tr>
+<tr><td>Template</td><td>Transaction Checklist</td></tr>
+</tbody>
+</table>
+
+<h4>Templates (5)</h4>
+<ol>
+  <li><strong>Buyer Transaction</strong> &mdash; Pre-approval, showings, offer, inspection, appraisal, closing</li>
+  <li><strong>Seller Listing</strong> &mdash; CMA, listing agreement, photos, MLS entry, open house, offers review</li>
+  <li><strong>Open House Prep</strong> &mdash; Sign placement, staging, refreshments, sign-in sheet, follow-up</li>
+  <li><strong>Lead Nurture Sequence</strong> &mdash; Initial contact, property matches, follow-up call, showing schedule</li>
+  <li><strong>Closing Coordination</strong> &mdash; Title company, lender, inspector, appraiser, walkthrough, keys handoff</li>
+</ol>
+</div>
+
+<!-- ─── 3f. EDUCATION ──────────────────────────────────────────── -->
+<h3 id="education">3f. Education <span class="tag tag-cyan">Slug: education</span></h3>
+
+<div class="card">
+<h4>Vocabulary Mapping</h4>
+<table>
+<thead><tr><th>UNJYNX Default</th><th>Education Mode</th></tr></thead>
+<tbody>
+<tr><td>Task</td><td>Assignment / Lesson</td></tr>
+<tr><td>Project</td><td>Course / Curriculum</td></tr>
+<tr><td>Section</td><td>Module / Unit / Week</td></tr>
+<tr><td>Tag</td><td>Subject (Math, Science, English)</td></tr>
+<tr><td>Priority: Urgent</td><td>Exam / Final</td></tr>
+<tr><td>Assignee</td><td>Teacher / Student</td></tr>
+<tr><td>Due Date</td><td>Submission Deadline</td></tr>
+<tr><td>Comment</td><td>Feedback / Grade</td></tr>
+<tr><td>Progress</td><td>Grade / Completion %</td></tr>
+</tbody>
+</table>
+
+<h4>Templates (6)</h4>
+<ol>
+  <li><strong>Lesson Plan</strong> &mdash; Objectives, materials, warm-up, instruction, activity, assessment, reflection</li>
+  <li><strong>Semester Prep</strong> &mdash; Syllabus, course outline, materials, LMS setup, first week activities</li>
+  <li><strong>Exam Creation</strong> &mdash; Question bank, format, rubric, answer key, proctor instructions, grade</li>
+  <li><strong>Student Progress Review</strong> &mdash; Attendance, grades, participation, parent contact, intervention plan</li>
+  <li><strong>Parent-Teacher Conference</strong> &mdash; Review grades, behavior notes, goals, action plan, follow-up</li>
+  <li><strong>Field Trip Planning</strong> &mdash; Location research, permissions, transport, chaperones, emergency plan</li>
+</ol>
+</div>
+
+<!-- ─── 3g-k. REMAINING MODES ──────────────────────────────────── -->
+<h3 id="finance">3g. Finance <span class="tag tag-green">Slug: finance</span></h3>
+<div class="card">
+<h4>Vocabulary</h4>
+<p>Task &rarr; Transaction / Review Item &bull; Project &rarr; Portfolio / Client Account &bull; Section &rarr; Quarter / Fiscal Period &bull; Tag &rarr; Account Type (Equity, Fixed Income, Real Estate) &bull; Urgent &rarr; Audit Finding &bull; Due Date &rarr; Filing Deadline</p>
+<h4>Templates (5)</h4>
+<ol>
+  <li><strong>Month-End Close</strong> &mdash; Journal entries, reconciliations, accruals, reporting, review</li>
+  <li><strong>Tax Filing Prep</strong> &mdash; Gather docs, calculate liability, prepare returns, review, file, confirm</li>
+  <li><strong>Client Portfolio Review</strong> &mdash; Performance analysis, rebalancing, risk assessment, report, meeting</li>
+  <li><strong>Audit Preparation</strong> &mdash; Document gathering, reconciliation, control testing, management letter, follow-up</li>
+  <li><strong>Budget Planning</strong> &mdash; Forecast, department inputs, consolidation, review, approval, distribution</li>
+</ol>
+</div>
+
+<h3 id="hr">3h. HR <span class="tag tag-amber">Slug: hr</span></h3>
+<div class="card">
+<h4>Vocabulary</h4>
+<p>Task &rarr; Action Item / Ticket &bull; Project &rarr; Initiative / Program &bull; Section &rarr; Quarter / Cycle &bull; Tag &rarr; Department &bull; Urgent &rarr; Compliance Issue &bull; Assignee &rarr; HR Partner / Manager</p>
+<h4>Templates (6)</h4>
+<ol>
+  <li><strong>New Hire Onboarding</strong> &mdash; Offer letter, background check, IT setup, orientation, buddy assignment, 30-day check</li>
+  <li><strong>Performance Review Cycle</strong> &mdash; Self-assessment, manager review, calibration, feedback meeting, goal setting</li>
+  <li><strong>Offboarding</strong> &mdash; Exit interview, equipment return, access revocation, final paycheck, COBRA notification</li>
+  <li><strong>Recruitment Pipeline</strong> &mdash; Job posting, sourcing, screening, interviews, offer, onboarding handoff</li>
+  <li><strong>Benefits Enrollment</strong> &mdash; Open enrollment communication, plan comparison, enrollment deadline, confirmation</li>
+  <li><strong>Compliance Training</strong> &mdash; Assign training, track completion, quiz verification, certification, annual renewal</li>
+</ol>
+</div>
+
+<h3 id="marketing">3i. Marketing <span class="tag tag-pink">Slug: marketing</span></h3>
+<div class="card">
+<h4>Vocabulary</h4>
+<p>Task &rarr; Deliverable / Content Piece &bull; Project &rarr; Campaign &bull; Section &rarr; Phase (Planning, Creation, Review, Launch, Analysis) &bull; Tag &rarr; Channel (Social, Email, SEO, Paid, PR) &bull; Urgent &rarr; Launch Day &bull; Assignee &rarr; Content Creator / Strategist</p>
+<h4>Templates (6)</h4>
+<ol>
+  <li><strong>Campaign Launch</strong> &mdash; Brief, creative assets, copy, landing page, tracking setup, launch, monitor</li>
+  <li><strong>Blog Post Pipeline</strong> &mdash; Topic research, outline, draft, edit, SEO optimize, publish, promote</li>
+  <li><strong>Social Media Calendar</strong> &mdash; Content themes, create posts, schedule, engage, analyze, report</li>
+  <li><strong>Email Campaign</strong> &mdash; Segment audience, write copy, design template, A/B test, send, analyze</li>
+  <li><strong>Product Launch</strong> &mdash; Messaging, press release, demo video, website update, email blast, social blitz</li>
+  <li><strong>Monthly Analytics Report</strong> &mdash; Gather data, analyze trends, create visuals, insights, recommendations, present</li>
+</ol>
+</div>
+
+<h3 id="family">3j. Family <span class="tag tag-cyan">Slug: family</span></h3>
+<div class="card">
+<h4>Vocabulary</h4>
+<p>Task &rarr; To-Do / Chore &bull; Project &rarr; Event / Trip &bull; Section &rarr; Week / Category &bull; Tag &rarr; Person (Mom, Dad, Kids) &bull; Urgent &rarr; Today! &bull; Assignee &rarr; Family Member &bull; Channel &rarr; Family Chat</p>
+<h4>Templates (5)</h4>
+<ol>
+  <li><strong>Weekly Meal Plan</strong> &mdash; Plan meals, grocery list, prep Sunday, cook, leftover plan</li>
+  <li><strong>Birthday Party</strong> &mdash; Guest list, venue, invitations, food, decorations, cake, activities</li>
+  <li><strong>Family Vacation</strong> &mdash; Destination, flights, hotel, packing, itinerary, emergency contacts</li>
+  <li><strong>Back to School</strong> &mdash; School supplies, uniforms, schedule, teacher meeting, after-school activities</li>
+  <li><strong>Weekly Chore Chart</strong> &mdash; Assign rooms, rotate weekly, verify completion, allowance tracking</li>
+</ol>
+</div>
+
+<h3 id="students">3k. Students <span class="tag tag-blue">Slug: students</span></h3>
+<div class="card">
+<h4>Vocabulary</h4>
+<p>Task &rarr; Assignment / Homework &bull; Project &rarr; Course / Class &bull; Section &rarr; Week / Module &bull; Tag &rarr; Subject &bull; Urgent &rarr; Due Tomorrow! &bull; Priority: High &rarr; Exam Prep &bull; Assignee &rarr; Study Partner</p>
+<h4>Templates (5)</h4>
+<ol>
+  <li><strong>Exam Study Plan</strong> &mdash; Gather materials, review notes, practice problems, flashcards, mock test, rest day</li>
+  <li><strong>Research Paper</strong> &mdash; Topic selection, literature review, outline, draft, citations, proofread, submit</li>
+  <li><strong>Group Project</strong> &mdash; Assign roles, research, create presentation, rehearse, present, peer review</li>
+  <li><strong>Semester Planning</strong> &mdash; Course schedule, assignment calendar, exam dates, study blocks, break schedule</li>
+  <li><strong>Internship Application</strong> &mdash; Resume update, cover letter, applications, interview prep, follow-up</li>
+</ol>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 4: COMPETITOR MATRIX -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec4"><span class="section-number">04</span>Competitor Matrix</h2>
+
+<table>
+<thead><tr><th>Industry</th><th>Platform</th><th>Pricing</th><th>Key Feature</th><th>UNJYNX Advantage</th></tr></thead>
+<tbody>
+<tr><td rowspan="3">Legal</td><td>Clio</td><td>$39-149/user/mo</td><td>End-to-end practice mgmt</td><td rowspan="3">Cross-industry + AI + Social reminders</td></tr>
+<tr><td>PracticePanther</td><td>$49-89/user/mo</td><td>Workflow automation</td></tr>
+<tr><td>MyCase</td><td>$39-79/user/mo</td><td>Client communication</td></tr>
+<tr><td rowspan="3">Healthcare</td><td>SimplePractice</td><td>$29-99/mo</td><td>HIPAA telehealth</td><td rowspan="3">Not a replacement for EHR, but task/follow-up layer on top</td></tr>
+<tr><td>Jane App</td><td>$54-79/mo CAD</td><td>Online booking</td></tr>
+<tr><td>Kareo/Tebra</td><td>$125+/provider/mo</td><td>Full EHR</td></tr>
+<tr><td rowspan="3">Dev Teams</td><td>Linear</td><td>$8/user/mo</td><td>Speed, keyboard-first</td><td rowspan="3">AI decomposition + social reminders + gamification</td></tr>
+<tr><td>Jira</td><td>$0-7.75/user/mo</td><td>Enterprise, plugins</td></tr>
+<tr><td>Shortcut</td><td>$8.50/user/mo</td><td>Stories + docs</td></tr>
+<tr><td rowspan="2">Construction</td><td>Procore</td><td>Custom</td><td>Full construction PM</td><td rowspan="2">Mobile-first, AI scheduling for trades</td></tr>
+<tr><td>Buildertrend</td><td>$99-499/mo</td><td>Residential focus</td></tr>
+<tr><td rowspan="2">Real Estate</td><td>Follow Up Boss</td><td>$58-416/mo</td><td>Lead management CRM</td><td rowspan="2">Task + reminder layer, not full CRM</td></tr>
+<tr><td>kvCORE</td><td>$499+/mo</td><td>Full platform</td></tr>
+<tr><td rowspan="2">Education</td><td>Google Classroom</td><td>Free</td><td>Assignment distribution</td><td rowspan="2">Teacher productivity + parent comms</td></tr>
+<tr><td>Canvas LMS</td><td>Free-Custom</td><td>Full LMS</td></tr>
+<tr><td rowspan="2">Marketing</td><td>HubSpot</td><td>$0-3600/mo</td><td>Full marketing suite</td><td rowspan="2">Content calendar + campaign tasks</td></tr>
+<tr><td>CoSchedule</td><td>$29-Custom/mo</td><td>Content calendar</td></tr>
+<tr><td rowspan="2">HR</td><td>BambooHR</td><td>$6-8/emp/mo</td><td>Core HR + ATS</td><td rowspan="2">Task-based HR workflows</td></tr>
+<tr><td>Gusto</td><td>$40+$6/emp/mo</td><td>Payroll + benefits</td></tr>
+<tr><td rowspan="2">Finance</td><td>QuickBooks</td><td>$30-200/mo</td><td>Accounting</td><td rowspan="2">Task layer for financial workflows</td></tr>
+<tr><td>Xero</td><td>$15-78/mo</td><td>Cloud accounting</td></tr>
+</tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 5: DATA MODEL -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec5"><span class="section-number">05</span>Multi-Organization Data Model</h2>
+
+<h3>5.1 New Tables Required</h3>
+
+<pre><code>
+-- Organizations (multi-tenant root entity)
+CREATE TABLE organizations (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            TEXT NOT NULL,
+  slug            TEXT UNIQUE NOT NULL,
+  logo_url        TEXT,
+  mode_id         UUID REFERENCES industry_modes(id) ON DELETE SET NULL,
+  owner_id        UUID NOT NULL REFERENCES profiles(id),
+  plan            TEXT NOT NULL DEFAULT 'free',   -- free | pro | team | enterprise
+  settings_json   JSONB NOT NULL DEFAULT '{}',    -- timezone, branding, etc.
+  is_personal     BOOLEAN NOT NULL DEFAULT false, -- true = user's personal workspace
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Organization Members (many-to-many users ↔ orgs)
+CREATE TABLE organization_members (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id         UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL DEFAULT 'member', -- owner | admin | member | viewer | guest
+  joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(org_id, user_id)
+);
+
+-- Add org_id to existing tables (tasks, projects, etc.)
+ALTER TABLE tasks ADD COLUMN org_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE projects ADD COLUMN org_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+
+-- Organization-scoped mode overrides (custom vocabulary per org)
+CREATE TABLE org_vocabulary_overrides (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  original_term   TEXT NOT NULL,
+  custom_term     TEXT NOT NULL,
+  UNIQUE(org_id, original_term)
+);
+</code></pre>
+
+<h3>5.2 Migration Strategy</h3>
+<div class="highlight">
+<strong>Backwards Compatible:</strong> Existing users get an auto-created &ldquo;Personal&rdquo; organization with <code>is_personal = true</code>. All existing tasks/projects are assigned to this personal org. No data loss, no breaking changes.
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 6: VOCABULARY ENGINE -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec6"><span class="section-number">06</span>Vocabulary &amp; Terminology Engine</h2>
+
+<h3>How It Works</h3>
+
+<pre><code>
+Resolution Order (highest priority wins):
+  1. Org-specific override  (org_vocabulary_overrides table)
+  2. Mode vocabulary         (mode_vocabulary table)
+  3. UNJYNX default          (hardcoded "Task", "Project", etc.)
+
+API Response includes vocabulary map:
+GET /api/v1/modes/active
+{
+  "mode": { "slug": "legal", "name": "Legal" },
+  "vocabulary": {
+    "Task": "Matter",
+    "Project": "Case",
+    "Section": "Phase",
+    "Tag": "Practice Area",
+    "Subtask": "Action Item",
+    "Assignee": "Attorney",
+    "Due Date": "Filing Date",
+    "Comment": "Case Note",
+    "Template": "Playbook"
+  },
+  "activeSince": "2026-03-30T00:00:00Z"
+}
+
+Frontend uses:
+  const t = useVocabulary();
+  &lt;h1&gt;{t("Task")}&lt;/h1&gt;  // renders "Matter" in legal mode
+</code></pre>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 7: DASHBOARD WIDGETS -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec7"><span class="section-number">07</span>Dashboard Widgets Per Mode</h2>
+
+<table>
+<thead><tr><th>Widget Type</th><th>Config Schema</th><th>Modes</th></tr></thead>
+<tbody>
+<tr><td><code>kpi_counter</code></td><td><code>{ metric: string, label: string, icon: string, color: string }</code></td><td>All</td></tr>
+<tr><td><code>bar_chart</code></td><td><code>{ metric: string, groupBy: string, period: "day"|"week"|"month" }</code></td><td>All</td></tr>
+<tr><td><code>timeline</code></td><td><code>{ source: "tasks"|"events", filter: object }</code></td><td>Legal, Healthcare, Education</td></tr>
+<tr><td><code>burndown</code></td><td><code>{ sprintId?: string, metric: "points"|"count" }</code></td><td>Dev Teams</td></tr>
+<tr><td><code>pipeline</code></td><td><code>{ stages: string[], metric: "count"|"value" }</code></td><td>Real Estate, Marketing, HR</td></tr>
+<tr><td><code>calendar_upcoming</code></td><td><code>{ daysAhead: number, filter: object }</code></td><td>All</td></tr>
+<tr><td><code>compliance_tracker</code></td><td><code>{ deadlines: { label: string, date: string }[] }</code></td><td>Legal, Finance, HR, Healthcare</td></tr>
+<tr><td><code>weather_forecast</code></td><td><code>{ location: string }</code></td><td>Construction</td></tr>
+<tr><td><code>chore_chart</code></td><td><code>{ members: string[], categories: string[] }</code></td><td>Family</td></tr>
+<tr><td><code>study_timer</code></td><td><code>{ technique: "pomodoro"|"spaced_repetition" }</code></td><td>Students</td></tr>
+</tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 8: TEMPLATE LIBRARY -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec8"><span class="section-number">08</span>Template Library Per Mode</h2>
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-value">10</div><div class="stat-label">Legal Templates</div></div>
+  <div class="stat-card"><div class="stat-value">8</div><div class="stat-label">Healthcare Templates</div></div>
+  <div class="stat-card"><div class="stat-value">8</div><div class="stat-label">Dev Teams Templates</div></div>
+  <div class="stat-card"><div class="stat-value">6</div><div class="stat-label">Construction Templates</div></div>
+  <div class="stat-card"><div class="stat-value">5</div><div class="stat-label">Real Estate Templates</div></div>
+  <div class="stat-card"><div class="stat-value">6</div><div class="stat-label">Education Templates</div></div>
+  <div class="stat-card"><div class="stat-value">5</div><div class="stat-label">Finance Templates</div></div>
+  <div class="stat-card"><div class="stat-value">6</div><div class="stat-label">HR Templates</div></div>
+  <div class="stat-card"><div class="stat-value">6</div><div class="stat-label">Marketing Templates</div></div>
+  <div class="stat-card"><div class="stat-value">5</div><div class="stat-label">Family Templates</div></div>
+  <div class="stat-card"><div class="stat-value">5</div><div class="stat-label">Student Templates</div></div>
+</div>
+
+<p><strong>Total: 70 industry-specific templates</strong> + 8 existing system templates = <strong>78 templates</strong></p>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 9: COMPLIANCE -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec9"><span class="section-number">09</span>Compliance &amp; Regulatory Requirements</h2>
+
+<table>
+<thead><tr><th>Mode</th><th>Regulation</th><th>Key Requirement</th><th>UNJYNX Impact</th></tr></thead>
+<tbody>
+<tr><td>Healthcare</td><td>HIPAA (US)</td><td>PHI encryption, access logs, BAA</td><td>Audit trail already exists; need BAA template</td></tr>
+<tr><td>Healthcare</td><td>DPDP Act (India)</td><td>Sensitive health data consent</td><td>Consent flow needed for health data</td></tr>
+<tr><td>Legal</td><td>Bar Association Rules</td><td>Trust accounting, conflict checks</td><td>Data encryption at rest (already done)</td></tr>
+<tr><td>Finance</td><td>SOX / SEBI</td><td>Audit trail for financial data</td><td>audit_log table already captures changes</td></tr>
+<tr><td>Education</td><td>FERPA (US) / NEP (India)</td><td>Student records protection</td><td>Access controls per role</td></tr>
+<tr><td>HR</td><td>GDPR / DPDP</td><td>Employee data protection, right to deletion</td><td>Already have soft delete + data export</td></tr>
+<tr><td>All</td><td>DPDP Act 2023</td><td>Consent, data minimization, breach notification</td><td>Deadline: May 2027. Plan compliance now.</td></tr>
+</tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 10: EXISTING MODULE AUDIT -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec-audit"><span class="section-number">10</span>Existing Code Audit &mdash; What Exists vs What&rsquo;s Needed</h2>
+
+<h3>10.1 Backend: 41 Tables, 28 Modules, 206+ Endpoints</h3>
+
+<table>
+<thead><tr><th>Module</th><th>Endpoints</th><th>Status</th><th>Multi-Tenant Action</th></tr></thead>
+<tbody>
+<tr><td>tasks</td><td>15</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code> column + RLS. Add <code>issue_key</code>, <code>task_type</code>, <code>assignee_id</code>, <code>reporter_id</code>, <code>sprint_id</code>, <code>estimate_points</code>, <code>logged_hours</code>, <code>custom_fields JSONB</code></td></tr>
+<tr><td>projects</td><td>5</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>, <code>project_type</code> (scrum/kanban/bug/service_desk), <code>key</code> (UNJX), <code>workflow_id</code>, <code>lead_id</code>, <code>issue_counter</code></td></tr>
+<tr><td>teams</td><td>12</td><td><span class="badge badge-done">EXISTS</span></td><td>Rename to <code>organizations</code>. Already has <code>logtoOrgId</code>. Add plan limits, SSO, settings JSONB, industry_mode</td></tr>
+<tr><td>subtasks</td><td>6</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. Convert to child tasks (same tasks table with <code>parent_id</code>)</td></tr>
+<tr><td>comments</td><td>4</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>, <code>mentioned_user_ids[]</code>, <code>parent_id</code> (threading), <code>is_internal</code></td></tr>
+<tr><td>tags</td><td>8</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. Scope to org not user</td></tr>
+<tr><td>sections</td><td>5</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. Reuse as-is</td></tr>
+<tr><td>channels</td><td>8</td><td><span class="badge badge-done">EXISTS</span></td><td>These are NOTIFICATION channels (WhatsApp/Telegram/SMS). Keep. Add org-level channel preferences</td></tr>
+<tr><td>notifications</td><td>5</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. Has cascade, quiet hours, digest. Reuse escalation chain logic</td></tr>
+<tr><td>ai (pipeline)</td><td>10</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org context to prompts. 6-layer pipeline works. Add org-scoped memory</td></tr>
+<tr><td>auth</td><td>15</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org context to auth payload: <code>orgId</code>, <code>orgRole</code>. Use Logto org tokens</td></tr>
+<tr><td>modes</td><td>5</td><td><span class="badge badge-done">EXISTS</span></td><td>Has routes + service + repo + 5 tables. NEEDS: seed data (0 rows currently)</td></tr>
+<tr><td>planning</td><td>10</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. Reuse daily planning ritual</td></tr>
+<tr><td>templates</td><td>8</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. 8 system templates exist. Need 70 mode-specific templates</td></tr>
+<tr><td>pomodoro</td><td>7</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. Personal feature, works at user level</td></tr>
+<tr><td>progress</td><td>9</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. Add team-level aggregation</td></tr>
+<tr><td>billing</td><td>5</td><td><span class="badge badge-done">EXISTS</span></td><td>Move from user-level to org-level billing</td></tr>
+<tr><td>gamification</td><td>7</td><td><span class="badge badge-done">EXISTS</span></td><td>Keep at user level. Add org leaderboard</td></tr>
+<tr><td>recurring</td><td>4</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. RRULE works</td></tr>
+<tr><td>sync</td><td>3</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>org_id</code>. Offline sync pattern reusable</td></tr>
+<tr><td>admin</td><td>63</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org management pages. Existing user mgmt works</td></tr>
+<tr><td colspan="2"><strong>messaging channels</strong></td><td><span class="badge badge-new">NEW</span></td><td>Public/private/DM channels with threading, reactions, @mentions, pins</td></tr>
+<tr><td colspan="2"><strong>workflows</strong></td><td><span class="badge badge-new">NEW</span></td><td>Custom statuses, transitions, conditions per project</td></tr>
+<tr><td colspan="2"><strong>sprints</strong></td><td><span class="badge badge-new">NEW</span></td><td>Sprint CRUD, burndown snapshots, retrospectives</td></tr>
+<tr><td colspan="2"><strong>custom fields</strong></td><td><span class="badge badge-new">NEW</span></td><td>Field definitions + values (JSONB), 13 field types</td></tr>
+<tr><td colspan="2"><strong>time tracking</strong></td><td><span class="badge badge-new">NEW</span></td><td>Time entries per task, billable hours</td></tr>
+<tr><td colspan="2"><strong>SLA</strong></td><td><span class="badge badge-new">NEW</span></td><td>Response/resolution time policies per project</td></tr>
+<tr><td colspan="2"><strong>task links</strong></td><td><span class="badge badge-new">NEW</span></td><td>Blocks, relates-to, duplicates relationships</td></tr>
+</tbody>
+</table>
+
+<h3>10.2 Frontend: 27 Pages, 40+ Components, 5 Views</h3>
+
+<table>
+<thead><tr><th>Area</th><th>Status</th><th>Multi-Tenant Action</th></tr></thead>
+<tbody>
+<tr><td>Dashboard (stats, charts, tasks)</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org context to all API calls. Mode-specific widgets</td></tr>
+<tr><td>5 views (list/board/calendar/timeline/table)</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>[orgId]</code> route group. Inject orgId into hooks</td></tr>
+<tr><td>AI chat (streaming, 5 personas)</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org context to AI prompts</td></tr>
+<tr><td>AI decompose / schedule / insights</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org scoping</td></tr>
+<tr><td>Focus (Pomodoro)</td><td><span class="badge badge-done">EXISTS</span></td><td>Reuse as-is (personal feature)</td></tr>
+<tr><td>Templates page</td><td><span class="badge badge-done">EXISTS</span></td><td>Show mode-specific templates</td></tr>
+<tr><td>Plan page (daily planning)</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org context</td></tr>
+<tr><td>Settings / Profile</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org settings tab</td></tr>
+<tr><td>Team / Members / Portfolio / Reports</td><td><span class="badge badge-done">EXISTS</span></td><td>Wire to org API instead of teams API</td></tr>
+<tr><td>Sidebar + Navbar + ViewsBar</td><td><span class="badge badge-done">EXISTS</span></td><td>Add org switcher dropdown at top of sidebar</td></tr>
+<tr><td>Command palette (Cmd+K)</td><td><span class="badge badge-done">EXISTS</span></td><td>Scope search to current org</td></tr>
+<tr><td>API client (<code>apiClient</code>)</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>X-Org-Id</code> header to all requests</td></tr>
+<tr><td>Zustand stores (5)</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>currentOrgId</code> to ui-store</td></tr>
+<tr><td><code>useAuth()</code> hook</td><td><span class="badge badge-done">EXISTS</span></td><td>Add <code>userOrgs[]</code>, <code>currentOrgId</code>, <code>switchOrg()</code></td></tr>
+<tr><td>Org switcher component</td><td><span class="badge badge-new">NEW</span></td><td>Dropdown: logo + name + role badge. Create/join org. Cmd+Shift+W</td></tr>
+<tr><td><code>useVocabulary()</code> hook</td><td><span class="badge badge-new">NEW</span></td><td>Dynamic label translation based on active mode</td></tr>
+<tr><td>Mode selector page</td><td><span class="badge badge-new">NEW</span></td><td>Card grid with 11 industry icons + descriptions</td></tr>
+<tr><td>Messaging channels UI</td><td><span class="badge badge-new">NEW</span></td><td>Channel list, message view, threading, reactions</td></tr>
+<tr><td>Sprint management UI</td><td><span class="badge badge-new">NEW</span></td><td>Sprint board, burndown chart, retrospective form</td></tr>
+<tr><td>Workflow editor</td><td><span class="badge badge-new">NEW</span></td><td>Visual status + transition editor in project settings</td></tr>
+<tr><td>Custom fields UI</td><td><span class="badge badge-new">NEW</span></td><td>Field definition editor, field renderer in task detail</td></tr>
+<tr><td>Time tracking UI</td><td><span class="badge badge-new">NEW</span></td><td>Log hours on tasks, timer widget</td></tr>
+</tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 11: IMPLEMENTATION PLAN -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec-roadmap"><span class="section-number">11</span>10-Phase Implementation Roadmap (Backend + Frontend Separated)</h2>
+
+<div class="highlight">
+<strong>Total Scope:</strong> 10 phases over ~12 weeks. Each phase has backend tasks, frontend tasks, and testing. Phases are sequential (each depends on the previous). Within each phase, backend and frontend can run in parallel after Phase 1.
+</div>
+
+<!-- Phase 1 -->
+<div class="card" style="border-left:3px solid var(--red)">
+<h4>Phase 1: Multi-Tenant Foundation <span class="tag tag-red">CRITICAL PATH</span> <span class="tag tag-amber">Week 1-2</span></h4>
+
+<h5>Backend (12 tasks)</h5>
+<ol>
+  <li>Create <code>organizations</code> table (id, name, slug, logo_url, plan, owner_id, logto_org_id, industry_mode, settings JSONB, max_members, max_projects, max_storage_mb, is_active, trial_ends_at)</li>
+  <li>Create <code>org_memberships</code> table (org_id, user_id, role, status, invited_by, joined_at, last_active_at, preferences JSONB)</li>
+  <li>Create <code>org_invites</code> table (org_id, email, role, invite_code, invite_type, expires_at, status)</li>
+  <li>Create <code>org_teams</code> table (org_id, name, description, color, lead_id) — sub-teams within org</li>
+  <li>Create <code>org_team_members</code> table (org_id, team_id, user_id, team_role)</li>
+  <li>Add <code>org_id UUID</code> column to: tasks, projects, sections, comments, tags, task_tags, notifications, recurring_rules, sync_metadata, progress_snapshots (all nullable initially for backwards compat)</li>
+  <li>Create RLS policies on ALL org-scoped tables (single DO $$ loop)</li>
+  <li>Create tenant middleware: extract org_id from <code>X-Org-Id</code> header or Logto org token, validate membership, <code>SET LOCAL app.current_org_id</code></li>
+  <li>Create organization CRUD routes: POST /orgs, GET /orgs, GET /orgs/:id, PATCH /orgs/:id, DELETE /orgs/:id</li>
+  <li>Create member management routes: GET /orgs/:id/members, POST /orgs/:id/invite, PATCH /orgs/:id/members/:userId, DELETE /orgs/:id/members/:userId</li>
+  <li>Migration script: auto-create personal org for each existing user, assign all their tasks/projects to it</li>
+  <li>Wire Logto organization webhooks: sync membership changes to org_memberships table</li>
+</ol>
+
+<h5>Frontend (6 tasks)</h5>
+<ol>
+  <li>Create <code>useOrgStore</code> Zustand store: currentOrgId, userOrgs[], switchOrg()</li>
+  <li>Modify <code>apiClient</code>: add <code>X-Org-Id</code> header to all requests from store</li>
+  <li>Create <code>OrgSwitcher</code> component: sidebar dropdown with org list + create new</li>
+  <li>Add org switcher to sidebar (top position, above nav items)</li>
+  <li>Create <code>/create-org</code> page: name, slug, logo upload, invite members</li>
+  <li>Modify <code>useAuth</code> hook: fetch user orgs on login, set default org</li>
+</ol>
+
+<h5>Testing (3 tasks)</h5>
+<ol>
+  <li>Integration tests: org CRUD + member management</li>
+  <li>RLS isolation test: verify user A cannot see user B&rsquo;s org data</li>
+  <li>E2E test: create org, invite member, switch between orgs</li>
+</ol>
+</div>
+
+<!-- Phase 2 -->
+<div class="card" style="border-left:3px solid var(--violet)">
+<h4>Phase 2: Industry Modes + Seed Data <span class="tag tag-violet">MODES</span> <span class="tag tag-amber">Week 2-3</span></h4>
+
+<h5>Backend (8 tasks)</h5>
+<ol>
+  <li>Seed 11 industry modes into <code>industry_modes</code> table (legal, healthcare, dev_teams, construction, real_estate, education, finance, hr, marketing, family, students)</li>
+  <li>Seed 120+ vocabulary terms across 11 modes into <code>mode_vocabulary</code></li>
+  <li>Seed 70 mode-specific templates into <code>mode_templates</code> with JSONB subtasks</li>
+  <li>Seed 66 dashboard widget configs into <code>mode_dashboard_widgets</code></li>
+  <li>Create <code>org_vocabulary_overrides</code> table for per-org customization</li>
+  <li>Add <code>GET /modes/active</code> endpoint to return vocabulary map for current org</li>
+  <li>Add mode to org settings: <code>PATCH /orgs/:id { industryMode: "legal" }</code></li>
+  <li>Cache vocabulary in Valkey (5-min TTL per org)</li>
+</ol>
+
+<h5>Frontend (7 tasks)</h5>
+<ol>
+  <li>Create <code>useVocabulary()</code> hook: fetches mode vocabulary, returns <code>t("Task")</code> function</li>
+  <li>Create <code>VocabularyProvider</code> context wrapping app</li>
+  <li>Create mode selector page: 11 cards with icons, descriptions, &ldquo;Popular&rdquo; badges</li>
+  <li>Wire <code>t()</code> into all task/project/tag/section labels across ALL pages</li>
+  <li>Create mode-specific dashboard: widget registry rendering from mode config</li>
+  <li>Update onboarding: add &ldquo;What industry are you in?&rdquo; step after signup</li>
+  <li>Show mode badge + color tint in sidebar based on active mode</li>
+</ol>
+</div>
+
+<!-- Phase 3 -->
+<div class="card" style="border-left:3px solid var(--cyan)">
+<h4>Phase 3: Jira-like Project Management <span class="tag tag-cyan">PROJECTS</span> <span class="tag tag-amber">Week 3-5</span></h4>
+
+<h5>Backend (14 tasks)</h5>
+<ol>
+  <li>Extend <code>projects</code> table: add <code>project_type</code> (scrum/kanban/bug_tracker/service_desk), <code>key</code> (UNJX), <code>workflow_id</code>, <code>lead_id</code>, <code>default_assignee_id</code>, <code>issue_counter</code>, <code>settings JSONB</code></li>
+  <li>Create <code>workflows</code> table (org_id, name, is_default)</li>
+  <li>Create <code>workflow_statuses</code> table (workflow_id, name, category todo/in_progress/done, color, sort_order, is_initial, is_final)</li>
+  <li>Create <code>workflow_transitions</code> table (from_status_id, to_status_id, allowed_roles[], conditions JSONB, on_transition JSONB)</li>
+  <li>Seed default workflows: Simple (Todo→Done), Standard (Todo→In Progress→In Review→Done), Bug (New→Triaged→In Progress→Fixed→Verified→Closed)</li>
+  <li>Extend <code>tasks</code> table: add <code>task_type</code> (epic/story/task/bug/subtask), <code>issue_key</code> (UNJX-42), <code>status_id</code> FK→workflow_statuses, <code>assignee_id</code>, <code>reporter_id</code>, <code>reviewer_id</code>, <code>sprint_id</code>, <code>epic_id</code>, <code>parent_id</code>, <code>estimate_points</code>, <code>estimate_hours</code>, <code>logged_hours</code>, <code>remaining_hours</code>, <code>resolution</code>, <code>custom_fields JSONB</code>, <code>vote_count</code>, <code>watcher_count</code></li>
+  <li>Create <code>task_watchers</code> table (task_id, user_id, org_id)</li>
+  <li>Create <code>task_links</code> table (source_task_id, target_task_id, link_type: blocks/relates_to/duplicates)</li>
+  <li>Create <code>time_entries</code> table (task_id, user_id, org_id, hours, description, logged_date)</li>
+  <li>Create <code>labels</code> table (org_id, name, color) — replace user-scoped tags</li>
+  <li>Create <code>task_labels</code> join table</li>
+  <li>Auto-generate issue keys: UNJX-1, UNJX-2... per project</li>
+  <li>Workflow transition endpoint: <code>PATCH /tasks/:id/transition { statusId }</code> — validates allowed transitions</li>
+  <li>Create workflow CRUD routes: <code>/orgs/:orgId/workflows</code></li>
+</ol>
+
+<h5>Frontend (10 tasks)</h5>
+<ol>
+  <li>Redesign task detail panel: add type selector (Epic/Story/Task/Bug), status dropdown (from workflow), assignee picker (from org members), time tracking section</li>
+  <li>Create issue key display in all task views (UNJX-42 badge)</li>
+  <li>Create project settings page: project type, workflow selection, lead, default assignee</li>
+  <li>Create workflow editor: visual status + transition drag-and-drop builder</li>
+  <li>Update Kanban board: columns from workflow statuses (not hardcoded todo/in_progress/done)</li>
+  <li>Add Epic → Story → Task hierarchy in list view (collapsible tree)</li>
+  <li>Add assignee picker dropdown (search org members, avatar + name)</li>
+  <li>Add task linking UI: &ldquo;Link issue&rdquo; button → search → select link type</li>
+  <li>Add time tracking widget: log hours, see total, timer button</li>
+  <li>Create &ldquo;My Work&rdquo; view: all tasks assigned to current user across projects</li>
+</ol>
+</div>
+
+<!-- Phase 4 -->
+<div class="card" style="border-left:3px solid var(--green)">
+<h4>Phase 4: Sprint / Cycle Management <span class="tag tag-green">SPRINTS</span> <span class="tag tag-amber">Week 5-6</span></h4>
+
+<h5>Backend (8 tasks)</h5>
+<ol>
+  <li>Create <code>sprints</code> table (org_id, project_id, name, goal, status, start_date, end_date, committed_points, completed_points, retro_*)</li>
+  <li>Create <code>sprint_tasks</code> join table (sprint_id, task_id, added_at)</li>
+  <li>Create <code>sprint_burndown</code> table (sprint_id, captured_at DATE, points data)</li>
+  <li>Sprint CRUD routes: <code>/orgs/:orgId/projects/:projectId/sprints</code></li>
+  <li>Add/remove tasks from sprint: <code>POST/DELETE /sprints/:id/tasks/:taskId</code></li>
+  <li>Cron job: daily burndown snapshot at midnight per org timezone</li>
+  <li>Sprint completion: auto-move incomplete tasks to next sprint or backlog</li>
+  <li>Sprint retrospective endpoint: save went_well, to_improve, action_items</li>
+</ol>
+
+<h5>Frontend (6 tasks)</h5>
+<ol>
+  <li>Create sprint board page: backlog ↔ sprint task drag</li>
+  <li>Create burndown chart component (recharts line chart)</li>
+  <li>Sprint planning view: capacity, committed vs velocity</li>
+  <li>Sprint retrospective form: 3-column layout (went well / improve / actions)</li>
+  <li>Sprint selector in project nav (active sprint highlighted)</li>
+  <li>Velocity trend chart (last 6 sprints)</li>
+</ol>
+</div>
+
+<!-- Phase 5 -->
+<div class="card" style="border-left:3px solid var(--blue)">
+<h4>Phase 5: Messaging Channels (Slack-like) <span class="tag tag-blue">CHANNELS</span> <span class="tag tag-amber">Week 6-7</span></h4>
+
+<h5>Backend (10 tasks)</h5>
+<ol>
+  <li>Create <code>channels</code> table (org_id, name, channel_type: public/private/dm/group_dm, topic, member_count, last_message_at)</li>
+  <li>Create <code>channel_members</code> table (channel_id, user_id, role, muted, last_read_at, notification_pref)</li>
+  <li>Create <code>messages</code> table (channel_id, user_id, content, thread_id, reply_count, mentioned_user_ids[], is_edited, has_attachments)</li>
+  <li>Create <code>message_reactions</code> table (message_id, user_id, emoji)</li>
+  <li>Create <code>pinned_messages</code> table</li>
+  <li>Channel CRUD routes: <code>/orgs/:orgId/channels</code></li>
+  <li>Message routes: <code>/channels/:id/messages</code> (paginated, threaded)</li>
+  <li>WebSocket integration: real-time message delivery (existing ws support)</li>
+  <li>Full-text search on messages: <code>to_tsvector</code> + GIN index</li>
+  <li>Unread count calculation per user per channel</li>
+</ol>
+
+<h5>Frontend (8 tasks)</h5>
+<ol>
+  <li>Create channel list sidebar (# public, lock private, DM avatars)</li>
+  <li>Create message view: scrollable, auto-load older, new message indicator</li>
+  <li>Create message input: rich text, @mention autocomplete, file upload, emoji picker</li>
+  <li>Create thread view: slide-in panel for thread replies</li>
+  <li>Create channel creation modal: name, type, invite members</li>
+  <li>Real-time messages via WebSocket (optimistic rendering)</li>
+  <li>Unread badges on channels + notification dot in nav</li>
+  <li>Message search (full-text, filters: from, in, has, before/after)</li>
+</ol>
+</div>
+
+<!-- Phase 6 -->
+<div class="card" style="border-left:3px solid var(--pink)">
+<h4>Phase 6: Custom Fields + SLA <span class="tag tag-pink">FIELDS</span> <span class="tag tag-amber">Week 7-8</span></h4>
+
+<h5>Backend (6 tasks)</h5>
+<ol>
+  <li>Create <code>custom_field_definitions</code> table (org_id, name, field_key, field_type: 13 types, options JSONB, applicable_task_types[])</li>
+  <li>Create <code>custom_field_values</code> table (task_id, field_id, value JSONB) + GIN index</li>
+  <li>Create <code>sla_policies</code> table (org_id, project_id, response_time_minutes, resolution_time_minutes, business_hours JSONB)</li>
+  <li>Custom field CRUD routes: <code>/orgs/:orgId/fields</code></li>
+  <li>SLA policy routes: <code>/orgs/:orgId/sla</code></li>
+  <li>SLA breach detection cron: check overdue SLAs every 15 min, send alerts</li>
+</ol>
+
+<h5>Frontend (4 tasks)</h5>
+<ol>
+  <li>Custom field editor in org settings: add/edit/delete field definitions</li>
+  <li>Custom field renderer in task detail: dynamic form based on field_type</li>
+  <li>SLA indicators on task cards: green (on track), yellow (warning), red (breached)</li>
+  <li>SLA dashboard widget: compliance rate, average response/resolution time</li>
+</ol>
+</div>
+
+<!-- Phase 7 -->
+<div class="card" style="border-left:3px solid var(--amber)">
+<h4>Phase 7: AI Team Features <span class="tag tag-amber">AI</span> <span class="tag tag-amber">Week 8-9</span></h4>
+
+<h5>Backend (8 tasks)</h5>
+<ol>
+  <li>Create <code>ai_operations</code> table (org_id, operation_type, input, output, model, tokens, status)</li>
+  <li>Create <code>ai_suggestions</code> table (org_id, entity_type, suggestion_type, suggestion JSONB, confidence, accepted)</li>
+  <li>AI standup summary: cron at 9 AM per org, compile yesterday&rsquo;s activity, generate summary via Haiku, deliver via org&rsquo;s preferred channel</li>
+  <li>AI sprint report: cron Friday 5 PM, velocity + burndown + blockers analysis via Sonnet</li>
+  <li>AI risk detection: cron every 4 hours, check blocked/overdue/stale tasks, alert managers</li>
+  <li>AI smart assignment: on task creation, suggest assignee based on expertise + workload (Haiku)</li>
+  <li>AI task decomposition: Epic → Stories auto-split via Sonnet</li>
+  <li>Inject org mode vocabulary into all AI system prompts</li>
+</ol>
+
+<h5>Frontend (4 tasks)</h5>
+<ol>
+  <li>AI suggestion cards: &ldquo;Assign to John (85% match)&rdquo; with accept/dismiss</li>
+  <li>AI standup view: daily summary with team member contributions</li>
+  <li>AI risk dashboard widget: blocked tasks, overdue items, bottleneck alerts</li>
+  <li>AI project health badge: green/yellow/red with explanation tooltip</li>
+</ol>
+</div>
+
+<!-- Phase 8 -->
+<div class="card" style="border-left:3px solid var(--cyan)">
+<h4>Phase 8: Reports + Analytics <span class="tag tag-cyan">REPORTS</span> <span class="tag tag-amber">Week 9-10</span></h4>
+
+<h5>Backend (6 tasks)</h5>
+<ol>
+  <li>Create <code>report_snapshots</code> table (org_id, report_type, period, data JSONB)</li>
+  <li>Sprint velocity report: points completed per sprint (last 10)</li>
+  <li>Cycle time / lead time metrics: time from creation → completion</li>
+  <li>Team workload report: tasks per member, hours logged, capacity</li>
+  <li>SLA compliance report: response/resolution within SLA %</li>
+  <li>Scheduled report delivery: weekly PDF via email/WhatsApp</li>
+</ol>
+
+<h5>Frontend (5 tasks)</h5>
+<ol>
+  <li>Reports page: tabs for Velocity, Burndown, Workload, Cycle Time, SLA</li>
+  <li>Velocity chart: bar chart, last 10 sprints, with trend line</li>
+  <li>Workload view: team members with task bars + capacity indicator</li>
+  <li>Cycle time histogram: distribution of task completion times</li>
+  <li>Export reports: CSV, PDF, shareable link</li>
+</ol>
+</div>
+
+<!-- Phase 9 -->
+<div class="card" style="border-left:3px solid var(--green)">
+<h4>Phase 9: Goals / OKRs + Standups <span class="tag tag-green">GOALS</span> <span class="tag tag-amber">Week 10-11</span></h4>
+
+<h5>Backend (5 tasks)</h5>
+<ol>
+  <li>Create <code>goals</code> table (org_id, title, description, parent_id for hierarchy, owner_id, target_value, current_value, due_date, status)</li>
+  <li>Create <code>goal_task_links</code> table (goal_id, task_id) — auto-progress from task completion</li>
+  <li>Extend existing <code>standups</code>: add org_id, AI summary, mood tracking</li>
+  <li>Goals CRUD + progress calculation routes</li>
+  <li>AI standup delivery via WhatsApp/Telegram (compile + deliver)</li>
+</ol>
+
+<h5>Frontend (4 tasks)</h5>
+<ol>
+  <li>Goals page: Company → Team → Individual hierarchy tree</li>
+  <li>Goal progress bars with auto-calculated % from linked tasks</li>
+  <li>Standup form: done yesterday, planned today, blockers, mood emoji</li>
+  <li>Team standup summary view: all members&rsquo; standups + AI digest</li>
+</ol>
+</div>
+
+<!-- Phase 10 -->
+<div class="card" style="border-left:3px solid var(--red)">
+<h4>Phase 10: Polish, Testing, Deploy <span class="tag tag-red">SHIP</span> <span class="tag tag-amber">Week 11-12</span></h4>
+
+<h5>Backend (5 tasks)</h5>
+<ol>
+  <li>Full RLS audit: verify no cross-org data leakage across all 40 tables</li>
+  <li>Performance: add composite indexes (org_id, ...) on all hot queries</li>
+  <li>GDPR: per-org data export + deletion endpoints</li>
+  <li>PgBouncer transaction mode configuration on VPS</li>
+  <li>Load test: k6 with 100 concurrent orgs, 1000 tasks each</li>
+</ol>
+
+<h5>Frontend (4 tasks)</h5>
+<ol>
+  <li>E2E tests: org create → invite → accept → create project → assign task → complete → report</li>
+  <li>Responsive audit: all new pages work on mobile/tablet/desktop</li>
+  <li>Empty state design for all new pages (channels, sprints, goals, reports)</li>
+  <li>Rebuild + deploy web client and backend to VPS</li>
+</ol>
+
+<h5>Deploy (3 tasks)</h5>
+<ol>
+  <li>Run migrations on Neon (new tables + org_id columns + RLS)</li>
+  <li>Rebuild backend Docker image, restart</li>
+  <li>Rebuild web-client Docker image, restart, health check</li>
+</ol>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 12: DATABASE SCHEMA -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<!-- Schema details are in Section 20 (Complete Multi-Tenant Database Schema) -->
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 13: DESIGN SYSTEM — COLOR THEMES -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec13"><span class="section-number">13</span>Design System &mdash; Color Themes</h2>
+
+<h3>13.1 Light Theme: Lavender + Gold</h3>
+
+<div class="card" style="background: linear-gradient(135deg, #F8F5FF, #F0EBFA);">
+<table>
+<thead><tr><th>Token</th><th>Hex</th><th>Usage</th><th style="width:60px">Sample</th></tr></thead>
+<tbody>
+<tr><td><code>--bg-primary</code></td><td>#F8F5FF</td><td>App background (lavender-tinted white)</td><td style="background:#F8F5FF;border:1px solid #DDD6FE">&nbsp;</td></tr>
+<tr><td><code>--bg-surface</code></td><td>#F0EBFA</td><td>Sidebar, panels, cards</td><td style="background:#F0EBFA;border:1px solid #DDD6FE">&nbsp;</td></tr>
+<tr><td><code>--bg-surface-alt</code></td><td>#E8E0F5</td><td>Hovered surface, alternate rows</td><td style="background:#E8E0F5;border:1px solid #DDD6FE">&nbsp;</td></tr>
+<tr><td><code>--bg-card</code></td><td>#FFFFFF</td><td>Cards, modals, popovers</td><td style="background:#FFFFFF;border:1px solid #DDD6FE">&nbsp;</td></tr>
+<tr><td><code>--border</code></td><td>#DDD6FE</td><td>Borders, dividers</td><td style="background:#DDD6FE">&nbsp;</td></tr>
+<tr><td><code>--text-primary</code></td><td>#1E1B4B</td><td>Headings, primary text</td><td style="background:#1E1B4B">&nbsp;</td></tr>
+<tr><td><code>--text-secondary</code></td><td>#6B7280</td><td>Body text, descriptions</td><td style="background:#6B7280">&nbsp;</td></tr>
+<tr><td><code>--text-muted</code></td><td>#9CA3AF</td><td>Placeholders, timestamps</td><td style="background:#9CA3AF">&nbsp;</td></tr>
+<tr><td><code>--accent-primary</code></td><td>#6D28D9</td><td>Buttons, links, active states (violet-700, AA pass)</td><td style="background:#6D28D9">&nbsp;</td></tr>
+<tr><td><code>--accent-hover</code></td><td>#5B21B6</td><td>Hover on primary buttons</td><td style="background:#5B21B6">&nbsp;</td></tr>
+<tr><td><code>--accent-container</code></td><td>#EDE9FE</td><td>Selected badges, tag backgrounds</td><td style="background:#EDE9FE;border:1px solid #DDD6FE">&nbsp;</td></tr>
+<tr><td><code>--gold</code></td><td>#D97706</td><td>Premium badges, gamification, gold accents</td><td style="background:#D97706">&nbsp;</td></tr>
+<tr><td><code>--gold-light</code></td><td>#FDE68A</td><td>Gold badge backgrounds</td><td style="background:#FDE68A;border:1px solid #D97706">&nbsp;</td></tr>
+<tr><td><code>--success</code></td><td>#059669</td><td>Completed, positive actions</td><td style="background:#059669">&nbsp;</td></tr>
+<tr><td><code>--warning</code></td><td>#D97706</td><td>Warnings, attention needed</td><td style="background:#D97706">&nbsp;</td></tr>
+<tr><td><code>--error</code></td><td>#DC2626</td><td>Errors, destructive actions</td><td style="background:#DC2626">&nbsp;</td></tr>
+<tr><td><code>--info</code></td><td>#2563EB</td><td>Informational, links</td><td style="background:#2563EB">&nbsp;</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>13.2 Dark Theme: Deep Purple + Gold</h3>
+
+<div class="card">
+<table>
+<thead><tr><th>Token</th><th>Hex</th><th>Usage</th><th style="width:60px">Sample</th></tr></thead>
+<tbody>
+<tr><td><code>--bg-primary</code></td><td>#0F0A1A</td><td>App background (deep midnight purple)</td><td style="background:#0F0A1A">&nbsp;</td></tr>
+<tr><td><code>--bg-surface</code></td><td>#1A1528</td><td>Sidebar, panels</td><td style="background:#1A1528">&nbsp;</td></tr>
+<tr><td><code>--bg-surface-alt</code></td><td>#241E35</td><td>Hovered surfaces</td><td style="background:#241E35">&nbsp;</td></tr>
+<tr><td><code>--bg-card</code></td><td>#1E1833</td><td>Elevated cards, modals</td><td style="background:#1E1833">&nbsp;</td></tr>
+<tr><td><code>--border</code></td><td>#312E81</td><td>Borders (indigo-900)</td><td style="background:#312E81">&nbsp;</td></tr>
+<tr><td><code>--text-primary</code></td><td>#F5F3FF</td><td>Primary text (violet-50)</td><td style="background:#F5F3FF">&nbsp;</td></tr>
+<tr><td><code>--text-secondary</code></td><td>#C4B5FD</td><td>Secondary text (violet-300)</td><td style="background:#C4B5FD">&nbsp;</td></tr>
+<tr><td><code>--text-muted</code></td><td>#7C7C8A</td><td>Muted text</td><td style="background:#7C7C8A">&nbsp;</td></tr>
+<tr><td><code>--accent-primary</code></td><td>#A78BFA</td><td>Buttons, links (violet-400)</td><td style="background:#A78BFA">&nbsp;</td></tr>
+<tr><td><code>--accent-hover</code></td><td>#C4B5FD</td><td>Hover (violet-300)</td><td style="background:#C4B5FD">&nbsp;</td></tr>
+<tr><td><code>--accent-container</code></td><td>#2E1065</td><td>Selected badges (violet-950)</td><td style="background:#2E1065">&nbsp;</td></tr>
+<tr><td><code>--gold</code></td><td>#FBBF24</td><td>Gold accent (amber-400)</td><td style="background:#FBBF24">&nbsp;</td></tr>
+<tr><td><code>--gold-muted</code></td><td>#D97706</td><td>Gold on dark contexts</td><td style="background:#D97706">&nbsp;</td></tr>
+<tr><td><code>--success</code></td><td>#34D399</td><td>Success (emerald-400)</td><td style="background:#34D399">&nbsp;</td></tr>
+<tr><td><code>--warning</code></td><td>#FBBF24</td><td>Warning (amber-400)</td><td style="background:#FBBF24">&nbsp;</td></tr>
+<tr><td><code>--error</code></td><td>#F87171</td><td>Error (red-400)</td><td style="background:#F87171">&nbsp;</td></tr>
+<tr><td><code>--info</code></td><td>#60A5FA</td><td>Info (blue-400)</td><td style="background:#60A5FA">&nbsp;</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>13.3 Industry Mode Color Coding</h3>
+
+<table>
+<thead><tr><th>Mode</th><th>Primary</th><th>Badge BG</th><th style="width:40px">Swatch</th><th>Rationale</th></tr></thead>
+<tbody>
+<tr><td>Legal</td><td>#1E3A5F</td><td>#DBEAFE</td><td style="background:#1E3A5F">&nbsp;</td><td>Navy blue = authority, trust, law</td></tr>
+<tr><td>Healthcare</td><td>#0D7377</td><td>#CCFBF1</td><td style="background:#0D7377">&nbsp;</td><td>Teal = clinical, clean, healing</td></tr>
+<tr><td>Dev Teams</td><td>#7C3AED</td><td>#EDE9FE</td><td style="background:#7C3AED">&nbsp;</td><td>Violet = tech, innovation</td></tr>
+<tr><td>Construction</td><td>#C2410C</td><td>#FED7AA</td><td style="background:#C2410C">&nbsp;</td><td>Burnt orange = industrial, safety</td></tr>
+<tr><td>Real Estate</td><td>#0891B2</td><td>#CFFAFE</td><td style="background:#0891B2">&nbsp;</td><td>Cyan = property, openness</td></tr>
+<tr><td>Education</td><td>#2563EB</td><td>#DBEAFE</td><td style="background:#2563EB">&nbsp;</td><td>Blue = academic, learning</td></tr>
+<tr><td>Finance</td><td>#047857</td><td>#D1FAE5</td><td style="background:#047857">&nbsp;</td><td>Emerald = money, growth</td></tr>
+<tr><td>HR</td><td>#DB2777</td><td>#FCE7F3</td><td style="background:#DB2777">&nbsp;</td><td>Pink = people, warmth</td></tr>
+<tr><td>Marketing</td><td>#E11D48</td><td>#FFE4E6</td><td style="background:#E11D48">&nbsp;</td><td>Rose = creative, bold</td></tr>
+<tr><td>Family</td><td>#8B5CF6</td><td>#EDE9FE</td><td style="background:#8B5CF6">&nbsp;</td><td>Soft violet = personal, friendly</td></tr>
+<tr><td>Students</td><td>#4F46E5</td><td>#E0E7FF</td><td style="background:#4F46E5">&nbsp;</td><td>Indigo = focus, academia</td></tr>
+</tbody>
+</table>
+
+<h3>13.4 Gradient &amp; Glassmorphism Specs</h3>
+
+<div class="card">
+<h4>Primary CTA Gradient (Purple &rarr; Gold)</h4>
+<div style="height:48px;border-radius:12px;background:linear-gradient(135deg,#6D28D9,#D97706);display:flex;align-items:center;justify-content:center;color:white;font-weight:600">Get Started &rarr;</div>
+<pre><code>background: linear-gradient(135deg, #6D28D9, #D97706);</code></pre>
+
+<h4>Glassmorphism</h4>
+<div style="margin:12px 0;padding:16px;border-radius:12px;background:rgba(108,92,231,0.08);backdrop-filter:blur(12px);border:1px solid rgba(108,92,231,0.15)">
+  Light mode: <code>background: rgba(255,255,255,0.65); border: 1px solid rgba(108,92,231,0.08); backdrop-filter: blur(12px);</code><br>
+  Dark mode: <code>background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); backdrop-filter: blur(12px);</code>
+</div>
+
+<h4>Glow Effects</h4>
+<pre><code>/* Purple glow (buttons, active states) */
+box-shadow: 0 0 20px rgba(109, 40, 217, 0.3), 0 0 40px rgba(109, 40, 217, 0.1);
+
+/* Gold glow (achievements, premium) */
+box-shadow: 0 0 20px rgba(217, 119, 6, 0.3), 0 0 40px rgba(217, 119, 6, 0.1);</code></pre>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 14: TYPOGRAPHY & SPACING TOKENS -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec14"><span class="section-number">14</span>Typography &amp; Spacing Tokens</h2>
+
+<h3>14.1 Font Stack</h3>
+<table>
+<thead><tr><th>Role</th><th>Font</th><th>Fallback</th><th>Usage</th></tr></thead>
+<tbody>
+<tr><td>Display / Hero</td><td>Bebas Neue</td><td>Impact, sans-serif</td><td>Landing pages, marketing hero sections</td></tr>
+<tr><td>Headings</td><td>Outfit</td><td>Plus Jakarta Sans, Inter, system-ui</td><td>H1-H4 in app, dashboard titles</td></tr>
+<tr><td>Body</td><td>DM Sans</td><td>Inter, system-ui, sans-serif</td><td>All body text, descriptions, form labels</td></tr>
+<tr><td>Serif Accent</td><td>Playfair Display</td><td>Georgia, serif</td><td>Daily quotes, content delivery</td></tr>
+<tr><td>Code / Data</td><td>JetBrains Mono</td><td>Fira Code, Cascadia Code, monospace</td><td>KPI values, timestamps, code blocks</td></tr>
+</tbody>
+</table>
+
+<h3>14.2 Type Scale</h3>
+<table>
+<thead><tr><th>Token</th><th>Size</th><th>Line Height</th><th>Weight</th><th>Usage</th></tr></thead>
+<tbody>
+<tr><td><code>--text-display</code></td><td>36px / 2.25rem</td><td>1.1</td><td>700</td><td>Hero headings</td></tr>
+<tr><td><code>--text-h1</code></td><td>28px / 1.75rem</td><td>1.2</td><td>700</td><td>Page titles</td></tr>
+<tr><td><code>--text-h2</code></td><td>22px / 1.375rem</td><td>1.3</td><td>600</td><td>Section headers</td></tr>
+<tr><td><code>--text-h3</code></td><td>18px / 1.125rem</td><td>1.4</td><td>600</td><td>Card titles, subsections</td></tr>
+<tr><td><code>--text-h4</code></td><td>16px / 1rem</td><td>1.4</td><td>600</td><td>Widget titles</td></tr>
+<tr><td><code>--text-body</code></td><td>14px / 0.875rem</td><td>1.6</td><td>400</td><td>Body text</td></tr>
+<tr><td><code>--text-sm</code></td><td>12px / 0.75rem</td><td>1.5</td><td>400</td><td>Labels, captions</td></tr>
+<tr><td><code>--text-xs</code></td><td>11px / 0.6875rem</td><td>1.5</td><td>500</td><td>Badges, tags</td></tr>
+<tr><td><code>--text-kpi</code></td><td>32px / 2rem</td><td>1.1</td><td>700</td><td>KPI values (tabular nums)</td></tr>
+</tbody>
+</table>
+
+<h3>14.3 Spacing &amp; Layout Tokens</h3>
+<div class="grid">
+<div class="card">
+<h4>Spacing Scale (4px base)</h4>
+<pre><code>--space-1:   4px    --space-8:   32px
+--space-2:   8px    --space-10:  40px
+--space-3:   12px   --space-12:  48px
+--space-4:   16px   --space-16:  64px
+--space-5:   20px   --space-20:  80px
+--space-6:   24px   --space-24:  96px</code></pre>
+</div>
+<div class="card">
+<h4>Border Radius</h4>
+<pre><code>--radius-sm:    4px   (buttons, inputs)
+--radius-md:    8px   (cards, panels)
+--radius-lg:    12px  (modals, drawers)
+--radius-xl:    16px  (popovers)
+--radius-2xl:   24px  (hero cards)
+--radius-full:  9999px (pills, avatars)</code></pre>
+</div>
+<div class="card">
+<h4>Shadow Scale</h4>
+<pre><code>/* Light theme (purple-tinted) */
+--shadow-sm:  0 1px 2px rgba(30,27,75,0.06);
+--shadow-md:  0 4px 8px rgba(30,27,75,0.08);
+--shadow-lg:  0 8px 24px rgba(30,27,75,0.12);
+--shadow-xl:  0 16px 48px rgba(30,27,75,0.16);
+
+/* Dark theme */
+--shadow-sm:  0 1px 2px rgba(0,0,0,0.3);
+--shadow-md:  0 4px 8px rgba(0,0,0,0.4);
+--shadow-lg:  0 8px 24px rgba(0,0,0,0.5);
+--shadow-xl:  0 16px 48px rgba(0,0,0,0.6);</code></pre>
+</div>
+<div class="card">
+<h4>Layout Containers</h4>
+<pre><code>--container-sm:   480px  (modals, forms)
+--container-md:   720px  (settings, profile)
+--container-lg:   1024px (dashboard)
+--container-xl:   1280px (admin)
+--container-full: 1440px (max width)
+--sidebar:        240px  (expanded)
+--sidebar-mini:   64px   (collapsed)
+--detail-panel:   400px  (right drawer)</code></pre>
+</div>
+</div>
+
+<h3>14.4 Responsive Breakpoints</h3>
+<table>
+<thead><tr><th>Breakpoint</th><th>Range</th><th>Layout</th><th>Sidebar</th><th>Detail Panel</th></tr></thead>
+<tbody>
+<tr><td>Mobile</td><td>&lt;640px</td><td>1 column, bottom nav</td><td>Off-canvas drawer</td><td>Full-screen modal</td></tr>
+<tr><td>Tablet</td><td>640-1023px</td><td>2 columns</td><td>64px collapsed (icons)</td><td>Bottom sheet</td></tr>
+<tr><td>Desktop</td><td>1024-1279px</td><td>3 columns</td><td>240px expanded</td><td>400px right panel</td></tr>
+<tr><td>Wide</td><td>&ge;1280px</td><td>3 columns + space</td><td>280px expanded</td><td>400px right panel</td></tr>
+</tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 15: PAGE-BY-PAGE UI SPECIFICATIONS -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec15"><span class="section-number">15</span>Page-by-Page UI Specifications</h2>
+
+<h3>15.1 User Web App (app.unjynx.me) &mdash; 10 Pages</h3>
+
+<div class="card">
+<h4>A. Dashboard / Home</h4>
+<pre><code>
++----------+ +------------------------------------------+ +----------+
+| SIDEBAR  | |  Good morning, Aniruddh         Mar 30   | | ACTIVITY |
+| 240px    | |                                          | | FEED     |
+|          | |  [+Task] [Quick Add Q] [AI Chat] [Today]  | | 280px    |
+| Nav tree | |                                          | |          |
+| Projects | |  [Tasks Today: 5] [Streak: 12] [XP: 840] | | Timeline |
+| Teams    | |  [Completion: 87%]                        | | of recent|
+| Favorites| |                                          | | actions  |
+|          | |  Today's Tasks (sorted by priority)       | |          |
+| Collapse | |  [ ] Matter A         *P1  Court  Today  | |          |
+| to 64px  | |  [ ] Follow-up B      *P2  Client Mar31  | |          |
++----------+ +------------------------------------------+ +----------+
+</code></pre>
+<ul>
+<li><strong>Greeting:</strong> Time-based + user name + date</li>
+<li><strong>Quick Actions:</strong> Pill buttons for Add Task, Quick Add (Q), AI Chat, Today view</li>
+<li><strong>KPI Cards:</strong> 4 stat cards (200x120px, 12px radius, purple-tinted shadow)</li>
+<li><strong>Task List:</strong> Today's tasks grouped by priority, checkbox + title + metadata</li>
+<li><strong>Right Panel:</strong> Activity feed (avatar + action + timestamp), collapsible</li>
+<li><strong>Mode-specific:</strong> Widgets change per industry mode (Legal: Court Deadlines, Dev: Sprint Burndown)</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>B. Task List</h4>
+<ul>
+<li><strong>Toolbar (sticky):</strong> Group By | Filter | Sort | View Toggle (List/Board/Calendar) | Search</li>
+<li><strong>Group Headers:</strong> Collapsible sections with count badge + inline add button on hover</li>
+<li><strong>Task Row (48px):</strong> Drag handle (::) + Checkbox + Title + Tags (pills) + Priority dot + Assignee avatar (24px) + Due date (color-coded) + Overflow (...)</li>
+<li><strong>Inline Add:</strong> Always visible at bottom, expands to title + date + priority + project</li>
+<li><strong>Detail Panel:</strong> Right drawer 400px or modal 640px with status/priority/dates/description/subtasks/comments/activity</li>
+<li><strong>Keyboard:</strong> J/K navigate, X select, C create, S status, P priority, Enter open, ? help</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>C. Kanban Board</h4>
+<ul>
+<li><strong>Columns:</strong> 280-320px fixed width, horizontal scroll, 12-16px gap</li>
+<li><strong>Column Header:</strong> Status color dot + name + count (5) + WIP limit bar (3/5) + overflow menu</li>
+<li><strong>Card (120-160px):</strong> Tags (top) + Title (bold 14px, max 2 lines) + Description snippet + Bottom strip: attachment/comment count + subtask progress + assignee avatar(s) + due date</li>
+<li><strong>Drag:</strong> Card goes semi-transparent + rotation + increased shadow. Drop zones highlight between cards. 100ms snap animation.</li>
+<li><strong>WIP Limits:</strong> Column tints yellow at limit, red over limit (Trello pattern)</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>D. Calendar View</h4>
+<ul>
+<li><strong>Header:</strong> &lt; March 2026 &gt; | Day/Week/Month toggle | Today button</li>
+<li><strong>Week/Day:</strong> Time grid (8AM-10PM), half-hour gridlines, current time red line + dot</li>
+<li><strong>Events:</strong> Colored cards proportional to duration, 3px left border, resize handles top/bottom</li>
+<li><strong>Month:</strong> Day cells with up to 3 event pills, &ldquo;+N more&rdquo; link, today circle</li>
+<li><strong>Drag-to-create:</strong> Click + hold on empty slot, drag to set duration, release opens quick-create popover</li>
+<li><strong>Left sidebar:</strong> Mini calendar + calendar toggles + unscheduled tasks (draggable onto grid)</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>E. AI Chat</h4>
+<ul>
+<li><strong>Left sidebar (280px):</strong> Search + conversation history grouped by Today/Yesterday/7 days + pinned chats</li>
+<li><strong>Top bar:</strong> AI avatar + persona name + Persona switcher dropdown + Model selector</li>
+<li><strong>AI messages (full-width left):</strong> Subtle lavender bg, markdown rendered, action buttons (Copy/Good/Bad/Regenerate)</li>
+<li><strong>User messages (right-aligned):</strong> Purple-tinted bg, edit button to modify and re-send</li>
+<li><strong>Streaming:</strong> Token-by-token with blinking cursor, &ldquo;Stop generating&rdquo; button, auto-scroll</li>
+<li><strong>Suggested prompts:</strong> 3-4 context-aware pills below messages</li>
+<li><strong>Input (bottom-fixed):</strong> Multi-line auto-resize, attachment button, voice, send (Enter to send, Shift+Enter newline)</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>F. Mode Selector</h4>
+<ul>
+<li><strong>Layout:</strong> Centered, max-width 960px</li>
+<li><strong>Header:</strong> &ldquo;Choose Your Industry Mode&rdquo; + description + search bar</li>
+<li><strong>Filter chips:</strong> All | Popular | Business | Creative | Tech (horizontal scroll)</li>
+<li><strong>Mode Cards (3-column grid, 280x200px each):</strong> Industry icon (48px) + Title (bold 16px) + Description (2-3 lines, muted 14px) + Badges (&ldquo;Popular&rdquo; gold, &ldquo;New&rdquo; green, &ldquo;Premium&rdquo; purple) + &ldquo;Select&rdquo; button</li>
+<li><strong>Active mode:</strong> Checkmark overlay + highlighted border (accent color)</li>
+<li><strong>Responsive:</strong> 3 cols desktop, 2 tablet, 1 mobile</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>G. Organization Switcher (Sidebar Dropdown)</h4>
+<pre><code>
++--------------------+
+| METAminds    v     |  &lt;- click to open
+|--------------------|
+| &gt; METAminds   [check]  (current)
+|   Personal         |  (personal workspace)
+|   Client Corp      |  (other org)
+| ───────────────    |
+|   + Create new org |
+|   Manage orgs      |
++--------------------+
+</code></pre>
+<ul>
+<li><strong>Trigger:</strong> Org logo (24px) + name (truncated) + chevron + plan badge</li>
+<li><strong>Dropdown:</strong> Min 240px, max 7 items before scroll</li>
+<li><strong>Each item:</strong> Logo + name + role badge (Owner/Admin/Member)</li>
+<li><strong>Keyboard:</strong> Cmd+Shift+W to open</li>
+<li><strong>Mobile:</strong> Bottom sheet modal</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>H. Settings Page</h4>
+<ul>
+<li><strong>Layout:</strong> Left nav rail (200px) + centered content (max-width 720px)</li>
+<li><strong>Nav groups:</strong> Account (General, Profile, Security) | Workspace (General, Members, Billing) | App (Theme, Notifications) | Integrations</li>
+<li><strong>Form sections:</strong> Label + input, auto-save for toggles, explicit save for text fields</li>
+<li><strong>Danger Zone (bottom):</strong> Red-bordered card, type-to-confirm for destructive actions</li>
+<li><strong>Responsive:</strong> Nav collapses to accordion on mobile</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>I. Team / Members Page</h4>
+<ul>
+<li><strong>Header:</strong> &ldquo;Team Members (12)&rdquo; + [Invite Members] button</li>
+<li><strong>Member rows:</strong> Avatar (40px) + Name (bold) + Email (muted) + Role badge + Last active + Overflow menu</li>
+<li><strong>Pending Invites section:</strong> Envelope icon + email + &ldquo;Sent 2d ago&rdquo; + Resend/Cancel</li>
+<li><strong>Invite modal:</strong> Multi-email chip input + Role selector + optional message + batch send</li>
+<li><strong>Invite link:</strong> Copyable URL with Reset button</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>J. Profile Page</h4>
+<ul>
+<li><strong>Layout:</strong> Centered, max-width 720px</li>
+<li><strong>Avatar:</strong> 96px circle, camera icon overlay on hover, drag-drop upload, crop modal, initials fallback</li>
+<li><strong>Form:</strong> Name, Display Name, Email (verified badge), Phone, Bio (character count), Timezone</li>
+<li><strong>Theme:</strong> 3-way segment: Light / Dark / System (live preview, no reload)</li>
+<li><strong>Connected accounts:</strong> Service icon + name + status (Connected green / Connect button)</li>
+<li><strong>Gamification:</strong> Level + XP bar + Streak + Badge count + Completion rate</li>
+</ul>
+</div>
+
+<h3>15.2 Admin Portal (unjynx.me/admin) &mdash; 5 Key Pages</h3>
+
+<div class="card">
+<h4>Admin Dashboard</h4>
+<ul>
+<li><strong>KPI Row (4 cards):</strong> Total Users + Active Today + MRR + Tasks Created &mdash; each with value (bold 28px), trend arrow (+12% green / -3% red), sparkline</li>
+<li><strong>Charts (2x2 grid):</strong> User Growth (line), Revenue Trend (area), Plan Distribution (donut), Feature Usage (bar)</li>
+<li><strong>System Health:</strong> CPU/RAM/Disk bars, API uptime %, Queue depth, P95 latency</li>
+<li><strong>Recent Activity Feed:</strong> Timeline with avatar + action + timestamp, auto-refresh 30s</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>User Management</h4>
+<ul>
+<li><strong>Data Table:</strong> Checkbox + Avatar+Name + Email + Status (Active/Banned) + Plan badge + Role + Last Active + Actions</li>
+<li><strong>Search + Filters:</strong> Instant search (300ms debounce), filter dropdowns (Status, Plan, Role), removable chips</li>
+<li><strong>Bulk Actions Bar:</strong> Appears on selection &mdash; Export, Change Plan, Change Role, Ban, Delete</li>
+<li><strong>User Detail Drawer (400px):</strong> Tabs: Account, Activity, Tasks, Billing + Admin actions (Impersonate, Reset PW, Ban, Delete)</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>Organization Management</h4>
+<ul>
+<li><strong>Table columns:</strong> Logo+Name + Mode badge (colored pill) + Members (active/total) + Plan badge + Created + Status + Actions</li>
+<li><strong>Org Detail:</strong> Tabs: Overview (tasks, projects, users, storage) + Members + Billing + Activity + Settings</li>
+<li><strong>Admin Actions:</strong> Override Plan, Suspend, Transfer Ownership, Delete</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>Content Management</h4>
+<ul>
+<li><strong>Content type tabs:</strong> Daily Content | Templates | Vocabulary | Quotes</li>
+<li><strong>List:</strong> Title + preview + Category badge + Status (Draft gray, Scheduled blue, Live green, Archived muted)</li>
+<li><strong>Editor (split-pane):</strong> Left = TipTap rich text editor, Right = live preview. Auto-save indicator. XSS prevention via DOMPurify.</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>Analytics</h4>
+<ul>
+<li><strong>Date Range:</strong> Quick picks (7/30/90d, Year, All) + Custom picker + Comparison toggle + Granularity</li>
+<li><strong>Sections:</strong> Overview, Engagement, Retention, Revenue, Content, Channels, Funnel</li>
+<li><strong>Charts:</strong> Line (DAU), Area (revenue), Bar (feature usage), Donut (plans), Retention curve (D0-D30), Funnel (Signup&rarr;Onboard&rarr;Task&rarr;Upgrade&rarr;Retained)</li>
+<li><strong>Export:</strong> CSV, JSON, PNG. Scheduled email reports. Shareable read-only links.</li>
+</ul>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 16: COMPONENT LIBRARY -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec16"><span class="section-number">16</span>Component Library Specifications</h2>
+
+<div class="grid">
+<div class="card">
+<h4>Sidebar Navigation</h4>
+<ul>
+<li>Width: 240px expanded, 64px collapsed</li>
+<li>Item height: 36px desktop, 48px mobile</li>
+<li>Icon: 20px, active left border 3px</li>
+<li>Hover: bg at 0.08 opacity of accent</li>
+<li>Collapse: Cmd+B, 250ms ease-out</li>
+<li>Mobile: Off-canvas drawer 280px</li>
+<li>Structure: Org switcher &rarr; Quick actions &rarr; Primary nav &rarr; Favorites &rarr; Teams/Projects &rarr; Settings (fixed bottom)</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>Command Palette (Cmd+K)</h4>
+<ul>
+<li>Overlay: rgba(0,0,0,0.5)</li>
+<li>Dialog: 640px max-width, 16px radius</li>
+<li>Input: 48px height, large placeholder</li>
+<li>Results: max-height 400px, 40px items</li>
+<li>Groups: Recent, Actions, Navigation</li>
+<li>Keys: Arrow navigate, Enter select, Esc close</li>
+<li>Open: 150ms scale(0.95&rarr;1) + fade</li>
+<li>Library: cmdk (pacocoursey/cmdk)</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>Task Card / Row</h4>
+<ul>
+<li>Height: 48px (list), 120-160px (card)</li>
+<li>Checkbox: 20px, border color = priority</li>
+<li>Title: 14px medium, truncate ellipsis</li>
+<li>Priority: Urgent=#EF4444, High=#F97316, Med=#EAB308, Low=#3B82F6</li>
+<li>Avatar: 24px circle, stack overlap</li>
+<li>Due date: red if overdue</li>
+<li>Hover: bg tint, action icons appear</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>Toast Notifications</h4>
+<ul>
+<li>Width: 360px max, 16px padding</li>
+<li>Position: bottom-right (desktop), bottom-center (mobile)</li>
+<li>Duration: 5000ms, persistent for errors</li>
+<li>Stack: max 3, 8px gap, newest bottom</li>
+<li>Variants: Success (green), Error (red), Warning (amber), Info (blue)</li>
+<li>Enter: 300ms slide-up + fade</li>
+<li>Hover: pause auto-dismiss timer</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>Modal / Drawer</h4>
+<ul>
+<li>Modal: 480/640/960px, 16px radius, 24px padding</li>
+<li>Drawer: 400-480px right-side, full height</li>
+<li>Backdrop: rgba(0,0,0,0.5)</li>
+<li>Open: 200ms scale(0.95&rarr;1) + fade</li>
+<li>Close: X button, Escape, click outside</li>
+<li>Mobile: Full-screen page (modal), bottom sheet (drawer)</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>Data Table (Admin)</h4>
+<ul>
+<li>Row height: 48px, sticky header</li>
+<li>Sort: click header for asc/desc</li>
+<li>Filter: search bar + dropdown filters</li>
+<li>Pagination: 10/25/50 per page</li>
+<li>Selection: checkbox column + bulk bar</li>
+<li>Column resize: drag borders</li>
+<li>Density: Compact 32px / Default 48px</li>
+</ul>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 17: MOBILE DESIGN -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec17"><span class="section-number">17</span>Mobile App Design Patterns</h2>
+
+<div class="card">
+<h4>Bottom Navigation Bar (5 tabs max)</h4>
+<pre><code>
++-----------------------------------------------------------+
+|  Home     Tasks     (+)       Calendar   Profile          |
+|  [icon]   [icon]   [FAB]     [icon]     [icon]           |
++-----------------------------------------------------------+
+Height: 56-64dp (Material) / 49pt (iOS)
+Active: Filled icon + colored label + indicator pill
+Inactive: Outlined icon + muted label
+Badge: Red notification dot or count
+Safe area: Account for home indicator + gesture bar
+</code></pre>
+</div>
+
+<div class="card">
+<h4>Swipe Actions</h4>
+<table>
+<thead><tr><th>Direction</th><th>Action</th><th>Color</th><th>Feedback</th></tr></thead>
+<tbody>
+<tr><td>Swipe Right</td><td>Complete task</td><td>Green (#22C55E)</td><td>Haptic + spring-back if incomplete</td></tr>
+<tr><td>Swipe Right (long)</td><td>Snooze / Flag</td><td>Amber (#F59E0B)</td><td>Haptic on threshold</td></tr>
+<tr><td>Swipe Left</td><td>Delete</td><td>Red (#EF4444)</td><td>Undo snackbar (5s)</td></tr>
+<tr><td>Swipe Left (short)</td><td>Archive</td><td>Gray (#6B7280)</td><td>Haptic on threshold</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card">
+<h4>Desktop &rarr; Mobile Adaptations</h4>
+<table>
+<thead><tr><th>Desktop Pattern</th><th>Mobile Adaptation</th></tr></thead>
+<tbody>
+<tr><td>Persistent sidebar</td><td>Bottom tab bar (5 tabs)</td></tr>
+<tr><td>Multi-column layout</td><td>Single column, full-width</td></tr>
+<tr><td>Data tables</td><td>Card lists</td></tr>
+<tr><td>Hover states</td><td>Long-press / tap</td></tr>
+<tr><td>Drag &amp; drop</td><td>Swipe gestures</td></tr>
+<tr><td>Modal/drawer (400px)</td><td>Full-screen pages</td></tr>
+<tr><td>Command palette (Cmd+K)</td><td>Pull-down search or FAB menu</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 18: MULTI-TENANT PORTAL DESIGN -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec18"><span class="section-number">18</span>Multi-Tenant Portal Design</h2>
+
+<h3>18.1 How Mode Affects Each Portal</h3>
+
+<table>
+<thead><tr><th>Portal</th><th>What Mode Changes</th><th>What Stays Same</th></tr></thead>
+<tbody>
+<tr><td><strong>User Web App</strong> (app.unjynx.me)</td><td>Vocabulary labels, dashboard widgets, templates, AI persona, priority names, quick actions, onboarding flow</td><td>Core layout structure, sidebar nav, settings, profile, auth flow</td></tr>
+<tr><td><strong>Admin Portal</strong> (unjynx.me/admin)</td><td>Mode badge on user/org rows, mode-specific content management, analytics breakdown by mode</td><td>User/org CRUD, system health, billing, flags, compliance pages</td></tr>
+<tr><td><strong>Mobile App</strong> (Flutter)</td><td>Same vocabulary + widgets + templates as web app, mode-specific icons in bottom nav</td><td>Navigation structure, gesture patterns, notification handling</td></tr>
+<tr><td><strong>Landing Page</strong> (unjynx.me)</td><td>Industry-specific landing variants (/legal, /healthcare, /dev) with relevant hero, testimonials, templates preview</td><td>Pricing, FAQ, footer, nav</td></tr>
+</tbody>
+</table>
+
+<h3>18.2 Vocabulary Translation Hook (Frontend)</h3>
+
+<pre><code>
+// React Hook — useVocabulary()
+// Resolves: org override &gt; mode vocabulary &gt; system default
+
+const VocabularyContext = createContext&lt;Record&lt;string, string&gt;&gt;({});
+
+function useVocabulary() {
+  const vocab = useContext(VocabularyContext);
+  return (key: string) =&gt; vocab[key] ?? key;
+}
+
+// Usage in any component:
+const t = useVocabulary();
+&lt;h1&gt;{t("Task")}&lt;/h1&gt;           // renders "Matter" in Legal mode
+&lt;h2&gt;{t("Project")}&lt;/h2&gt;        // renders "Case" in Legal mode
+&lt;label&gt;{t("Due Date")}&lt;/label&gt; // renders "Filing Date" in Legal mode
+&lt;span&gt;{t("Assignee")}&lt;/span&gt;   // renders "Attorney" in Legal mode
+</code></pre>
+
+<h3>18.3 Organization-Aware Routing</h3>
+
+<pre><code>
+URL Structure:
+  app.unjynx.me/                        &larr; Personal workspace (default)
+  app.unjynx.me/org/metaminds/          &larr; Organization workspace
+  app.unjynx.me/org/metaminds/tasks     &larr; Org-scoped tasks
+  app.unjynx.me/org/metaminds/settings  &larr; Org settings (admin only)
+
+API Calls include org context:
+  GET /api/v1/tasks?orgId=uuid          &larr; Org-scoped data
+  Header: X-Organization-Id: uuid       &larr; Alternative approach
+
+Logto Token:
+  Organization token includes org_id + user role within that org
+  Frontend stores activeOrgId in Zustand + cookie
+</code></pre>
+
+<h3>18.4 Per-Mode Dashboard Widget Rendering</h3>
+
+<pre><code>
+// Widget Registry — maps widgetType to React component
+const WIDGET_REGISTRY: Record&lt;string, ComponentType&lt;WidgetProps&gt;&gt; = {
+  kpi_counter:        KpiCounterWidget,
+  bar_chart:          BarChartWidget,
+  timeline:           TimelineWidget,
+  burndown:           BurndownWidget,
+  pipeline:           PipelineWidget,
+  calendar_upcoming:  CalendarUpcomingWidget,
+  compliance_tracker: ComplianceTrackerWidget,
+  weather_forecast:   WeatherWidget,
+  chore_chart:        ChoreChartWidget,
+  study_timer:        StudyTimerWidget,
+};
+
+// Dashboard renders widgets from mode config
+function Dashboard({ widgets }: { widgets: ModeWidget[] }) {
+  return (
+    &lt;div className="grid auto-fill-[320px] gap-4"&gt;
+      {widgets.sort((a,b) =&gt; a.sortOrder - b.sortOrder).map(w =&gt; {
+        const Component = WIDGET_REGISTRY[w.widgetType];
+        return Component ? &lt;Component key={w.id} config={w.configJson} /&gt; : null;
+      })}
+    &lt;/div&gt;
+  );
+}
+</code></pre>
+
+<h3>18.5 Design System Reference Summary</h3>
+
+<table>
+<thead><tr><th>Reference</th><th>What We Take From It</th></tr></thead>
+<tbody>
+<tr><td>Linear</td><td>Sidebar dimming, keyboard-first, warm grays, brand purple #5E6AD2, &ldquo;structure should be felt not seen&rdquo;</td></tr>
+<tr><td>Notion</td><td>Workspace switcher placement, warm off-white backgrounds, block-based flexibility</td></tr>
+<tr><td>Slack</td><td>Always-visible workspace rail, notification badges, Cmd+1-9 shortcuts</td></tr>
+<tr><td>Discord</td><td>Dark purple palette inspiration, role colors, voice/status indicators</td></tr>
+<tr><td>Salesforce</td><td>Industry Cloud architecture, OmniStudio customization model</td></tr>
+<tr><td>Monday.com</td><td>200+ industry templates, color-coded boards, widget-based dashboards</td></tr>
+<tr><td>ClickUp</td><td>6-level hierarchy, 15+ views, 1000+ templates, Everything view</td></tr>
+<tr><td>shadcn/ui</td><td>CSS custom properties structure, component API patterns</td></tr>
+<tr><td>Radix UI</td><td>12-step color scale methodology, accessibility primitives</td></tr>
+<tr><td>Tailwind CSS</td><td>Purple/Violet/Amber scales, dark mode approach, utility classes</td></tr>
+<tr><td>Material Design 3</td><td>Type scale, color system, elevation/shadow tokens</td></tr>
+<tr><td>cmdk</td><td>Command palette implementation, CSS data attributes</td></tr>
+<tr><td>Superhuman</td><td>Command palette principles: visually imposing, shortcuts inline, every action accessible</td></tr>
+</tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION F1: FRONTEND COMPONENT STACK -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec-fstack"><span class="section-number">F1</span>Frontend Component Stack (All React 19 + Tailwind Compatible)</h2>
+
+<div class="success">
+<strong>All packages are MIT licensed, React 19 compatible, and align with the shadcn/ui ecosystem.</strong>
+Total gzip overhead: ~290 KB (excluding React/date-fns shared deps).
+</div>
+
+<table>
+<thead><tr><th>Category</th><th>Package</th><th>Version</th><th>Size (gzip)</th><th>Why Chosen</th></tr></thead>
+<tbody>
+<tr><td><strong>Drag &amp; Drop</strong></td><td><code>@atlaskit/pragmatic-drag-and-drop</code></td><td>1.7.9</td><td>4.7 KB</td><td>Only DnD lib with React 19 support. Powers Jira/Trello. Headless = Tailwind-perfect.</td></tr>
+<tr><td><strong>Data Table</strong></td><td><code>@tanstack/react-table</code></td><td>8.21.3</td><td>14 KB</td><td>Headless, virtual scroll via @tanstack/react-virtual. Column resize/reorder. Server-side pagination.</td></tr>
+<tr><td><strong>Charts</strong></td><td><code>recharts</code></td><td>3.8.1</td><td>43 KB</td><td>Most popular React chart lib. Line/Bar/Area/Pie/Donut. Declarative API. 3.6M weekly downloads.</td></tr>
+<tr><td><strong>Rich Text Editor</strong></td><td><code>@tiptap/react</code></td><td>3.21.0</td><td>35 KB</td><td>Best extension ecosystem. Built-in @mentions + slash commands. Collaboration-ready (Y.js).</td></tr>
+<tr><td><strong>Date Picker</strong></td><td><code>react-day-picker</code></td><td>9.14.0</td><td>12 KB</td><td>Used by shadcn/ui. Accessible (WCAG 2.1 AA). Range selection. Timezone via date-fns-tz.</td></tr>
+<tr><td><strong>Emoji Picker</strong></td><td><code>@emoji-mart/react</code></td><td>1.1.1</td><td>13 KB</td><td>Used by Slack/Linear. Lazy-loadable data (2MB emoji set). Custom emoji support.</td></tr>
+<tr><td><strong>Command Palette</strong></td><td><code>cmdk</code></td><td>1.1.1</td><td>6 KB</td><td>Industry standard (Vercel, Linear, shadcn/ui). Fuzzy search. Nested commands. Tiny.</td></tr>
+<tr><td><strong>Toast</strong></td><td><code>sonner</code></td><td>2.0.7</td><td>3 KB</td><td>shadcn/ui default. Stackable + expandable. Action buttons. Smallest toast lib.</td></tr>
+<tr><td><strong>Modal / Dialog</strong></td><td><code>@radix-ui/react-dialog</code></td><td>1.1.15</td><td>8 KB</td><td>WAI-ARIA compliant. Focus trap. Portal rendering. Foundation for shadcn/ui.</td></tr>
+<tr><td><strong>Mobile Drawer</strong></td><td><code>vaul</code></td><td>1.1.2</td><td>5 KB</td><td>Bottom sheet for mobile. Snap points. iOS-like background scaling. Used by Vercel.</td></tr>
+<tr><td><strong>Forms</strong></td><td><code>react-hook-form</code></td><td>7.72.0</td><td>12 KB</td><td>44K GitHub stars. Zod integration via @hookform/resolvers. Minimal re-renders.</td></tr>
+<tr><td><strong>Virtual Scroll (lists)</strong></td><td><code>@tanstack/react-virtual</code></td><td>3.13.23</td><td>3 KB</td><td>Headless. Pairs with TanStack Table. Variable height. 9.5M weekly downloads.</td></tr>
+<tr><td><strong>Virtual Scroll (chat)</strong></td><td><code>react-virtuoso</code></td><td>4.18.3</td><td>15 KB</td><td>Built-in reverse scrolling (chat). Auto height measurement. Infinite scroll.</td></tr>
+<tr><td><strong>Calendar</strong></td><td><code>@fullcalendar/react</code></td><td>6.1.20</td><td>30 KB</td><td>Month/Week/Day views. Built-in DnD (event move + resize). Plugin architecture.</td></tr>
+<tr><td><strong>Gantt / Timeline</strong></td><td><code>@svar-ui/react-gantt</code></td><td>2.6+</td><td>50 KB</td><td>MIT license. React 19 support. 60fps at 1K tasks. Dependency arrows. Dark/light themes.</td></tr>
+<tr><td><strong>Tree View</strong></td><td><code>react-arborist</code></td><td>3.4.3</td><td>35 KB</td><td>Virtualized (10K+ nodes). DnD reorder. Inline editing. Expand/collapse.</td></tr>
+<tr><td><strong>Theme Toggle</strong></td><td><code>next-themes</code></td><td>0.4.6</td><td>2 KB</td><td>Standard for Next.js. No FOUC. System preference detection. 2 lines to set up.</td></tr>
+</tbody>
+</table>
+
+<h3>F1.1 Packages Already Installed (from existing web-client)</h3>
+<table>
+<thead><tr><th>Existing Package</th><th>Status</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td><code>@tanstack/react-query</code></td><td>Installed</td><td>Keep — server state management</td></tr>
+<tr><td><code>zustand</code></td><td>Installed</td><td>Keep — client state (add org store)</td></tr>
+<tr><td><code>cmdk</code></td><td>Installed</td><td>Keep — command palette exists</td></tr>
+<tr><td><code>framer-motion</code></td><td>Installed</td><td>Keep — animations</td></tr>
+<tr><td><code>lucide-react</code></td><td>Installed</td><td>Keep — icons</td></tr>
+<tr><td><code>react-markdown</code></td><td>Installed</td><td>Keep — AI chat markdown</td></tr>
+<tr><td><code>recharts</code></td><td>Installed</td><td>Keep — charts already used</td></tr>
+<tr><td><code>date-fns</code></td><td>Installed</td><td>Keep — date manipulation</td></tr>
+<tr><td><code>class-variance-authority</code></td><td>Installed</td><td>Keep — component variants</td></tr>
+<tr><td><code>clsx</code> + <code>tailwind-merge</code></td><td>Installed</td><td>Keep — cn() utility</td></tr>
+</tbody>
+</table>
+
+<h3>F1.2 New Packages to Install</h3>
+<pre><code>pnpm add @atlaskit/pragmatic-drag-and-drop @tanstack/react-table @tanstack/react-virtual \
+  react-virtuoso @tiptap/react @tiptap/starter-kit @tiptap/extension-mention \
+  @tiptap/extension-placeholder react-day-picker @emoji-mart/react emoji-mart \
+  @radix-ui/react-dialog @radix-ui/react-dropdown-menu @radix-ui/react-popover \
+  @radix-ui/react-tooltip @radix-ui/react-tabs @radix-ui/react-select \
+  vaul sonner react-hook-form @hookform/resolvers \
+  @fullcalendar/react @fullcalendar/daygrid @fullcalendar/timegrid @fullcalendar/interaction \
+  react-arborist next-themes</code></pre>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION F2: FRONTEND IMPLEMENTATION ROADMAP -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec-frontend"><span class="section-number">F2</span>Frontend Implementation Roadmap (58 tasks)</h2>
+
+<div class="highlight">
+<strong>Approach:</strong> Build in layers — Foundation (stores, API, auth) &rarr; Core pages (org, tasks, board) &rarr; Advanced pages (messaging, sprints, reports) &rarr; Polish (responsive, empty states, a11y).
+<br>All pages support light (lavender) + dark (deep purple) themes via <code>next-themes</code> + Tailwind <code>dark:</code> classes.
+</div>
+
+<!-- Frontend Phase A -->
+<div class="card" style="border-left:3px solid var(--red)">
+<h4>Frontend Phase A: Foundation <span class="tag tag-red">CRITICAL</span></h4>
+<ol>
+  <li><strong>Install new packages</strong> (pnpm add command above)</li>
+  <li><strong>next-themes setup</strong>: ThemeProvider in layout.tsx, attribute=&quot;class&quot;, enableSystem. Add dark: variants to tailwind.config. suppressHydrationWarning on &lt;html&gt;.</li>
+  <li><strong>CSS custom properties</strong>: Create globals.css with light/dark token sets (from Section 13). Map --bg-primary, --bg-surface, --accent-primary, --gold, etc.</li>
+  <li><strong>useOrgStore</strong> (Zustand): currentOrgId, userOrgs[], switchOrg(), isPersonal. Persist to localStorage.</li>
+  <li><strong>Modify apiClient</strong>: Read currentOrgId from store, add <code>X-Org-Id</code> header to every request. Add <code>orgApi</code> helper methods.</li>
+  <li><strong>Add API functions</strong>: <code>lib/api/organizations.ts</code> — getOrgs, createOrg, updateOrg, deleteOrg, getMembers, inviteMember, acceptInvite, leaveOrg</li>
+  <li><strong>Add API functions</strong>: <code>lib/api/workflows.ts</code> — getWorkflows, getWorkflowDetail, getStatuses, createWorkflow, addStatus, addTransition</li>
+  <li><strong>Add API functions</strong>: <code>lib/api/sprints.ts</code> — getSprints, createSprint, startSprint, completeSprint, addTask, removeTask, getBurndown, getVelocity, saveRetro</li>
+  <li><strong>Add API functions</strong>: <code>lib/api/messaging.ts</code> — getChannels, createChannel, getMessages, sendMessage, addReaction, pinMessage, markAsRead, getUnreadCounts, searchMessages</li>
+  <li><strong>Add API functions</strong>: <code>lib/api/goals.ts</code> — getGoals, getGoalTree, createGoal, updateGoal, linkTask, getGoalTasks</li>
+  <li><strong>Add API functions</strong>: <code>lib/api/reports.ts</code> — getVelocity, getCycleTime, getWorkload, getSlaCompliance, getOrgSummary</li>
+  <li><strong>Add API functions</strong>: <code>lib/api/ai-team.ts</code> — getStandup, getRisks, suggestAssignee, getProjectHealth, getSuggestions, acceptSuggestion</li>
+  <li><strong>useVocabulary() hook</strong>: Fetch <code>GET /modes/active</code> vocabulary map. Return <code>t(key)</code> function. VocabularyProvider context wrapping app.</li>
+  <li><strong>Modify useAuth</strong>: After login, fetch <code>GET /orgs</code>, set default org in useOrgStore, inject org context into all hooks.</li>
+</ol>
+</div>
+
+<!-- Frontend Phase B -->
+<div class="card" style="border-left:3px solid var(--violet)">
+<h4>Frontend Phase B: Org Switcher + Mode Selector</h4>
+<ol>
+  <li><strong>OrgSwitcher component</strong>: Dropdown in sidebar top — org logo (24px) + name + chevron + plan badge. List of orgs with role badges. &ldquo;+ Create new&rdquo; button. Cmd+Shift+W shortcut.</li>
+  <li><strong>Integrate into Sidebar</strong>: Replace logo section with OrgSwitcher. Below it: mode indicator (icon + color tint from active mode).</li>
+  <li><strong>/create-org page</strong>: Name input, slug (auto-generated from name), logo upload (optional), industry mode selector (card grid), &ldquo;Create&rdquo; button. On success: switch to new org + redirect to dashboard.</li>
+  <li><strong>Mode Selector page</strong> (/settings/mode): 11 industry cards (3-col grid). Each card: icon (48px) + title (16px bold) + description (14px muted) + badge (&ldquo;Popular&rdquo; gold). Active = checkmark + accent border. On select: PATCH /orgs/:id { industryMode }. Reload vocabulary.</li>
+  <li><strong>Wire vocabulary</strong>: Replace all hardcoded &ldquo;Task&rdquo;, &ldquo;Project&rdquo;, &ldquo;Tag&rdquo; labels with <code>t(&quot;Task&quot;)</code>, <code>t(&quot;Project&quot;)</code>, <code>t(&quot;Tag&quot;)</code> across all existing pages.</li>
+</ol>
+</div>
+
+<!-- Frontend Phase C -->
+<div class="card" style="border-left:3px solid var(--cyan)">
+<h4>Frontend Phase C: Enhanced Task Views</h4>
+<ol>
+  <li><strong>Task List redesign</strong>: Add columns — issue key (UNJX-42 badge), task type icon (Epic/Story/Task/Bug), assignee avatar (24px), story points, sprint name. Use @tanstack/react-table for headless table with column resize.</li>
+  <li><strong>Task Detail panel redesign</strong>: Add fields — Type selector, Status dropdown (from workflow statuses with colors), Assignee picker (search org members), Reporter, Reviewer, Sprint selector, Estimate (points or hours), Time logged, Due date, Start date, Labels (multi-select), Custom fields section (dynamic from field definitions), Linked issues section, Watchers list, Activity log (field changes).</li>
+  <li><strong>Assignee Picker component</strong>: Dropdown with search. Shows org member avatars + names + role badges. &ldquo;Assign to me&rdquo; shortcut button. Used in task detail + create modal.</li>
+  <li><strong>Kanban Board upgrade</strong>: Columns from workflow statuses (not hardcoded). Use @atlaskit/pragmatic-drag-and-drop. WIP limit indicator per column (yellow at limit, red over). Card shows: type icon + issue key + title + assignee avatar + priority dot + estimate badge.</li>
+  <li><strong>&ldquo;My Work&rdquo; view</strong>: All tasks assigned to current user across all projects in org. Grouped by project. Quick filters: status, priority, due date.</li>
+  <li><strong>Epic hierarchy view</strong>: Collapsible tree — Epic &rarr; Stories &rarr; Tasks. Progress bar per epic (completed/total children). Use react-arborist for virtualized tree.</li>
+  <li><strong>Timeline/Gantt upgrade</strong>: Use @svar-ui/react-gantt. Task bars from start_date to due_date. Dependency arrows from task_links. Zoom day/week/month. Drag to reschedule.</li>
+</ol>
+</div>
+
+<!-- Frontend Phase D -->
+<div class="card" style="border-left:3px solid var(--green)">
+<h4>Frontend Phase D: Sprint Management</h4>
+<ol>
+  <li><strong>Sprint Board page</strong> (/sprints): Two sections — Backlog (unassigned tasks) + Active Sprint (assigned tasks). Drag between sections using pragmatic-drag-and-drop. Sprint header: name + goal + dates + progress bar (completed/committed points).</li>
+  <li><strong>Sprint Planning view</strong>: Left = backlog (filterable by priority/type/assignee). Right = sprint scope. Drag tasks from backlog to sprint. Running total of story points. Capacity indicator per team member.</li>
+  <li><strong>Burndown Chart</strong>: recharts LineChart. X-axis = sprint days. Y-axis = remaining points. Two lines: ideal (straight down) + actual (from sprint_burndown data). Tooltip with daily delta.</li>
+  <li><strong>Velocity Chart</strong>: recharts BarChart. X-axis = last N sprints. Two bars per sprint: committed (blue) + completed (green). Average line overlay.</li>
+  <li><strong>Sprint Retrospective form</strong>: Three columns: Went Well (green) | To Improve (amber) | Action Items (violet). Text areas + submit. Read-only view for past retros.</li>
+  <li><strong>Sprint selector in project nav</strong>: Dropdown showing all sprints for project. Active sprint highlighted. Quick-create &ldquo;+ New Sprint&rdquo;.</li>
+</ol>
+</div>
+
+<!-- Frontend Phase E -->
+<div class="card" style="border-left:3px solid var(--blue)">
+<h4>Frontend Phase E: Messaging Channels (Slack-like)</h4>
+<ol>
+  <li><strong>Channel List sidebar</strong>: Left panel (280px) within messaging page. Sections: Channels (# icon for public, lock for private) + Direct Messages (avatar pairs). Unread count badges (red dot or number). &ldquo;+ Create channel&rdquo; button. Search channels input.</li>
+  <li><strong>Message View</strong>: Main content area. Message list using react-virtuoso (reverse scroll, auto height). Messages grouped by sender: avatar + name + timestamp, then consecutive messages without header. &ldquo;New messages&rdquo; divider for unread.</li>
+  <li><strong>Message Input</strong>: Bottom-fixed. @tiptap/react editor with: @mention autocomplete (search users, shows dropdown), bold/italic/code/link formatting, file drag-and-drop upload zone, emoji button opening @emoji-mart/react picker. Enter to send, Shift+Enter newline.</li>
+  <li><strong>Thread Panel</strong>: Right slide-in panel (400px). Shows parent message + thread replies. Own message input at bottom. Reply count on parent message in main view.</li>
+  <li><strong>Reactions</strong>: Emoji row below message (grouped: emoji + count). Click to add/remove. &ldquo;+&rdquo; button to add new reaction opens emoji picker.</li>
+  <li><strong>Channel Header</strong>: Channel name + member count + topic + pins button + search button. Channel settings gear (edit name/topic, manage members, archive).</li>
+  <li><strong>DM creation</strong>: Click &ldquo;+&rdquo; in DM section. Search org members. Select 1 (DM) or 2-8 (group DM). Auto-creates channel via POST /messaging/dm.</li>
+  <li><strong>Unread tracking</strong>: On scroll to bottom, mark as read. Unread counts in sidebar from GET /messaging/unread. Bold channel name when unread.</li>
+</ol>
+</div>
+
+<!-- Frontend Phase F -->
+<div class="card" style="border-left:3px solid var(--pink)">
+<h4>Frontend Phase F: Reports + Goals + Custom Fields</h4>
+<ol>
+  <li><strong>Reports page</strong> (/reports): Tab navigation — Velocity | Burndown | Cycle Time | Workload | SLA. Date range selector (7d/30d/90d/custom). Project filter dropdown.</li>
+  <li><strong>Cycle Time histogram</strong>: recharts BarChart. Buckets: &lt;1d, 1-3d, 3-7d, 1-2w, 2-4w, &gt;4w. Breakdown by priority (stacked bars).</li>
+  <li><strong>Workload view</strong>: Per-member rows. Columns: avatar+name, active tasks (bar), completed this week, overdue (red count), estimated hours. Sortable.</li>
+  <li><strong>SLA Compliance donut</strong>: recharts PieChart. Within SLA (green) vs Breached (red). Per-policy breakdown table below.</li>
+  <li><strong>Goals page</strong> (/goals): react-arborist tree view. Company goals &rarr; Team goals &rarr; Individual goals. Each node: title + progress bar (auto-calculated) + owner avatar + status badge (On Track green / At Risk amber / Behind red). Click to expand children + see linked tasks.</li>
+  <li><strong>Goal Detail panel</strong>: Title, description, owner picker, target value, current value, unit, due date, status. Linked tasks list with checkboxes. &ldquo;Link task&rdquo; button with task search.</li>
+  <li><strong>Custom Fields in task detail</strong>: Dynamic section below standard fields. Renders based on field_type: text input, number input, date picker, select dropdown (colored options), multi-select tags, user picker, URL field, checkbox toggle, email/phone inputs, currency with symbol.</li>
+  <li><strong>Custom Field admin</strong> (/settings/fields): List of org field definitions. Create modal: name, key (auto-slug), type selector, options editor (for select/multi-select), required toggle. Drag to reorder (sort_order).</li>
+</ol>
+</div>
+
+<!-- Frontend Phase G -->
+<div class="card" style="border-left:3px solid var(--amber)">
+<h4>Frontend Phase G: AI Features + Members + Settings</h4>
+<ol>
+  <li><strong>AI Suggestion cards</strong>: Floating card below task create form — &ldquo;Assign to John (85% confidence)&rdquo; with Accept/Dismiss buttons. Fades in with animation.</li>
+  <li><strong>AI Standup view</strong> (/ai-team/standup): Daily summary card — completed yesterday (list), in progress today (list), blockers (red highlight). AI-generated summary text at top. Date selector for historical standups.</li>
+  <li><strong>AI Risk Dashboard widget</strong>: Card on dashboard — risk level badge (green/yellow/red), overdue count, stale count, unassigned count. Click to expand full risk report.</li>
+  <li><strong>AI Project Health badge</strong>: In project header — green/yellow/red dot + score. Tooltip with AI insight text. Click for full health report.</li>
+  <li><strong>Members page</strong> (/settings/members): Member list — avatar (40px) + name + email + role badge (colored) + last active. Invite button opens modal: multi-email input (chips) + role selector. Pending invites section with resend/cancel. Bulk actions toolbar on selection.</li>
+  <li><strong>Settings page upgrade</strong>: New tabs — Organization (name, logo, slug, mode, settings) | Members | Billing | Integrations. Profile tab: add connected accounts, theme toggle (3-way: Light/Dark/System with live preview).</li>
+  <li><strong>Org Billing page</strong>: Current plan card + usage meters (members, projects, storage). Upgrade CTA. Invoice history table.</li>
+</ol>
+</div>
+
+<!-- Frontend Phase H -->
+<div class="card" style="border-left:3px solid var(--green)">
+<h4>Frontend Phase H: Polish + Responsive + a11y</h4>
+<ol>
+  <li><strong>Empty states</strong>: Every page gets a custom empty state — illustration + headline + description + CTA button. Examples: &ldquo;No tasks yet&rdquo; → &ldquo;Create your first task&rdquo;, &ldquo;No channels&rdquo; → &ldquo;Start a conversation&rdquo;, &ldquo;No sprints&rdquo; → &ldquo;Plan your first sprint&rdquo;.</li>
+  <li><strong>Loading states</strong>: Shimmer skeletons for every page (already have Shimmer component). Loading spinners for mutations.</li>
+  <li><strong>Responsive audit</strong>: Mobile (&lt;640px): bottom nav, single column, full-screen modals. Tablet (640-1023px): sidebar collapsed 64px, no detail panel. Desktop (1024+): full layout.</li>
+  <li><strong>Keyboard shortcuts</strong>: Register all via useKeyboardShortcut. Display in command palette (cmdk). ? opens shortcut help sheet.</li>
+  <li><strong>Accessibility</strong>: ARIA labels on all interactive elements. Focus indicators (2px accent ring). Color contrast verification (all tokens meet WCAG AA). Screen reader announcements for DnD operations.</li>
+  <li><strong>Theme verification</strong>: Test every page in both light (lavender) and dark (deep purple) modes. Verify all custom properties resolve correctly. Test gold accents on both backgrounds.</li>
+  <li><strong>Build + deploy</strong>: Rebuild web-client Docker image. Deploy to VPS. Health check all pages.</li>
+</ol>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 19: JIRA+SLACK HYBRID ARCHITECTURE -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec19"><span class="section-number">19</span>Jira+Slack Hybrid Architecture &mdash; Platform Comparison</h2>
+
+<h3>19.1 Data Model Hierarchy Comparison</h3>
+
+<table>
+<thead><tr><th>Platform</th><th>Hierarchy</th><th>Pricing</th><th>Unique Feature</th></tr></thead>
+<tbody>
+<tr><td><strong>Jira</strong></td><td>Org &rarr; Site &rarr; Project &rarr; Board &rarr; Sprint &rarr; Epic &rarr; Story &rarr; Task &rarr; Subtask</td><td>$9-18/user/mo</td><td>JQL query language, 3,000+ marketplace apps, configurable workflows</td></tr>
+<tr><td><strong>Slack</strong></td><td>Workspace &rarr; Channel (pub/priv/DM) &rarr; Thread &rarr; Message</td><td>$9-15/user/mo</td><td>Block Kit UI, Slack Connect (cross-org), Huddles, Workflow Builder</td></tr>
+<tr><td><strong>Linear</strong></td><td>Workspace &rarr; Team &rarr; Project &rarr; Issue &rarr; Sub-issue</td><td>Free-$14/user/mo</td><td>Local-first sync (&lt;50ms loads), keyboard-first, auto-recurring cycles. $100M ARR</td></tr>
+<tr><td><strong>ClickUp</strong></td><td>Workspace &rarr; Space &rarr; Folder &rarr; List &rarr; Task &rarr; Subtask (7 levels)</td><td>$7-12/user/mo</td><td>Deepest hierarchy, 15+ views, built-in docs/whiteboards/chat/video</td></tr>
+<tr><td><strong>Monday.com</strong></td><td>Account &rarr; Workspace &rarr; Board &rarr; Group &rarr; Item &rarr; Subitem</td><td>$9-22/seat/mo</td><td>30+ column types, Agent Factory (custom AI agents), 200+ automations</td></tr>
+<tr><td><strong>Asana</strong></td><td>Org &rarr; Team &rarr; Project &rarr; Section &rarr; Task &rarr; Subtask</td><td>$11-25/user/mo</td><td>Multi-homing (1 task in N projects), Goals hierarchy, Portfolios</td></tr>
+<tr><td><strong>Notion</strong></td><td>Workspace &rarr; Teamspace &rarr; Database &rarr; Page</td><td>$10-20/user/mo</td><td>Everything-is-a-page, AI Agents 3.0 (autonomous 20-min execution)</td></tr>
+<tr><td><strong>Shortcut</strong></td><td>Org &rarr; Workspace &rarr; Team &rarr; Epic &rarr; Story &rarr; Task</td><td>$9-12/user/mo</td><td>Doc Hub + Write-to-Build (docs convert to stories)</td></tr>
+<tr><td><strong>Basecamp</strong></td><td>Account &rarr; Project &rarr; Tools (fixed set)</td><td>$299/mo flat</td><td>Hill Charts, automatic check-ins, Hey! notification inbox</td></tr>
+<tr><td><strong>Teamwork</strong></td><td>Company &rarr; Project &rarr; Task List &rarr; Task &rarr; Subtask</td><td>$11-55/user/mo</td><td>Native time tracking + budgets + invoicing + client portal</td></tr>
+</tbody>
+</table>
+
+<h3>19.2 UNJYNX Recommended Hierarchy</h3>
+
+<pre><code>
+UNJYNX HIERARCHY (Jira + Slack + Linear hybrid):
+
+Organization (tenant — billing, plan, mode, SSO)
+ ├── Teams (sub-groups, each with lead + members)
+ │    ├── Channels (Slack-like — public, private, DM, group DM)
+ │    │    ├── Messages (threaded)
+ │    │    │    ├── Reactions (emoji)
+ │    │    │    └── Attachments
+ │    │    └── Pinned Messages
+ │    └── Team Dashboard (mode-specific widgets)
+ │
+ ├── Projects (Scrum / Kanban / Bug Tracker / Service Desk)
+ │    ├── Workflow (custom statuses + transitions)
+ │    ├── Sprints / Cycles (for Scrum projects)
+ │    │    └── Sprint Burndown snapshots
+ │    ├── Labels (org-scoped, project-filterable)
+ │    ├── Custom Fields (per project or org-wide)
+ │    └── Tasks / Issues
+ │         ├── Type: Epic → Story → Task → Subtask → Bug
+ │         ├── Assignment (assignee, reporter, reviewer, watchers)
+ │         ├── Time Tracking (estimate, logged, remaining)
+ │         ├── SLA Tracking (response, resolution)
+ │         ├── Links (blocks, relates-to, duplicates)
+ │         ├── Comments (threaded, @mentions)
+ │         ├── Attachments (MinIO)
+ │         ├── Activity Log (every field change)
+ │         └── AI Suggestions (priority, assignee, labels)
+ │
+ ├── Goals / OKRs (Company → Team → Individual)
+ ├── Standups (daily async, AI-summarized)
+ ├── Reports (velocity, burndown, cycle time, SLA, workload)
+ └── Notifications → Multi-Channel Delivery
+      ├── Push / In-App
+      ├── Email (Brevo)
+      ├── WhatsApp (Gupshup)
+      ├── Telegram (Bot API — FREE)
+      ├── SMS (MSG91)
+      ├── Discord (Bot)
+      ├── Slack (Bot)
+      └── Instagram (Messenger API)
+</code></pre>
+
+<div class="highlight">
+<strong>UNJYNX Killer Differentiator:</strong> No competitor delivers AI-powered task notifications across WhatsApp, Telegram, SMS, Discord, and Instagram. Jira/Linear/ClickUp only do push + email. UNJYNX sends reminders WHERE your team actually responds — and AI learns which channel each person responds to fastest.
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 20: COMPLETE MULTI-TENANT SCHEMA -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec20"><span class="section-number">20</span>Complete Multi-Tenant Database Schema</h2>
+
+<h3>20.1 Architecture Decision: Hybrid RLS + Optional Schema Isolation</h3>
+
+<table>
+<thead><tr><th>Tier</th><th>Model</th><th>Isolation</th><th>Tenants</th></tr></thead>
+<tbody>
+<tr><td>Free / Pro</td><td>Shared DB + <code>org_id</code> + RLS</td><td>Row-Level Security</td><td>Unlimited</td></tr>
+<tr><td>Team</td><td>Shared DB + RLS + dedicated connection pool</td><td>RLS + connection isolation</td><td>1,000+</td></tr>
+<tr><td>Enterprise</td><td>Optional schema-per-tenant</td><td>Physical schema isolation</td><td>50-100</td></tr>
+</tbody>
+</table>
+
+<div class="success">
+<strong>Validated by:</strong> Linear (shared tables, Cloud SQL for PostgreSQL, tens of TB), Slack (workspace_id on every table + RLS), Notion (shared infra with logical tenant isolation). All three use shared tables with tenant ID columns.
+</div>
+
+<h3>20.2 Table Inventory (55 tables total)</h3>
+
+<table>
+<thead><tr><th>Category</th><th>Tables</th><th>Count</th><th>Scope</th></tr></thead>
+<tbody>
+<tr><td><strong>A. Organizations</strong></td><td>organizations, org_sso_connections, org_schema_mapping</td><td>3</td><td>Global</td></tr>
+<tr><td><strong>B. Members</strong></td><td>org_memberships, org_invites, org_teams, org_team_members</td><td>4</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>C. Projects</strong></td><td>projects, project_members</td><td>2</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>D. Tasks/Issues</strong></td><td>tasks, task_watchers, task_links, time_entries</td><td>4</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>E. Channels</strong></td><td>channels, channel_members, messages, message_reactions, pinned_messages, attachments</td><td>6</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>F. Sprints</strong></td><td>sprints, sprint_tasks, sprint_burndown</td><td>3</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>G. Workflows</strong></td><td>workflows, workflow_statuses, workflow_transitions</td><td>3</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>H. Custom Fields</strong></td><td>custom_field_definitions, custom_field_values</td><td>2</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>I. Comments</strong></td><td>comments</td><td>1</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>J. Labels</strong></td><td>labels, task_labels</td><td>2</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>K. Notifications</strong></td><td>notification_preferences, notifications, reminder_rules</td><td>3</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>L. Reports/SLA</strong></td><td>report_snapshots, sla_policies</td><td>2</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>M. AI</strong></td><td>ai_operations, ai_suggestions</td><td>2</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>N. Standups/Activity</strong></td><td>standups, task_activity</td><td>2</td><td>Org-scoped (RLS)</td></tr>
+<tr><td><strong>O. Audit</strong></td><td>data_access_log</td><td>1</td><td>Global (partitioned)</td></tr>
+<tr><td><strong>Existing (shared)</strong></td><td>profiles, subscriptions, invoices, coupons, daily_content, feature_flags, login_events, api_keys, ai_model_configs, etc.</td><td>~15</td><td>Global</td></tr>
+<tr><td colspan="2"><strong>GRAND TOTAL</strong></td><td><strong>~55</strong></td><td></td></tr>
+</tbody>
+</table>
+
+<h3>20.3 Key Schema Highlights</h3>
+
+<div class="grid">
+<div class="card">
+<h4>Tasks (Jira-like Issues)</h4>
+<pre><code>tasks
+  id, org_id, project_id
+  issue_key (UNJX-42)
+  title, description
+  task_type (epic|story|task|bug|subtask)
+  status_id → workflow_statuses
+  priority (critical|high|medium|low|none)
+  parent_id, epic_id (hierarchy)
+  assignee_id, reporter_id, reviewer_id
+  sprint_id
+  estimate_points, logged_hours
+  due_date, start_date, completed_at
+  sla_response_at, sla_resolution_at
+  custom_fields (JSONB)
+  rrule (RFC 5545 recurrence)
+
+Indexes: org_id+project, org_id+status,
+  org_id+assignee, org_id+sprint,
+  Full-text search on title+description</code></pre>
+</div>
+
+<div class="card">
+<h4>Channels (Slack-like)</h4>
+<pre><code>channels
+  id, org_id, name, description
+  channel_type (public|private|dm|group_dm)
+  topic, is_archived
+  member_count, message_count
+  last_message_at
+
+messages
+  id, org_id, channel_id, user_id
+  content (rich text)
+  thread_id, is_thread_root, reply_count
+  mentioned_user_ids[], mentioned_team_ids[]
+  is_channel_mention
+  is_edited, has_attachments
+  metadata (JSONB)
+
+message_reactions
+  message_id, user_id, emoji</code></pre>
+</div>
+
+<div class="card">
+<h4>Workflows (Configurable)</h4>
+<pre><code>workflows
+  id, org_id, name, is_default
+
+workflow_statuses
+  id, workflow_id, name
+  category (todo|in_progress|done)
+  color, icon, sort_order
+  is_initial, is_final
+
+workflow_transitions
+  from_status_id → to_status_id
+  allowed_roles[] (who can transition)
+  conditions (JSONB: require_assignee, etc.)
+  on_transition (JSONB: notify watchers, etc.)
+
+Example: Todo → In Progress → In Review → Done
+  with conditions: "require assignee to move
+  to In Progress"</code></pre>
+</div>
+
+<div class="card">
+<h4>Sprints / Cycles</h4>
+<pre><code>sprints
+  id, org_id, project_id
+  name, goal
+  status (planning|active|completed)
+  start_date, end_date
+  committed_points, completed_points
+  retro_went_well, retro_to_improve
+  retro_action_items (JSONB)
+
+sprint_burndown
+  sprint_id, captured_at (DATE)
+  total_points, completed_points
+  remaining_points
+  added_points, removed_points
+  → Daily snapshots for burndown chart</code></pre>
+</div>
+
+<div class="card">
+<h4>Escalation Chains (UNJYNX Unique)</h4>
+<pre><code>reminder_rules
+  id, org_id, user_id (null=org-wide)
+  name, trigger_type, trigger_config
+  channel (push|email|whatsapp|telegram|sms)
+  escalation_chain (JSONB):
+  [
+    { delay: "30m", channel: "push" },
+    { delay: "2h",  channel: "email" },
+    { delay: "24h", channel: "whatsapp",
+      notify: "manager" }
+  ]
+  is_active
+
+→ AI learns which channel each user
+  responds to fastest and optimizes
+  the escalation order per person</code></pre>
+</div>
+
+<div class="card">
+<h4>RLS Policy (All Org-Scoped Tables)</h4>
+<pre><code>-- Applied to ALL 40 org-scoped tables:
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tasks_org_isolation ON tasks
+  USING (
+    org_id = current_setting(
+      'app.current_org_id', true
+    )::uuid
+  )
+  WITH CHECK (
+    org_id = current_setting(
+      'app.current_org_id', true
+    )::uuid
+  );
+
+-- Hono middleware (per request):
+SET LOCAL app.current_org_id = 'org-uuid';
+-- SET LOCAL = transaction-scoped (PgBouncer safe)
+-- All queries auto-filtered by org_id</code></pre>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 21: AI INTEGRATION ARCHITECTURE -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec21"><span class="section-number">21</span>AI Integration Architecture</h2>
+
+<h3>21.1 AI Features UNJYNX Has That ZERO Competitors Offer</h3>
+
+<div class="stat-grid">
+<div class="stat-card" style="border:1px solid var(--green)"><div class="stat-value" style="font-size:1.5rem">1</div><div class="stat-label">Multi-Channel AI Delivery</div><p style="font-size:0.7rem;color:var(--muted);margin-top:4px">WhatsApp + Telegram + SMS + Discord + Instagram reminders</p></div>
+<div class="stat-card" style="border:1px solid var(--green)"><div class="stat-value" style="font-size:1.5rem">2</div><div class="stat-label">AI Smart Timing</div><p style="font-size:0.7rem;color:var(--muted);margin-top:4px">Learns when each user is most responsive</p></div>
+<div class="stat-card" style="border:1px solid var(--green)"><div class="stat-value" style="font-size:1.5rem">3</div><div class="stat-label">AI Escalation Chains</div><p style="font-size:0.7rem;color:var(--muted);margin-top:4px">Auto-escalates via different channels if no response</p></div>
+<div class="stat-card" style="border:1px solid var(--green)"><div class="stat-value" style="font-size:1.5rem">4</div><div class="stat-label">AI Channel Selection</div><p style="font-size:0.7rem;color:var(--muted);margin-top:4px">ML predicts fastest-response channel per person</p></div>
+<div class="stat-card" style="border:1px solid var(--green)"><div class="stat-value" style="font-size:1.5rem">5</div><div class="stat-label">AI Reports via WhatsApp</div><p style="font-size:0.7rem;color:var(--muted);margin-top:4px">Daily standups + weekly summaries delivered to messaging apps</p></div>
+</div>
+
+<h3>21.2 AI Feature Map (by Claude Tier)</h3>
+
+<table>
+<thead><tr><th>Feature</th><th>Model</th><th>Trigger</th><th>Complexity</th></tr></thead>
+<tbody>
+<tr><td>Intent classification</td><td><span class="tag tag-green">Haiku 4.5</span></td><td>Every chat message</td><td>Easy</td></tr>
+<tr><td>Task decomposition (Epic &rarr; Stories)</td><td><span class="tag tag-blue">Sonnet 4.6</span></td><td>User request or auto on Epic creation</td><td>Medium</td></tr>
+<tr><td>Smart priority suggestion</td><td><span class="tag tag-green">Haiku 4.5</span></td><td>Task creation</td><td>Easy</td></tr>
+<tr><td>Auto-assignment (who should work on this)</td><td><span class="tag tag-green">Haiku 4.5</span></td><td>Task creation, unassigned check</td><td>Medium</td></tr>
+<tr><td>Duplicate detection</td><td><span class="tag tag-green">Haiku 4.5</span> + pgvector</td><td>Task creation</td><td>Medium</td></tr>
+<tr><td>Sprint planning suggestions</td><td><span class="tag tag-blue">Sonnet 4.6</span></td><td>Sprint start, capacity check</td><td>Hard</td></tr>
+<tr><td>Daily standup summary</td><td><span class="tag tag-green">Haiku 4.5</span></td><td>Cron (9 AM per org timezone)</td><td>Easy</td></tr>
+<tr><td>Weekly sprint report</td><td><span class="tag tag-blue">Sonnet 4.6</span></td><td>Sprint end or cron (Friday)</td><td>Medium</td></tr>
+<tr><td>Risk detection (blocked, overdue)</td><td><span class="tag tag-green">Haiku 4.5</span></td><td>Cron (every 4 hours)</td><td>Easy</td></tr>
+<tr><td>Project health scoring</td><td><span class="tag tag-blue">Sonnet 4.6</span></td><td>Dashboard load, weekly</td><td>Medium</td></tr>
+<tr><td>Natural language analytics</td><td><span class="tag tag-blue">Sonnet 4.6</span></td><td>User query (&ldquo;how many bugs last week?&rdquo;)</td><td>Hard</td></tr>
+<tr><td>Smart reminder timing (ML)</td><td>Custom ML model</td><td>Before each notification</td><td>Hard</td></tr>
+<tr><td>Channel selection (ML)</td><td>Custom ML model</td><td>Before each notification</td><td>Hard</td></tr>
+<tr><td>AI Smart Digest (bundle 5 notifs &rarr; 1)</td><td><span class="tag tag-green">Haiku 4.5</span></td><td>Digest schedule</td><td>Medium</td></tr>
+<tr><td>Weekly deep insights</td><td><span class="tag tag-violet">Opus 4.6</span></td><td>Cron (Sunday evening)</td><td>Hard</td></tr>
+</tbody>
+</table>
+
+<h3>21.3 AI Cost Projections</h3>
+
+<table>
+<thead><tr><th>Users</th><th>AI Calls/Day</th><th>Monthly Cost</th><th>Per User/Mo</th><th>Margin at $6.99/mo</th></tr></thead>
+<tbody>
+<tr><td>1,000</td><td>~5,000</td><td>$168</td><td>$0.17</td><td><span style="color:var(--green)">97.6%</span></td></tr>
+<tr><td>10,000</td><td>~40,000</td><td>$1,200</td><td>$0.12</td><td><span style="color:var(--green)">98.3%</span></td></tr>
+<tr><td>100,000</td><td>~300,000</td><td>$9,600</td><td>$0.10</td><td><span style="color:var(--green)">98.6%</span></td></tr>
+<tr><td>1,000,000</td><td>~2,500,000</td><td>$100,800</td><td>$0.10</td><td><span style="color:var(--green)">98.6%</span></td></tr>
+</tbody>
+</table>
+
+<div class="success">
+<strong>95%+ gross margin on AI costs</strong> with prompt caching (Anthropic beta). WhatsApp Smart Digest (bundling 5 notifications into 1 message) saves 80% on messaging costs.
+</div>
+
+<h3>21.4 Technical Architecture Patterns</h3>
+
+<div class="grid">
+<div class="card">
+<h4>RAG (Retrieval Augmented Generation)</h4>
+<p>Universal pattern across all platforms. pgvector for embeddings, search workspace context before LLM call.</p>
+<pre><code>User query → Embed → pgvector search
+  → Top-K relevant context
+  → System prompt + context + query
+  → Claude API → Response</code></pre>
+</div>
+<div class="card">
+<h4>Agentic Architecture</h4>
+<p>Multi-step autonomous AI (Atlassian Rovo, Notion Agents 3.0, Linear Agent). Plan &rarr; Act &rarr; Observe loop.</p>
+<pre><code>User intent → Plan steps
+  → Execute step 1 (API call)
+  → Observe result
+  → Execute step 2 (modify task)
+  → Observe → Report back</code></pre>
+</div>
+<div class="card">
+<h4>Semantic Work Graph</h4>
+<p>Relationship layer mapping org structure (Atlassian Teamwork Graph, Asana Work Graph).</p>
+<pre><code>People ↔ Teams ↔ Projects ↔ Tasks
+  ↔ Goals ↔ Channels ↔ Messages
+  → AI understands "who works on what"
+  → Powers smart assignment, routing</code></pre>
+</div>
+<div class="card">
+<h4>Multi-Model Routing</h4>
+<p>Every major platform now supports multiple LLMs. Route by complexity:</p>
+<pre><code>Simple (80%): Haiku 4.5 ($0.25/MTok)
+  → intent, priority, labels, digest
+Complex (15%): Sonnet 4.6 ($3/MTok)
+  → decompose, sprint plan, reports
+Deep (5%): Opus 4.6 ($15/MTok)
+  → weekly insights, architecture analysis</code></pre>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 22: UNJYNX PLATFORM POSITIONING -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<h2 id="sec22"><span class="section-number">22</span>UNJYNX Platform Positioning</h2>
+
+<h3>22.1 What UNJYNX Is</h3>
+
+<div class="highlight">
+<strong>UNJYNX = Jira (Project Management) + Slack (Team Communication) + AI-Powered Multi-Channel Reminders + Industry Modes</strong>
+<br><br>
+For teams of 1-500 people: startups, agencies, law firms, clinics, construction crews, dev teams, marketing teams, HR departments, schools, families.
+<br><br>
+<strong>Core thesis:</strong> Your team doesn't live in one app. They live across WhatsApp, Telegram, SMS, Email, Discord, Slack. UNJYNX meets them where they are &mdash; with AI that learns each person's preferred channel and optimal reminder timing.
+</div>
+
+<h3>22.2 Competitive Positioning</h3>
+
+<table>
+<thead><tr><th>Feature</th><th>Jira</th><th>Slack</th><th>Linear</th><th>ClickUp</th><th>UNJYNX</th></tr></thead>
+<tbody>
+<tr><td>Project Management</td><td style="color:var(--green)">Deep</td><td style="color:var(--red)">None</td><td style="color:var(--green)">Good</td><td style="color:var(--green)">Deep</td><td style="color:var(--green)">Deep</td></tr>
+<tr><td>Team Chat / Channels</td><td style="color:var(--red)">None</td><td style="color:var(--green)">Best</td><td style="color:var(--red)">None</td><td style="color:var(--amber)">Basic</td><td style="color:var(--green)">Full</td></tr>
+<tr><td>WhatsApp/Telegram Reminders</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--green)">Yes (8 channels)</td></tr>
+<tr><td>AI Task Decomposition</td><td style="color:var(--amber)">Basic</td><td style="color:var(--red)">No</td><td style="color:var(--amber)">Basic</td><td style="color:var(--green)">Good</td><td style="color:var(--green)">Deep</td></tr>
+<tr><td>AI Smart Reminders (ML timing)</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--green)">Yes</td></tr>
+<tr><td>Industry Modes</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--amber)">Templates</td><td style="color:var(--green)">11 modes</td></tr>
+<tr><td>Gamification (XP/Streaks)</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--red)">No</td><td style="color:var(--green)">Full system</td></tr>
+<tr><td>Mobile-First</td><td style="color:var(--amber)">Weak</td><td style="color:var(--green)">Good</td><td style="color:var(--amber)">PWA</td><td style="color:var(--amber)">OK</td><td style="color:var(--green)">Flutter native</td></tr>
+<tr><td>India Pricing</td><td>$9+/user</td><td>$9+/user</td><td>$8+/user</td><td>$7+/user</td><td style="color:var(--green)">Rs 99/mo ($1.20)</td></tr>
+</tbody>
+</table>
+
+<h3>22.3 Pricing Advantage</h3>
+
+<div class="stat-grid">
+<div class="stat-card"><div class="stat-value">$6.99</div><div class="stat-label">UNJYNX Pro (Monthly)</div></div>
+<div class="stat-card"><div class="stat-value">$4.99</div><div class="stat-label">UNJYNX Pro (Annual)</div></div>
+<div class="stat-card"><div class="stat-value">$8.99</div><div class="stat-label">UNJYNX Team (Per User)</div></div>
+<div class="stat-card"><div class="stat-value">Rs 99</div><div class="stat-label">India Pro (Annual)</div></div>
+</div>
+
+<p style="text-align:center;color:var(--muted);font-size:0.85rem">vs Jira $9-18/user &bull; Slack $9-15/user &bull; Linear $8-14/user &bull; ClickUp $7-12/user &bull; Monday $9-22/seat</p>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 23: IMPLEMENTATION ROADMAP -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+
+<!-- Detailed 10-phase roadmap is in Section 11 above -->
+
+<hr style="border-color: var(--border); margin: 3rem 0;">
+
+<div style="text-align: center; color: var(--muted); font-size: 0.85rem;">
+  <p><strong>UNJYNX by METAminds</strong> &mdash; Break the satisfactory. Unjynx your productivity.</p>
+  <p>Research Document &bull; v2 Phase 7: Industry Modes + Multi-Tenant Platform &bull; March 30, 2026</p>
+  <p style="margin-top:8px"><strong>200+ Sources</strong> including: Jira, Slack, Linear, ClickUp, Monday.com, Asana, Notion, Shortcut, Basecamp, Teamwork, Salesforce, HubSpot, Zoho, Procore, Clio, SimplePractice, Toast, ServiceTitan, Veeva, Freshworks, WorkOS, Logto, AWS, Azure, Crunchy Data, Neon, Stripe, shadcn/ui, Radix UI, Tailwind CSS, Material Design 3, cmdk, Superhuman, PostHog, Amplitude, SaaSFrame, NicelyDone, Smashing Magazine, and 150+ additional platforms and engineering blogs.</p>
+</div>
+
+</div>
+</body>
+</html>
