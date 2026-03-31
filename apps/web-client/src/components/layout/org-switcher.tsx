@@ -75,6 +75,9 @@ export function OrgSwitcher({ collapsed }: { readonly collapsed: boolean }) {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-center w-full h-12 relative"
         title={currentOrg?.name ?? 'Personal'}
+        aria-label={`Switch organization. Current: ${currentOrg?.name ?? 'Personal'}`}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
       >
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--accent)] to-[var(--gold)] flex items-center justify-center text-white text-xs font-bold">
           {currentOrg ? getInitials(currentOrg.name) : <User size={14} />}
