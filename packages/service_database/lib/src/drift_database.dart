@@ -13,20 +13,41 @@ part 'drift_database.g.dart';
 
 class LocalTasks extends Table {
   TextColumn get id => text()();
+  TextColumn get orgId => text().named('org_id').nullable()();
   TextColumn get title => text().withLength(min: 1, max: 500)();
   TextColumn get description => text().withDefault(const Constant(''))();
   TextColumn get status =>
       text().withDefault(const Constant('pending'))();
   TextColumn get priority =>
       text().withDefault(const Constant('none'))();
+  TextColumn get taskType =>
+      text().named('task_type').withDefault(const Constant('task'))();
+  TextColumn get issueKey => text().named('issue_key').nullable()();
   TextColumn get projectId => text().named('project_id').nullable()();
+  TextColumn get parentId => text().named('parent_id').nullable()();
+  TextColumn get epicId => text().named('epic_id').nullable()();
+  TextColumn get assigneeId => text().named('assignee_id').nullable()();
+  TextColumn get reporterId => text().named('reporter_id').nullable()();
+  TextColumn get sprintId => text().named('sprint_id').nullable()();
+  TextColumn get statusId => text().named('status_id').nullable()();
+  IntColumn get estimatePoints =>
+      integer().named('estimate_points').nullable()();
   DateTimeColumn get dueDate =>
       dateTime().named('due_date').nullable()();
+  DateTimeColumn get startDate =>
+      dateTime().named('start_date').nullable()();
   DateTimeColumn get completedAt =>
       dateTime().named('completed_at').nullable()();
+  TextColumn get resolution => text().nullable()();
   TextColumn get rrule => text().nullable()();
   IntColumn get sortOrder =>
       integer().named('sort_order').withDefault(const Constant(0))();
+  IntColumn get commentCount =>
+      integer().named('comment_count').withDefault(const Constant(0))();
+  IntColumn get attachmentCount =>
+      integer().named('attachment_count').withDefault(const Constant(0))();
+  BoolColumn get isArchived =>
+      boolean().named('is_archived').withDefault(const Constant(false))();
   DateTimeColumn get createdAt =>
       dateTime().named('created_at').withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt =>
@@ -40,12 +61,20 @@ class LocalTasks extends Table {
 
 class LocalProjects extends Table {
   TextColumn get id => text()();
+  TextColumn get orgId => text().named('org_id').nullable()();
   TextColumn get name => text().withLength(min: 1, max: 200)();
+  TextColumn get key => text().nullable()();
   TextColumn get description => text().nullable()();
+  TextColumn get projectType =>
+      text().named('project_type').withDefault(const Constant('kanban'))();
   TextColumn get color =>
       text().withDefault(const Constant('#6C5CE7'))();
   TextColumn get icon =>
       text().withDefault(const Constant('folder'))();
+  TextColumn get leadId => text().named('lead_id').nullable()();
+  TextColumn get workflowId => text().named('workflow_id').nullable()();
+  IntColumn get issueCounter =>
+      integer().named('issue_counter').withDefault(const Constant(0))();
   BoolColumn get isArchived =>
       boolean().named('is_archived').withDefault(const Constant(false))();
   IntColumn get sortOrder =>
@@ -363,7 +392,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -396,6 +425,35 @@ class AppDatabase extends _$AppDatabase {
         if (from < 4) {
           // v3 -> v4: Add needs_sync column to local_projects
           await m.addColumn(localProjects, localProjects.needsSync);
+        }
+        if (from < 5) {
+          // v4 -> v5: Multi-tenant v2 — add orgId + Jira fields
+          // Tasks: org_id, task_type, issue_key, parent_id, epic_id,
+          //        assignee_id, reporter_id, sprint_id, status_id,
+          //        estimate_points, start_date, resolution,
+          //        comment_count, attachment_count, is_archived
+          await m.addColumn(localTasks, localTasks.orgId);
+          await m.addColumn(localTasks, localTasks.taskType);
+          await m.addColumn(localTasks, localTasks.issueKey);
+          await m.addColumn(localTasks, localTasks.parentId);
+          await m.addColumn(localTasks, localTasks.epicId);
+          await m.addColumn(localTasks, localTasks.assigneeId);
+          await m.addColumn(localTasks, localTasks.reporterId);
+          await m.addColumn(localTasks, localTasks.sprintId);
+          await m.addColumn(localTasks, localTasks.statusId);
+          await m.addColumn(localTasks, localTasks.estimatePoints);
+          await m.addColumn(localTasks, localTasks.startDate);
+          await m.addColumn(localTasks, localTasks.resolution);
+          await m.addColumn(localTasks, localTasks.commentCount);
+          await m.addColumn(localTasks, localTasks.attachmentCount);
+          await m.addColumn(localTasks, localTasks.isArchived);
+          // Projects: org_id, key, project_type, lead_id, workflow_id, issue_counter
+          await m.addColumn(localProjects, localProjects.orgId);
+          await m.addColumn(localProjects, localProjects.key);
+          await m.addColumn(localProjects, localProjects.projectType);
+          await m.addColumn(localProjects, localProjects.leadId);
+          await m.addColumn(localProjects, localProjects.workflowId);
+          await m.addColumn(localProjects, localProjects.issueCounter);
         }
       },
     );
