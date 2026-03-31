@@ -141,6 +141,23 @@ export {
   type NewTaskActivityEntry,
 } from "./task-relations.js";
 
+// ── Custom Fields ────────────────────────────────────────────────────
+export {
+  customFieldDefinitions,
+  customFieldValues,
+  type CustomFieldDefinition,
+  type NewCustomFieldDefinition,
+  type CustomFieldValue,
+  type NewCustomFieldValue,
+} from "./custom-fields.js";
+
+// ── SLA Policies ─────────────────────────────────────────────────────
+export {
+  slaPolicies,
+  type SlaPolicy,
+  type NewSlaPolicy,
+} from "./sla-policies.js";
+
 // ── Messaging (Slack-like Channels) ──────────────────────────────────
 export {
   msgChannels,
