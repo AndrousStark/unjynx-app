@@ -99,7 +99,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { label: 'Messaging', href: '/messaging', icon: MessageCircle },
       { label: 'Sprints', href: '/sprints', icon: Zap },
       { label: 'Goals', href: '/goals', icon: Target },
-      { label: 'Reports', href: '/reports', icon: BarChart3 },
+      { label: 'Analytics', href: '/analytics', icon: BarChart3 },
     ],
   },
   {

@@ -9,6 +9,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { ViewsBar } from '@/components/layout/views-bar';
 import { DetailPanel } from '@/components/layout/detail-panel';
 import { CommandPalette } from '@/components/layout/command-palette';
+import { ShortcutsHelp } from '@/components/layout/shortcuts-help';
 
 // ─── Dashboard Layout ───────────────────────────────────────────
 //
@@ -73,6 +74,9 @@ export default function DashboardLayout({
 
       {/* ── Command Palette (Cmd+K overlay) ── */}
       <CommandPalette />
+
+      {/* ── Keyboard Shortcuts Help (? key) ── */}
+      <ShortcutsHelp />
     </div>
   );
 }
