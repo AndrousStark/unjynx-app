@@ -20,6 +20,7 @@ import '../services/project_api_service.dart';
 import '../services/sync_api_service.dart';
 import '../services/task_api_service.dart';
 import '../services/mode_api_service.dart';
+import '../services/organization_api_service.dart';
 import '../services/team_api_service.dart';
 
 /// API config — override for production base URL.
@@ -27,11 +28,16 @@ final apiConfigProvider = Provider<ApiConfig>(
   (ref) => ApiConfig.development,
 );
 
-/// Central API client — depends on auth for token injection.
+/// Central API client — depends on auth for token injection + org context.
 final apiClientProvider = Provider<ApiClient>((ref) {
   final auth = ref.watch(authPortProvider);
   final config = ref.watch(apiConfigProvider);
-  return ApiClient(auth: auth, config: config);
+  final client = ApiClient(
+    auth: auth,
+    config: config,
+    orgIdProvider: () => auth.selectedOrgId,
+  );
+  return client;
 });
 
 /// Domain-specific API services.
@@ -112,4 +118,10 @@ final aiApiProvider = Provider<AiApiService>(
 
 final modeApiProvider = Provider<ModeApiService>(
   (ref) => ModeApiService(ref.watch(apiClientProvider)),
+);
+
+// v2: Organizations (multi-tenant)
+
+final organizationApiProvider = Provider<OrganizationApiService>(
+  (ref) => OrganizationApiService(ref.watch(apiClientProvider)),
 );
