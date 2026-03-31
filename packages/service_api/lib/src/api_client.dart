@@ -14,15 +14,22 @@ import 'api_response.dart';
 /// - Idempotency-Key header on POST/PATCH/PUT
 /// - Response envelope unwrapping via [ApiResponse]
 /// - Structured error handling via [ApiException]
+/// Callback to get the currently selected organization ID.
+/// Returns null if no org is selected (personal workspace).
+typedef OrgIdProvider = String? Function();
+
 class ApiClient {
   final Dio _dio;
   final AuthPort _auth;
+  OrgIdProvider? _orgIdProvider;
 
   ApiClient({
     required AuthPort auth,
     ApiConfig config = ApiConfig.development,
     Dio? dio,
+    OrgIdProvider? orgIdProvider,
   })  : _auth = auth,
+        _orgIdProvider = orgIdProvider,
         _dio = dio ?? Dio() {
     _dio.options
       ..baseUrl = '${config.baseUrl}/api/v1'
@@ -31,8 +38,17 @@ class ApiClient {
       ..headers = {'Content-Type': 'application/json'};
 
     _dio.interceptors.add(AuthInterceptor(_auth));
+    _dio.interceptors.add(OrgInterceptor(this));
     _dio.interceptors.add(ErrorInterceptor());
   }
+
+  /// Set the org ID provider (call after auth is initialized).
+  void setOrgIdProvider(OrgIdProvider provider) {
+    _orgIdProvider = provider;
+  }
+
+  /// Get the current org ID.
+  String? get currentOrgId => _orgIdProvider?.call();
 
   /// Visible for testing — access the underlying Dio instance.
   Dio get dio => _dio;
@@ -174,6 +190,25 @@ class ApiClient {
 }
 
 /// Injects Bearer token from [AuthPort] on every request.
+/// Injects X-Org-Id header for multi-tenant org context.
+class OrgInterceptor extends Interceptor {
+  final ApiClient _apiClient;
+
+  OrgInterceptor(this._apiClient);
+
+  @override
+  Future<void> onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    final orgId = _apiClient.currentOrgId;
+    if (orgId != null) {
+      options.headers['X-Org-Id'] = orgId;
+    }
+    handler.next(options);
+  }
+}
+
 class AuthInterceptor extends Interceptor {
   final AuthPort _auth;
 

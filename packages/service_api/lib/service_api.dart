@@ -23,4 +23,5 @@ export 'src/services/project_api_service.dart';
 export 'src/services/sync_api_service.dart';
 export 'src/services/task_api_service.dart';
 export 'src/services/mode_api_service.dart';
+export 'src/services/organization_api_service.dart';
 export 'src/services/team_api_service.dart';
