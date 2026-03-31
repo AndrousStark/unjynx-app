@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
 import { organizationRoutes } from "./organizations/organizations.routes.js";
+import { workflowRoutes } from "./workflows/workflows.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
 import { taskRoutes } from "./tasks/tasks.routes.js";
 import { projectRoutes } from "./projects/projects.routes.js";
@@ -46,6 +47,9 @@ export function registerModules(app: Hono): void {
 
   // Organizations (multi-tenant root)
   app.route("/api/v1/orgs", organizationRoutes);
+
+  // Workflows (configurable status pipelines)
+  app.route("/api/v1/workflows", workflowRoutes);
 
   // Domain modules (versioned)
   app.route("/api/v1/tasks", taskRoutes);
