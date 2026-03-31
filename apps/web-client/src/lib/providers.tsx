@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
+import { VocabularyProvider } from '@/components/providers/vocabulary-provider';
 
 interface ProvidersProps {
   readonly children: ReactNode;
@@ -26,7 +28,15 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <VocabularyProvider>
+        {children}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            className: 'bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)]',
+          }}
+        />
+      </VocabularyProvider>
     </QueryClientProvider>
   );
 }

@@ -51,6 +51,18 @@ function getToken(): string | null {
   return localStorage.getItem('unjynx_token');
 }
 
+function getOrgId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem('unjynx-org');
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return parsed?.state?.currentOrgId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Request helpers
 // ---------------------------------------------------------------------------
@@ -82,6 +94,7 @@ async function request<T>(
   options?: RequestOptions,
 ): Promise<T> {
   const token = getToken();
+  const orgId = getOrgId();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -90,6 +103,10 @@ async function request<T>(
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (orgId) {
+    headers['X-Org-Id'] = orgId;
   }
 
   const res = await fetch(buildUrl(path, options?.params), {
