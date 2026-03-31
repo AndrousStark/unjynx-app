@@ -35,17 +35,22 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
   /// Whether the splash overlay has been dismissed.
   bool _splashDismissed = false;
 
+  bool _lastOrgOnboarding = false;
+
   GoRouter _buildRouter({
     required bool isOnboardingComplete,
     required bool isAuthenticated,
+    bool isOrgOnboardingNeeded = false,
   }) {
     _lastOnboarding = isOnboardingComplete;
     _lastAuth = isAuthenticated;
+    _lastOrgOnboarding = isOrgOnboardingNeeded;
     _routerInitialized = true;
     return createAppRouter(
       widget.registry,
       isOnboardingComplete: isOnboardingComplete,
       isAuthenticated: isAuthenticated,
+      isOrgOnboardingNeeded: isOrgOnboardingNeeded,
     );
   }
 
@@ -69,6 +74,10 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
     final authAsync = ref.watch(isAuthenticatedProvider);
     final isLoading = authAsync.isLoading;
 
+    // Watch org onboarding state (first login → industry selector).
+    final isFirstLoginAsync = ref.watch(isFirstLoginProvider);
+    final isOrgOnboardingNeeded = isFirstLoginAsync.value ?? false;
+
     // Default to unauthenticated while loading — the splash overlay
     // covers the screen so the underlying route is not visible.
     final isAuthenticated = authAsync.value ?? false;
@@ -84,13 +93,15 @@ class _UnjynxAppState extends ConsumerState<UnjynxApp> {
       _retryFcmRegistration();
     }
 
-    // Rebuild router if onboarding or auth state changed.
+    // Rebuild router if onboarding, auth, or org onboarding state changed.
     if (!_routerInitialized ||
         _lastOnboarding != isComplete ||
-        _lastAuth != isAuthenticated) {
+        _lastAuth != isAuthenticated ||
+        _lastOrgOnboarding != isOrgOnboardingNeeded) {
       _router = _buildRouter(
         isOnboardingComplete: isComplete,
         isAuthenticated: isAuthenticated,
+        isOrgOnboardingNeeded: isOrgOnboardingNeeded,
       );
     }
 

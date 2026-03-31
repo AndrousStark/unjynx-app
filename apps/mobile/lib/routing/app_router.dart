@@ -7,6 +7,8 @@ import 'package:feature_notifications/feature_notifications.dart';
 import 'package:feature_projects/feature_projects.dart';
 import 'package:feature_settings/feature_settings.dart';
 import 'package:feature_team/feature_team.dart';
+import 'package:feature_team/src/presentation/widgets/org_switcher.dart';
+import 'package:feature_team/src/presentation/pages/org_onboarding_page.dart';
 import 'package:feature_todos/todo_plugin.dart';
 import 'package:feature_widgets/feature_widgets.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -34,6 +36,7 @@ GoRouter createAppRouter(
   PluginRegistry registry, {
   required bool isOnboardingComplete,
   bool isAuthenticated = true,
+  bool isOrgOnboardingNeeded = false,
 }) {
   // Only show nav-worthy routes in bottom bar:
   // - Exclude onboarding routes
@@ -65,6 +68,12 @@ GoRouter createAppRouter(
         path: route.path,
         builder: (context, state) => route.builder(),
       ),
+
+    // Org onboarding (industry selector — first login after signup)
+    GoRoute(
+      path: '/org-onboarding',
+      builder: (context, state) => const OrgOnboardingPage(),
+    ),
 
     // Shell route with bottom navigation
     // Include all non-onboarding plugin routes in shell (so they render with
@@ -332,6 +341,15 @@ GoRouter createAppRouter(
         return defaultLocation;
       }
 
+      // Org onboarding guard (third priority — after auth, before app)
+      final goingToOrgOnboarding = path == '/org-onboarding';
+      if (isAuthenticated && isOrgOnboardingNeeded && !goingToOrgOnboarding && !goingToOnboarding) {
+        return '/org-onboarding';
+      }
+      if (isAuthenticated && !isOrgOnboardingNeeded && goingToOrgOnboarding) {
+        return defaultLocation;
+      }
+
       return null;
     },
     routes: routes,
@@ -361,12 +379,11 @@ class _AppShell extends ConsumerWidget {
           UnjynxConnectionBanner(
             state: connState,
             onAutoDismiss: () {
-              // The provider handles its own state transitions, but
-              // if the banner needs to trigger a dismiss we let the
-              // notifier recheck.
               ref.read(connectivityProvider.notifier).recheck();
             },
           ),
+          // Organization switcher — shows current org, tap to switch
+          const OrgSwitcher(),
           Expanded(child: child),
         ],
       ),
