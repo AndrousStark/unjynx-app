@@ -8,6 +8,7 @@ import { useDetailPanelStore } from '@/lib/store/detail-panel-store';
 import { useCompleteTask, useUpdateTask } from '@/lib/hooks/use-tasks';
 import { Check, GripVertical, MessageSquare, Paperclip } from 'lucide-react';
 import { TaskTypeBadge, IssueKeyBadge } from './task-type-badge';
+import { SlaBadge } from './sla-badge';
 import type { Task } from '@/lib/api/tasks';
 
 interface TaskRowProps {
@@ -164,6 +165,11 @@ export function TaskRow({ task, selected = false, onSelect, compact = false }: T
         <span className="hidden md:flex items-center gap-0.5 flex-shrink-0 text-[10px] text-[var(--muted-foreground)]">
           <Paperclip size={10} />{task.attachmentCount}
         </span>
+      )}
+
+      {/* SLA indicator */}
+      {task.dueDate && !compact && (
+        <SlaBadge dueDate={task.dueDate} status={task.status} compact />
       )}
 
       {/* Due date */}
