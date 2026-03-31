@@ -141,6 +141,19 @@ export {
   type NewTaskActivityEntry,
 } from "./task-relations.js";
 
+// ── Sprints ──────────────────────────────────────────────────────────
+export {
+  sprints,
+  sprintTasks,
+  sprintBurndown,
+  type Sprint,
+  type NewSprint,
+  type SprintTask,
+  type NewSprintTask,
+  type SprintBurndownEntry,
+  type NewSprintBurndownEntry,
+} from "./sprints.js";
+
 // ── Teams (legacy — kept for backwards compatibility) ────────────────
 export {
   teams,
