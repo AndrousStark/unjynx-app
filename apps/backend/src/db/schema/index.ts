@@ -141,6 +141,16 @@ export {
   type NewTaskActivityEntry,
 } from "./task-relations.js";
 
+// ── AI Operations ────────────────────────────────────────────────────
+export {
+  aiOperations,
+  aiSuggestions,
+  type AiOperation,
+  type NewAiOperation,
+  type AiSuggestion,
+  type NewAiSuggestion,
+} from "./ai-operations.js";
+
 // ── Custom Fields ────────────────────────────────────────────────────
 export {
   customFieldDefinitions,

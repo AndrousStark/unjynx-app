@@ -4,6 +4,7 @@ import { workflowRoutes } from "./workflows/workflows.routes.js";
 import { sprintRoutes } from "./sprints/sprints.routes.js";
 import { messagingRoutes } from "./messaging/messaging.routes.js";
 import { customFieldRoutes } from "./custom-fields/custom-fields.routes.js";
+import { aiTeamRoutes } from "./ai-team/ai-team.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
 import { taskRoutes } from "./tasks/tasks.routes.js";
 import { projectRoutes } from "./projects/projects.routes.js";
@@ -62,6 +63,9 @@ export function registerModules(app: Hono): void {
 
   // Custom fields + SLA policies
   app.route("/api/v1/custom-fields", customFieldRoutes);
+
+  // AI team features (standup, risks, assignment, health)
+  app.route("/api/v1/ai-team", aiTeamRoutes);
 
   // Domain modules (versioned)
   app.route("/api/v1/tasks", taskRoutes);
