@@ -10,6 +10,7 @@ import { ProgressRings } from '@/components/dashboard/progress-rings';
 import { ActivityChart } from '@/components/dashboard/activity-chart';
 import { UpcomingTasks } from '@/components/dashboard/upcoming-tasks';
 import { DailyContentCard } from '@/components/dashboard/daily-content';
+import { ModeWidgets } from '@/components/dashboard/mode-widgets';
 import { StatsShimmer, Shimmer } from '@/components/ui/shimmer';
 import {
   CheckCircle2,
@@ -265,6 +266,9 @@ export default function DashboardPage() {
           <ChannelStatusCard />
         </div>
       </div>
+
+      {/* Mode-Specific Dashboard Widgets */}
+      <ModeWidgets />
     </div>
   );
 }
