@@ -6,7 +6,8 @@ import { priorityColor, priorityLabel } from '@/lib/utils/priority';
 import { formatDueDate, formatDueTime } from '@/lib/utils/format';
 import { useDetailPanelStore } from '@/lib/store/detail-panel-store';
 import { useCompleteTask, useUpdateTask } from '@/lib/hooks/use-tasks';
-import { Check, GripVertical } from 'lucide-react';
+import { Check, GripVertical, MessageSquare, Paperclip } from 'lucide-react';
+import { TaskTypeBadge, IssueKeyBadge } from './task-type-badge';
 import type { Task } from '@/lib/api/tasks';
 
 interface TaskRowProps {
@@ -86,6 +87,16 @@ export function TaskRow({ task, selected = false, onSelect, compact = false }: T
         {task.status === 'done' && <Check size={10} className="text-white" />}
       </button>
 
+      {/* Task Type Icon */}
+      {task.taskType && task.taskType !== 'task' && (
+        <TaskTypeBadge type={task.taskType} size="xs" />
+      )}
+
+      {/* Issue Key */}
+      {task.issueKey && (
+        <IssueKeyBadge issueKey={task.issueKey} />
+      )}
+
       {/* Title */}
       <div className="flex-1 min-w-0">
         {editing ? (
@@ -131,6 +142,27 @@ export function TaskRow({ task, selected = false, onSelect, compact = false }: T
       {task.projectId && !compact && (
         <span className="hidden sm:inline-flex text-[10px] px-2 py-0.5 rounded-full bg-[var(--background-elevated)] text-[var(--foreground-secondary)] border border-[var(--border)]">
           Project
+        </span>
+      )}
+
+      {/* Story points */}
+      {task.estimatePoints != null && task.estimatePoints > 0 && !compact && (
+        <span className="hidden sm:inline-flex items-center justify-center flex-shrink-0 w-6 h-5 rounded bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">
+          {task.estimatePoints}
+        </span>
+      )}
+
+      {/* Comment count */}
+      {(task.commentCount ?? 0) > 0 && !compact && (
+        <span className="hidden md:flex items-center gap-0.5 flex-shrink-0 text-[10px] text-[var(--muted-foreground)]">
+          <MessageSquare size={10} />{task.commentCount}
+        </span>
+      )}
+
+      {/* Attachment count */}
+      {(task.attachmentCount ?? 0) > 0 && !compact && (
+        <span className="hidden md:flex items-center gap-0.5 flex-shrink-0 text-[10px] text-[var(--muted-foreground)]">
+          <Paperclip size={10} />{task.attachmentCount}
         </span>
       )}
 

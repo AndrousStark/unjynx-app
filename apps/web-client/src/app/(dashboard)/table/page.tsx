@@ -45,8 +45,10 @@ const COLUMNS: readonly ColumnDef[] = [
 
 const STATUS_STYLES: Record<Task['status'], { bg: string; text: string; label: string }> = {
   todo: { bg: 'bg-[var(--muted)]', text: 'text-[var(--muted-foreground)]', label: 'To Do' },
+  pending: { bg: 'bg-[var(--muted)]', text: 'text-[var(--muted-foreground)]', label: 'Pending' },
   in_progress: { bg: 'bg-unjynx-violet/15', text: 'text-unjynx-violet', label: 'In Progress' },
   done: { bg: 'bg-unjynx-emerald/15', text: 'text-unjynx-emerald', label: 'Done' },
+  completed: { bg: 'bg-unjynx-emerald/15', text: 'text-unjynx-emerald', label: 'Completed' },
   cancelled: { bg: 'bg-unjynx-rose/15', text: 'text-unjynx-rose', label: 'Cancelled' },
 };
 

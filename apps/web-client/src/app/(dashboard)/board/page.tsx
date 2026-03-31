@@ -177,8 +177,10 @@ export default function BoardPage() {
   // Group by status
   const tasksByStatus: Record<Task['status'], Task[]> = {
     todo: [],
+    pending: [],
     in_progress: [],
     done: [],
+    completed: [],
     cancelled: [],
   };
 

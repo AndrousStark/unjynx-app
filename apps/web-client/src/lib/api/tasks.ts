@@ -13,7 +13,7 @@ export interface Task {
   readonly title: string;
   readonly description: string | null;
   readonly priority: 'none' | 'low' | 'medium' | 'high' | 'urgent';
-  readonly status: 'todo' | 'in_progress' | 'done' | 'cancelled';
+  readonly status: 'todo' | 'in_progress' | 'done' | 'cancelled' | 'pending' | 'completed';
   readonly dueDate: string | null;
   readonly dueTime: string | null;
   readonly projectId: string | null;
@@ -27,6 +27,27 @@ export interface Task {
   readonly completedAt: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+  // ── Jira-like fields (v2) ──────────────────────────────────────
+  readonly orgId?: string | null;
+  readonly issueKey?: string | null;
+  readonly taskType?: 'epic' | 'story' | 'task' | 'bug' | 'subtask' | 'improvement';
+  readonly statusId?: string | null;
+  readonly epicId?: string | null;
+  readonly reporterId?: string | null;
+  readonly reviewerId?: string | null;
+  readonly sprintId?: string | null;
+  readonly estimatePoints?: number | null;
+  readonly estimateHours?: string | null;
+  readonly loggedHours?: string | null;
+  readonly remainingHours?: string | null;
+  readonly startDate?: string | null;
+  readonly resolution?: string | null;
+  readonly customFields?: Record<string, unknown>;
+  readonly voteCount?: number;
+  readonly watcherCount?: number;
+  readonly commentCount?: number;
+  readonly attachmentCount?: number;
+  readonly isArchived?: boolean;
 }
 
 export interface CreateTaskPayload {
@@ -38,8 +59,15 @@ export interface CreateTaskPayload {
   readonly projectId?: string;
   readonly sectionId?: string;
   readonly parentId?: string;
+  readonly assigneeId?: string;
   readonly labels?: readonly string[];
   readonly rrule?: string;
+  // v2 fields
+  readonly taskType?: Task['taskType'];
+  readonly epicId?: string;
+  readonly sprintId?: string;
+  readonly estimatePoints?: number;
+  readonly estimateHours?: string;
 }
 
 export interface UpdateTaskPayload {
@@ -52,9 +80,20 @@ export interface UpdateTaskPayload {
   readonly projectId?: string | null;
   readonly sectionId?: string | null;
   readonly parentId?: string | null;
+  readonly assigneeId?: string | null;
   readonly labels?: readonly string[];
   readonly sortOrder?: number;
   readonly rrule?: string | null;
+  // v2 fields
+  readonly taskType?: Task['taskType'];
+  readonly statusId?: string | null;
+  readonly epicId?: string | null;
+  readonly reviewerId?: string | null;
+  readonly sprintId?: string | null;
+  readonly estimatePoints?: number | null;
+  readonly estimateHours?: string | null;
+  readonly resolution?: string | null;
+  readonly customFields?: Record<string, unknown>;
 }
 
 export interface MoveTaskPayload {

@@ -51,7 +51,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 // ─── Derive chart data from tasks ───────────────────────────────
 
 function deriveStatusData(tasks: readonly Task[]): { name: string; value: number; color: string }[] {
-  const counts = { done: 0, in_progress: 0, todo: 0, cancelled: 0 };
+  const counts: Record<string, number> = { done: 0, in_progress: 0, todo: 0, cancelled: 0, pending: 0, completed: 0 };
   for (const t of tasks) {
     counts[t.status] = (counts[t.status] ?? 0) + 1;
   }
