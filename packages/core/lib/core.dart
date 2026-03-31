@@ -19,6 +19,7 @@ export 'plugin/unjynx_plugin.dart';
 export 'plugin/plugin_registry.dart';
 
 // Models
+export 'models/organization.dart';
 export 'models/project.dart';
 export 'models/user_profile.dart';
 

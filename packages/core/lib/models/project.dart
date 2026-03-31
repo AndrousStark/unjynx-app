@@ -8,11 +8,17 @@ part 'project.g.dart';
 abstract class Project with _$Project {
   const factory Project({
     required String id,
+    String? orgId,
     required String userId,
     required String name,
+    String? key,
     String? description,
+    @Default('kanban') String projectType,
     @Default('#6C5CE7') String color,
     @Default('folder') String icon,
+    String? leadId,
+    String? workflowId,
+    @Default(0) int issueCounter,
     @Default(false) bool isArchived,
     @Default(0) int sortOrder,
     required DateTime createdAt,
