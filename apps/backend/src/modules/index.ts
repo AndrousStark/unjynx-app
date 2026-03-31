@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 import { organizationRoutes } from "./organizations/organizations.routes.js";
 import { workflowRoutes } from "./workflows/workflows.routes.js";
 import { sprintRoutes } from "./sprints/sprints.routes.js";
+import { messagingRoutes } from "./messaging/messaging.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
 import { taskRoutes } from "./tasks/tasks.routes.js";
 import { projectRoutes } from "./projects/projects.routes.js";
@@ -54,6 +55,9 @@ export function registerModules(app: Hono): void {
 
   // Sprints (Scrum cycle management)
   app.route("/api/v1/sprints", sprintRoutes);
+
+  // Messaging (Slack-like channels)
+  app.route("/api/v1/messaging", messagingRoutes);
 
   // Domain modules (versioned)
   app.route("/api/v1/tasks", taskRoutes);

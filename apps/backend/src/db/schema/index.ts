@@ -141,6 +141,23 @@ export {
   type NewTaskActivityEntry,
 } from "./task-relations.js";
 
+// ── Messaging (Slack-like Channels) ──────────────────────────────────
+export {
+  msgChannels,
+  msgChannelMembers,
+  messages,
+  messageReactions,
+  pinnedMessages,
+  type MsgChannel,
+  type NewMsgChannel,
+  type MsgChannelMember,
+  type NewMsgChannelMember,
+  type Message,
+  type NewMessage,
+  type MessageReaction,
+  type PinnedMessage,
+} from "./messaging.js";
+
 // ── Sprints ──────────────────────────────────────────────────────────
 export {
   sprints,
