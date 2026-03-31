@@ -16,6 +16,48 @@ export const taskStatusEnum = pgEnum("task_status", [
   "cancelled",
 ]);
 
+// ── Project Types ────────────────────────────────────────────────────
+export const projectTypeEnum = pgEnum("project_type", [
+  "kanban",
+  "scrum",
+  "bug_tracker",
+  "service_desk",
+]);
+
+// ── Task / Issue Types ──────────────────────────────────────────────
+export const taskTypeEnum = pgEnum("task_type", [
+  "epic",
+  "story",
+  "task",
+  "bug",
+  "subtask",
+  "improvement",
+]);
+
+// ── Issue Link Types ────────────────────────────────────────────────
+export const issueLinkTypeEnum = pgEnum("issue_link_type", [
+  "blocks",
+  "is_blocked_by",
+  "relates_to",
+  "duplicates",
+  "is_duplicated_by",
+]);
+
+// ── Workflow Status Category ────────────────────────────────────────
+export const statusCategoryEnum = pgEnum("status_category", [
+  "todo",
+  "in_progress",
+  "done",
+]);
+
+// ── Sprint Status ───────────────────────────────────────────────────
+export const sprintStatusEnum = pgEnum("sprint_status", [
+  "planning",
+  "active",
+  "completed",
+  "cancelled",
+]);
+
 // ── Notification Channels ─────────────────────────────────────────────
 export const channelTypeEnum = pgEnum("channel_type", [
   "push",

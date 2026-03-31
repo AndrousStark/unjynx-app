@@ -113,6 +113,34 @@ export {
   type NewOrgTeamMember,
 } from "./organizations.js";
 
+// ── Workflows ────────────────────────────────────────────────────────
+export {
+  workflows,
+  workflowStatuses,
+  workflowTransitions,
+  type Workflow,
+  type NewWorkflow,
+  type WorkflowStatus,
+  type NewWorkflowStatus,
+  type WorkflowTransition,
+  type NewWorkflowTransition,
+} from "./workflows.js";
+
+// ── Task Relations ───────────────────────────────────────────────────
+export {
+  taskWatchers,
+  taskLinks,
+  timeEntries,
+  taskActivity,
+  type TaskWatcher,
+  type TaskLink,
+  type NewTaskLink,
+  type TimeEntry,
+  type NewTimeEntry,
+  type TaskActivityEntry,
+  type NewTaskActivityEntry,
+} from "./task-relations.js";
+
 // ── Teams (legacy — kept for backwards compatibility) ────────────────
 export {
   teams,
