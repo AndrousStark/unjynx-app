@@ -6,6 +6,7 @@ import { messagingRoutes } from "./messaging/messaging.routes.js";
 import { customFieldRoutes } from "./custom-fields/custom-fields.routes.js";
 import { aiTeamRoutes } from "./ai-team/ai-team.routes.js";
 import { reportRoutes } from "./reports/reports.routes.js";
+import { goalRoutes } from "./goals/goals.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
 import { taskRoutes } from "./tasks/tasks.routes.js";
 import { projectRoutes } from "./projects/projects.routes.js";
@@ -70,6 +71,9 @@ export function registerModules(app: Hono): void {
 
   // Reports & analytics
   app.route("/api/v1/reports", reportRoutes);
+
+  // Goals / OKRs
+  app.route("/api/v1/goals", goalRoutes);
 
   // Domain modules (versioned)
   app.route("/api/v1/tasks", taskRoutes);

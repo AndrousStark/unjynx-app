@@ -141,6 +141,16 @@ export {
   type NewTaskActivityEntry,
 } from "./task-relations.js";
 
+// ── Goals / OKRs ─────────────────────────────────────────────────────
+export {
+  goals,
+  goalTaskLinks,
+  type Goal,
+  type NewGoal,
+  type GoalTaskLink,
+  type NewGoalTaskLink,
+} from "./goals.js";
+
 // ── Report Snapshots ─────────────────────────────────────────────────
 export {
   reportSnapshots,
