@@ -8,11 +8,15 @@ import {
 } from "drizzle-orm/pg-core";
 import { projects } from "./projects.js";
 import { profiles } from "./profiles.js";
+import { organizations } from "./organizations.js";
 
 export const sections = pgTable(
   "sections",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     projectId: uuid("project_id")
       .references(() => projects.id, { onDelete: "cascade" })
       .notNull(),
@@ -26,6 +30,7 @@ export const sections = pgTable(
       .notNull(),
   },
   (table) => [
+    index("sections_org_id_idx").on(table.orgId),
     index("sections_project_id_idx").on(table.projectId),
   ],
 );

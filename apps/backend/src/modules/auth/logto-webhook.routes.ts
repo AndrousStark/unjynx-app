@@ -25,8 +25,9 @@
 import { Hono } from "hono";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { profiles, userSessions } from "../../db/schema/index.js";
+import { profiles, userSessions, organizations, orgMemberships } from "../../db/schema/index.js";
 import { logger } from "../../middleware/logger.js";
+import { clearMembershipCache } from "../../middleware/tenant.js";
 import * as loginAuditService from "./login-audit.service.js";
 import * as authRepo from "./auth.repository.js";
 import * as suspiciousLoginService from "./suspicious-login.service.js";
@@ -106,6 +107,8 @@ const LOGTO_EVENT_TO_TYPE: Record<string, string> = {
   "User.SuspensionStatus.Updated": "account_suspended",
   "User.Deleted": "user_deleted",
   "Identifier.Lockout": "lockout",
+  "Organization.Membership.Updated": "org_membership_updated",
+  "Organization.Membership.Deleted": "org_membership_deleted",
 };
 
 function mapLogtoEventType(logtoEvent: string): string {
@@ -357,6 +360,147 @@ async function handlePostSignIn(
   }
 }
 
+// ── Organization Events ──────────────────────────────────────────────
+
+/**
+ * Organization.Membership.Updated: Sync org membership from Logto.
+ * Fires when a user is added/updated in a Logto organization.
+ * Idempotent via upsert on (org_id, user_id) unique constraint.
+ */
+async function handleOrgMembershipUpdated(payload: LogtoWebhookPayload): Promise<void> {
+  const body = payload.body as {
+    organizationId?: string;
+    userId?: string;
+    organizationRoles?: readonly { id: string; name: string }[];
+  } | undefined;
+
+  const logtoOrgId = body?.organizationId;
+  const logtoUserId = body?.userId;
+
+  if (!logtoOrgId || !logtoUserId) {
+    log.warn("Organization.Membership.Updated missing organizationId or userId");
+    return;
+  }
+
+  // Find our org by logtoOrgId
+  const [org] = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.logtoOrgId, logtoOrgId))
+    .limit(1);
+
+  if (!org) {
+    log.info({ logtoOrgId }, "Org not found for Logto org — skipping sync");
+    return;
+  }
+
+  // Find our user by logtoId
+  const [profile] = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(eq(profiles.logtoId, logtoUserId))
+    .limit(1);
+
+  if (!profile) {
+    log.info({ logtoUserId }, "Profile not found for Logto user — skipping sync");
+    return;
+  }
+
+  // Map Logto org roles to our role hierarchy
+  const logtoRoles = body?.organizationRoles ?? [];
+  const role = mapLogtoOrgRole(logtoRoles);
+
+  // Upsert membership
+  const [existing] = await db
+    .select({ id: orgMemberships.id })
+    .from(orgMemberships)
+    .where(
+      and(
+        eq(orgMemberships.orgId, org.id),
+        eq(orgMemberships.userId, profile.id),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(orgMemberships)
+      .set({ role, status: "active", lastActiveAt: new Date() })
+      .where(eq(orgMemberships.id, existing.id));
+  } else {
+    await db.insert(orgMemberships).values({
+      orgId: org.id,
+      userId: profile.id,
+      role,
+      status: "active",
+    });
+  }
+
+  clearMembershipCache(profile.id);
+  log.info({ orgId: org.id, userId: profile.id, role }, "Org membership synced from Logto");
+}
+
+/**
+ * Organization.Membership.Deleted: Remove org membership.
+ */
+async function handleOrgMembershipDeleted(payload: LogtoWebhookPayload): Promise<void> {
+  const body = payload.body as {
+    organizationId?: string;
+    userId?: string;
+  } | undefined;
+
+  const logtoOrgId = body?.organizationId;
+  const logtoUserId = body?.userId;
+
+  if (!logtoOrgId || !logtoUserId) {
+    log.warn("Organization.Membership.Deleted missing IDs");
+    return;
+  }
+
+  const [org] = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.logtoOrgId, logtoOrgId))
+    .limit(1);
+
+  const [profile] = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(eq(profiles.logtoId, logtoUserId))
+    .limit(1);
+
+  if (!org || !profile) return;
+
+  await db
+    .delete(orgMemberships)
+    .where(
+      and(
+        eq(orgMemberships.orgId, org.id),
+        eq(orgMemberships.userId, profile.id),
+      ),
+    );
+
+  clearMembershipCache(profile.id);
+  log.info({ orgId: org.id, userId: profile.id }, "Org membership removed via Logto");
+}
+
+/**
+ * Map Logto organization roles to UNJYNX org roles.
+ * Logto roles are custom-defined in the org template.
+ */
+function mapLogtoOrgRole(
+  logtoRoles: readonly { id: string; name: string }[],
+): "owner" | "admin" | "manager" | "member" | "viewer" | "guest" {
+  const roleNames = logtoRoles.map((r) => r.name.toLowerCase());
+
+  if (roleNames.includes("owner")) return "owner";
+  if (roleNames.includes("admin")) return "admin";
+  if (roleNames.includes("manager")) return "manager";
+  if (roleNames.includes("viewer")) return "viewer";
+  if (roleNames.includes("guest")) return "guest";
+  return "member";
+}
+
 // ── POST /api/v1/webhooks/logto ─────────────────────────────────────
 
 logtoWebhookRoutes.post("/logto", async (c) => {
@@ -427,6 +571,14 @@ logtoWebhookRoutes.post("/logto", async (c) => {
         riskSignals = result.riskSignals;
         break;
       }
+
+      case "Organization.Membership.Updated":
+        await handleOrgMembershipUpdated(payload);
+        break;
+
+      case "Organization.Membership.Deleted":
+        await handleOrgMembershipDeleted(payload);
+        break;
 
       default:
         // No special handler — just log the event below

@@ -174,6 +174,30 @@ export const teamMemberStatusEnum = pgEnum("team_member_status", [
   "deactivated",
 ]);
 
+// ── Organization ─────────────────────────────────────────────────────
+export const orgRoleEnum = pgEnum("org_role", [
+  "owner",
+  "admin",
+  "manager",
+  "member",
+  "viewer",
+  "guest",
+]);
+
+export const orgInviteStatusEnum = pgEnum("org_invite_status", [
+  "pending",
+  "accepted",
+  "declined",
+  "expired",
+]);
+
+export const orgMemberStatusEnum = pgEnum("org_member_status", [
+  "active",
+  "invited",
+  "deactivated",
+  "suspended",
+]);
+
 // ── Admin ────────────────────────────────────────────────────────────
 export const adminRoleEnum = pgEnum("admin_role", [
   "owner",

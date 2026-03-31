@@ -111,9 +111,11 @@ export async function findTagsByTaskId(taskId: string): Promise<Tag[]> {
   const rows = await db
     .select({
       id: tags.id,
+      orgId: tags.orgId,
       userId: tags.userId,
       name: tags.name,
       color: tags.color,
+      description: tags.description,
       createdAt: tags.createdAt,
     })
     .from(taskTags)

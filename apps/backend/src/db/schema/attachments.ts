@@ -8,11 +8,15 @@ import {
 } from "drizzle-orm/pg-core";
 import { tasks } from "./tasks.js";
 import { profiles } from "./profiles.js";
+import { organizations } from "./organizations.js";
 
 export const attachments = pgTable(
   "attachments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     taskId: uuid("task_id")
       .references(() => tasks.id, { onDelete: "cascade" })
       .notNull(),
@@ -29,6 +33,7 @@ export const attachments = pgTable(
       .notNull(),
   },
   (table) => [
+    index("attachments_org_id_idx").on(table.orgId),
     index("attachments_task_id_idx").on(table.taskId),
   ],
 );

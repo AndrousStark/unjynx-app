@@ -94,7 +94,26 @@ export {
   type NewPomodoroSession,
 } from "./pomodoro-sessions.js";
 
-// ── Teams ─────────────────────────────────────────────────────────────
+// ── Organizations (Multi-Tenant) ─────────────────────────────────────
+export {
+  organizations,
+  orgMemberships,
+  orgInvites,
+  orgTeams,
+  orgTeamMembers,
+  type Organization,
+  type NewOrganization,
+  type OrgMembership,
+  type NewOrgMembership,
+  type OrgInvite,
+  type NewOrgInvite,
+  type OrgTeam,
+  type NewOrgTeam,
+  type OrgTeamMember,
+  type NewOrgTeamMember,
+} from "./organizations.js";
+
+// ── Teams (legacy — kept for backwards compatibility) ────────────────
 export {
   teams,
   teamMembers,
