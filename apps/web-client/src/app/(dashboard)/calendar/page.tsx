@@ -1,490 +1,213 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useTasks } from '@/lib/hooks/use-tasks';
-import { cn } from '@/lib/utils/cn';
-import { priorityColor } from '@/lib/utils/priority';
-import { formatDueTime } from '@/lib/utils/format';
+import { useState, useMemo, useCallback } from 'react';
+import { useTasks, useUpdateTask } from '@/lib/hooks/use-tasks';
 import { useDetailPanelStore } from '@/lib/store/detail-panel-store';
+import { useVocabulary } from '@/lib/hooks/use-vocabulary';
+import { priorityColor } from '@/lib/utils/priority';
 import { Shimmer } from '@/components/ui/shimmer';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  isToday,
-  addMonths,
-  subMonths,
-  addWeeks,
-  subWeeks,
-  addDays,
-  subDays,
-  getHours,
-  parseISO,
-} from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import type { Task } from '@/lib/api/tasks';
 
-// ─── Sub-view Types ─────────────────────────────────────────────
+// FullCalendar must be loaded client-side only (no SSR)
+const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
+const dayGridPlugin = typeof window !== 'undefined' ? require('@fullcalendar/daygrid').default : null;
+const timeGridPlugin = typeof window !== 'undefined' ? require('@fullcalendar/timegrid').default : null;
+const interactionPlugin = typeof window !== 'undefined' ? require('@fullcalendar/interaction').default : null;
+const listPlugin = typeof window !== 'undefined' ? require('@fullcalendar/list').default : null;
 
-type CalendarView = 'month' | 'week' | 'day';
+// ─── Task → FullCalendar Event Mapper ────────────────────────────
 
-// ─── Month View ─────────────────────────────────────────────────
-
-function MonthView({
-  currentDate,
-  tasks,
-  onSelectDate,
-  selectedDate,
-}: {
-  readonly currentDate: Date;
-  readonly tasks: readonly Task[];
-  readonly onSelectDate: (date: Date) => void;
-  readonly selectedDate: Date | null;
-}) {
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
-  const days = eachDayOfInterval({ start: calStart, end: calEnd });
-
-  const tasksByDate = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    for (const task of tasks) {
-      if (task.dueDate) {
-        const key = task.dueDate.split('T')[0];
-        const arr = map.get(key) ?? [];
-        arr.push(task);
-        map.set(key, arr);
-      }
-    }
-    return map;
-  }, [tasks]);
-
-  return (
-    <div>
-      {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-          <div
-            key={d}
-            className="text-center text-xs font-medium text-[var(--muted-foreground)] py-2"
-          >
-            {d}
-          </div>
-        ))}
-      </div>
-
-      {/* Day cells */}
-      <div className="grid grid-cols-7 gap-px bg-[var(--border)] rounded-lg overflow-hidden">
-        {days.map((day) => {
-          const dayKey = format(day, 'yyyy-MM-dd');
-          const dayTasks = tasksByDate.get(dayKey) ?? [];
-          const isCurrentMonth = isSameMonth(day, currentDate);
-          const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-          const today = isToday(day);
-
-          return (
-            <button
-              key={dayKey}
-              onClick={() => onSelectDate(day)}
-              className={cn(
-                'bg-[var(--background)] p-2 min-h-[80px] lg:min-h-[100px] text-left transition-colors hover:bg-[var(--background-surface)]',
-                !isCurrentMonth && 'opacity-40',
-                isSelected && 'ring-2 ring-unjynx-violet ring-inset',
-              )}
-            >
-              <span
-                className={cn(
-                  'inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium',
-                  today
-                    ? 'bg-unjynx-gold text-unjynx-midnight font-bold'
-                    : 'text-[var(--foreground)]',
-                )}
-              >
-                {format(day, 'd')}
-              </span>
-              {/* Task dots */}
-              {dayTasks.length > 0 && (
-                <div className="flex gap-0.5 mt-1 flex-wrap">
-                  {dayTasks.slice(0, 4).map((t) => (
-                    <span
-                      key={t.id}
-                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: priorityColor(t.priority) }}
-                      title={t.title}
-                    />
-                  ))}
-                  {dayTasks.length > 4 && (
-                    <span className="text-[8px] text-[var(--muted-foreground)]">
-                      +{dayTasks.length - 4}
-                    </span>
-                  )}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+function taskToEvent(task: Task) {
+  const isDone = task.status === 'done' || task.status === 'completed';
+  return {
+    id: task.id,
+    title: task.title,
+    start: task.dueDate ?? undefined,
+    end: task.dueDate ?? undefined,
+    allDay: !task.dueTime,
+    backgroundColor: isDone ? 'var(--success)' : priorityColor(task.priority),
+    borderColor: isDone ? 'var(--success)' : priorityColor(task.priority),
+    textColor: '#FFFFFF',
+    classNames: [isDone ? 'opacity-50 line-through' : ''],
+    extendedProps: {
+      taskId: task.id,
+      priority: task.priority,
+      status: task.status,
+      projectId: task.projectId,
+      issueKey: task.issueKey,
+    },
+  };
 }
 
-// ─── Week View ──────────────────────────────────────────────────
+// ─── Custom CSS for FullCalendar Theme ───────────────────────────
 
-function WeekView({
-  currentDate,
-  tasks,
-}: {
-  readonly currentDate: Date;
-  readonly tasks: readonly Task[];
-}) {
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
-  const days = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
-  const openPanel = useDetailPanelStore((s) => s.openPanel);
+const calendarStyles = `
+  .fc {
+    --fc-border-color: var(--border);
+    --fc-button-bg-color: var(--background-surface);
+    --fc-button-border-color: var(--border);
+    --fc-button-text-color: var(--foreground);
+    --fc-button-hover-bg-color: var(--accent);
+    --fc-button-hover-border-color: var(--accent);
+    --fc-button-active-bg-color: var(--accent);
+    --fc-button-active-border-color: var(--accent);
+    --fc-today-bg-color: rgba(108, 60, 224, 0.05);
+    --fc-neutral-bg-color: var(--background-surface);
+    --fc-page-bg-color: var(--background);
+    --fc-event-border-color: transparent;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+  .fc .fc-toolbar-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .fc .fc-col-header-cell-cushion,
+  .fc .fc-daygrid-day-number,
+  .fc .fc-timegrid-slot-label-cushion {
+    color: var(--foreground);
+    font-size: 0.75rem;
+  }
+  .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+    background: var(--accent);
+    color: white;
+    border-radius: 9999px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .fc .fc-event {
+    border-radius: 6px;
+    font-size: 0.7rem;
+    padding: 1px 4px;
+    cursor: pointer;
+  }
+  .fc .fc-button {
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-weight: 500;
+  }
+  .fc .fc-button-primary:not(:disabled).fc-button-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .fc .fc-scrollgrid {
+    border-color: var(--border);
+  }
+  .fc th {
+    background: var(--background-surface);
+  }
+  .fc .fc-timegrid-now-indicator-line {
+    border-color: var(--destructive);
+  }
+  .fc .fc-timegrid-now-indicator-arrow {
+    border-color: var(--destructive);
+  }
+`;
 
-  const tasksByDate = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    for (const task of tasks) {
-      if (task.dueDate) {
-        const key = task.dueDate.split('T')[0];
-        const arr = map.get(key) ?? [];
-        arr.push(task);
-        map.set(key, arr);
-      }
-    }
-    return map;
-  }, [tasks]);
-
-  const hours = Array.from({ length: 14 }, (_, i) => i + 7); // 7am - 8pm
-
-  return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[700px]">
-        {/* Day headers */}
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-[var(--border)]">
-          <div className="p-2" />
-          {days.map((day) => (
-            <div
-              key={day.toISOString()}
-              className={cn(
-                'p-2 text-center border-l border-[var(--border)]',
-                isToday(day) && 'bg-unjynx-gold/5',
-              )}
-            >
-              <p className="text-xs text-[var(--muted-foreground)]">
-                {format(day, 'EEE')}
-              </p>
-              <p
-                className={cn(
-                  'text-sm font-medium',
-                  isToday(day) ? 'text-unjynx-gold font-bold' : 'text-[var(--foreground)]',
-                )}
-              >
-                {format(day, 'd')}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Time slots */}
-        {hours.map((hour) => (
-          <div
-            key={hour}
-            className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-[var(--border)] min-h-[48px]"
-          >
-            <div className="p-1 text-[10px] text-[var(--muted-foreground)] text-right pr-2 pt-1">
-              {hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
-            </div>
-            {days.map((day) => {
-              const dayKey = format(day, 'yyyy-MM-dd');
-              const dayTasks = (tasksByDate.get(dayKey) ?? []).filter((t) => {
-                if (!t.dueTime) return hour === 9; // default to 9am
-                const taskHour = parseInt(t.dueTime.split(':')[0], 10);
-                return taskHour === hour;
-              });
-
-              return (
-                <div
-                  key={`${dayKey}-${hour}`}
-                  className={cn(
-                    'border-l border-[var(--border)] p-0.5',
-                    isToday(day) && 'bg-unjynx-gold/5',
-                  )}
-                >
-                  {dayTasks.map((task) => (
-                    <button
-                      key={task.id}
-                      onClick={() => openPanel('task', task.id)}
-                      className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate mb-0.5 transition-colors hover:opacity-80"
-                      style={{
-                        backgroundColor: priorityColor(task.priority) + '25',
-                        color: priorityColor(task.priority),
-                        borderLeft: `2px solid ${priorityColor(task.priority)}`,
-                      }}
-                    >
-                      {task.title}
-                    </button>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Day View ───────────────────────────────────────────────────
-
-function DayView({
-  currentDate,
-  tasks,
-}: {
-  readonly currentDate: Date;
-  readonly tasks: readonly Task[];
-}) {
-  const openPanel = useDetailPanelStore((s) => s.openPanel);
-  const dayKey = format(currentDate, 'yyyy-MM-dd');
-  const dayTasks = tasks.filter((t) => t.dueDate?.startsWith(dayKey));
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-
-  return (
-    <div className="space-y-0">
-      <h3 className="font-outfit font-semibold text-sm text-[var(--foreground)] mb-3">
-        {format(currentDate, 'EEEE, MMMM d, yyyy')}
-      </h3>
-
-      <div className="border border-[var(--border)] rounded-lg overflow-hidden">
-        {hours.map((hour) => {
-          const hourTasks = dayTasks.filter((t) => {
-            if (!t.dueTime) return hour === 9;
-            return parseInt(t.dueTime.split(':')[0], 10) === hour;
-          });
-
-          const isNow = isToday(currentDate) && getHours(new Date()) === hour;
-
-          return (
-            <div
-              key={hour}
-              className={cn(
-                'flex border-b border-[var(--border)] min-h-[48px]',
-                isNow && 'bg-unjynx-gold/5',
-              )}
-            >
-              <div className="w-16 flex-shrink-0 p-2 text-xs text-[var(--muted-foreground)] text-right border-r border-[var(--border)]">
-                {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
-              </div>
-              <div className="flex-1 p-1 space-y-0.5">
-                {hourTasks.map((task) => (
-                  <button
-                    key={task.id}
-                    onClick={() => openPanel('task', task.id)}
-                    className="w-full text-left px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80"
-                    style={{
-                      backgroundColor: priorityColor(task.priority) + '20',
-                      color: priorityColor(task.priority),
-                      borderLeft: `3px solid ${priorityColor(task.priority)}`,
-                    }}
-                  >
-                    <span>{task.title}</span>
-                    {task.dueTime && (
-                      <span className="ml-2 text-xs opacity-75">
-                        {formatDueTime(task.dueTime)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-                {isNow && (
-                  <div className="h-0.5 bg-unjynx-gold rounded-full relative">
-                    <span className="absolute -left-1 -top-1 w-2.5 h-2.5 rounded-full bg-unjynx-gold" />
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── Selected Date Tasks ────────────────────────────────────────
-
-function SelectedDateTasks({
-  date,
-  tasks,
-}: {
-  readonly date: Date;
-  readonly tasks: readonly Task[];
-}) {
-  const openPanel = useDetailPanelStore((s) => s.openPanel);
-  const dayKey = format(date, 'yyyy-MM-dd');
-  const dayTasks = tasks.filter((t) => t.dueDate?.startsWith(dayKey));
-
-  if (dayTasks.length === 0) return null;
-
-  return (
-    <div className="mt-4 glass-card p-4">
-      <h4 className="font-outfit font-semibold text-sm text-[var(--foreground)] mb-2">
-        Tasks for {format(date, 'MMMM d')}
-      </h4>
-      <div className="space-y-1">
-        {dayTasks.map((task) => (
-          <button
-            key={task.id}
-            onClick={() => openPanel('task', task.id)}
-            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-[var(--background-surface)] transition-colors text-left"
-          >
-            <span
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: priorityColor(task.priority) }}
-            />
-            <span className="text-sm text-[var(--foreground)] truncate">{task.title}</span>
-            {task.dueTime && (
-              <span className="text-xs text-[var(--muted-foreground)] ml-auto">
-                {formatDueTime(task.dueTime)}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Calendar Page ──────────────────────────────────────────────
+// ─── Main Page ───────────────────────────────────────────────────
 
 export default function CalendarPage() {
-  const [view, setView] = useState<CalendarView>('month');
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const t = useVocabulary();
   const { data: tasks, isLoading } = useTasks();
+  const updateTask = useUpdateTask();
+  const openPanel = useDetailPanelStore((s) => s.openPanel);
 
-  const allTasks = tasks ?? [];
+  // Convert tasks to FullCalendar events
+  const events = useMemo(() => {
+    if (!tasks) return [];
+    return tasks.filter((t) => t.dueDate).map(taskToEvent);
+  }, [tasks]);
 
-  function navigatePrev() {
-    if (view === 'month') setCurrentDate((d) => subMonths(d, 1));
-    else if (view === 'week') setCurrentDate((d) => subWeeks(d, 1));
-    else setCurrentDate((d) => subDays(d, 1));
-  }
+  // Handle event click → open detail panel
+  const handleEventClick = useCallback(
+    (info: { event: { id: string } }) => {
+      openPanel('task', info.event.id);
+    },
+    [openPanel],
+  );
 
-  function navigateNext() {
-    if (view === 'month') setCurrentDate((d) => addMonths(d, 1));
-    else if (view === 'week') setCurrentDate((d) => addWeeks(d, 1));
-    else setCurrentDate((d) => addDays(d, 1));
-  }
-
-  function goToToday() {
-    setCurrentDate(new Date());
-    setSelectedDate(new Date());
-  }
-
-  const headerLabel =
-    view === 'month'
-      ? format(currentDate, 'MMMM yyyy')
-      : view === 'week'
-        ? `Week of ${format(startOfWeek(currentDate), 'MMM d')} - ${format(endOfWeek(currentDate), 'MMM d, yyyy')}`
-        : format(currentDate, 'EEEE, MMMM d, yyyy');
+  // Handle event drop (drag to reschedule)
+  const handleEventDrop = useCallback(
+    (info: { event: { id: string; start: Date | null } }) => {
+      if (info.event.start) {
+        updateTask.mutate({
+          id: info.event.id,
+          payload: { dueDate: info.event.start.toISOString() },
+        });
+      }
+    },
+    [updateTask],
+  );
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-fade-in">
-        <h1 className="font-outfit text-xl font-bold text-[var(--foreground)]">Calendar</h1>
-        <Shimmer variant="card" className="h-[400px]" />
+      <div className="max-w-5xl mx-auto py-6 px-4">
+        <Shimmer className="h-12 rounded-xl mb-4" />
+        <Shimmer className="h-[600px] rounded-xl" />
       </div>
     );
   }
 
-  return (
-    <div className="space-y-4 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="font-outfit text-xl font-bold text-[var(--foreground)]">Calendar</h1>
-
-        {/* View tabs */}
-        <div className="flex items-center gap-1 bg-[var(--background-surface)] rounded-lg p-1 border border-[var(--border)]">
-          {(['month', 'week', 'day'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={cn(
-                'px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors',
-                view === v
-                  ? 'bg-unjynx-violet text-white'
-                  : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
-              )}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={navigatePrev}
-            className="p-1.5 rounded-lg hover:bg-[var(--background-surface)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <h2 className="font-outfit font-semibold text-base text-[var(--foreground)] min-w-[200px] text-center">
-            {headerLabel}
-          </h2>
-          <button
-            onClick={navigateNext}
-            className="p-1.5 rounded-lg hover:bg-[var(--background-surface)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
-
-        <button
-          onClick={goToToday}
-          className="px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background-surface)] transition-colors"
-        >
-          Today
-        </button>
-      </div>
-
-      {/* Calendar Views */}
-      {allTasks.length === 0 ? (
+  if (!tasks || tasks.filter((t) => t.dueDate).length === 0) {
+    return (
+      <div className="max-w-5xl mx-auto py-6 px-4">
         <EmptyState
           icon={<CalendarIcon size={32} className="text-unjynx-gold" />}
-          title="No tasks scheduled"
-          description="Tasks with due dates will appear on the calendar."
+          title={`No ${t('Task').toLowerCase()}s scheduled`}
+          description={`${t('Task')}s with due dates will appear on the calendar. Drag events to reschedule.`}
         />
-      ) : (
-        <>
-          {view === 'month' && (
-            <MonthView
-              currentDate={currentDate}
-              tasks={allTasks}
-              onSelectDate={setSelectedDate}
-              selectedDate={selectedDate}
-            />
-          )}
-          {view === 'week' && (
-            <WeekView currentDate={currentDate} tasks={allTasks} />
-          )}
-          {view === 'day' && (
-            <DayView currentDate={currentDate} tasks={allTasks} />
-          )}
+      </div>
+    );
+  }
 
-          {/* Selected date tasks (month view only) */}
-          {view === 'month' && selectedDate && (
-            <SelectedDateTasks date={selectedDate} tasks={allTasks} />
-          )}
-        </>
-      )}
+  const plugins = [dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin].filter(Boolean);
+
+  return (
+    <div className="max-w-5xl mx-auto py-6 px-4 animate-fade-in">
+      <style>{calendarStyles}</style>
+
+      <FullCalendar
+        {...{
+          plugins,
+          initialView: 'dayGridMonth',
+          headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
+          },
+          buttonText: {
+            today: 'Today',
+            month: 'Month',
+            week: 'Week',
+            day: 'Day',
+            list: 'List',
+          },
+          events,
+          editable: true,
+          droppable: true,
+          selectable: true,
+          eventClick: handleEventClick,
+          eventDrop: handleEventDrop,
+          nowIndicator: true,
+          dayMaxEvents: 3,
+          height: 'auto',
+          contentHeight: 650,
+          eventDisplay: 'block',
+          weekends: true,
+          firstDay: 1,
+          slotMinTime: '06:00:00',
+          slotMaxTime: '22:00:00',
+        } as Record<string, unknown>}
+      />
     </div>
   );
 }
