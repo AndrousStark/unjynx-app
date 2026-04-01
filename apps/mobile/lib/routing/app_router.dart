@@ -1,11 +1,13 @@
 import 'package:feature_ai/feature_ai.dart';
 import 'package:feature_billing/feature_billing.dart';
 import 'package:feature_gamification/feature_gamification.dart';
+import 'package:feature_goals/feature_goals.dart';
 import 'package:feature_home/feature_home.dart';
 import 'package:feature_import_export/feature_import_export.dart';
 import 'package:feature_notifications/feature_notifications.dart';
 import 'package:feature_projects/feature_projects.dart';
 import 'package:feature_settings/feature_settings.dart';
+import 'package:feature_sprints/feature_sprints.dart';
 import 'package:feature_team/feature_team.dart';
 import 'package:feature_team/src/presentation/widgets/org_switcher.dart';
 import 'package:feature_team/src/presentation/pages/org_onboarding_page.dart';
@@ -290,6 +292,28 @@ GoRouter createAppRouter(
     GoRoute(
       path: '/ai/insights',
       builder: (context, state) => const AiInsightsPage(),
+    ),
+
+    // Sprint screens (Phase 7)
+    GoRoute(
+      path: '/sprints',
+      builder: (context, state) => const SprintBoardPage(),
+    ),
+    GoRoute(
+      path: '/sprints/velocity',
+      builder: (context, state) => const VelocityPage(),
+    ),
+
+    // Goal screens (Phase 7)
+    GoRoute(
+      path: '/goals',
+      builder: (context, state) => const GoalTreePage(),
+    ),
+
+    // Org-level reports (Phase 7)
+    GoRoute(
+      path: '/reports',
+      builder: (context, state) => const OrgReportsPage(),
     ),
   ];
 

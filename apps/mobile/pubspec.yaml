@@ -17,6 +17,8 @@ dependencies:
     path: ../../packages/feature_billing
   feature_gamification:
     path: ../../packages/feature_gamification
+  feature_goals:
+    path: ../../packages/feature_goals
   feature_home:
     path: ../../packages/feature_home
   feature_import_export:
@@ -31,6 +33,8 @@ dependencies:
     path: ../../packages/feature_projects
   feature_settings:
     path: ../../packages/feature_settings
+  feature_sprints:
+    path: ../../packages/feature_sprints
   feature_team:
     path: ../../packages/feature_team
   feature_todos:

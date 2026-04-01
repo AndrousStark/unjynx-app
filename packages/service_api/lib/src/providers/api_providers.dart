@@ -20,8 +20,11 @@ import '../services/project_api_service.dart';
 import '../services/sync_api_service.dart';
 import '../services/task_api_service.dart';
 import '../services/mode_api_service.dart';
+import '../services/goal_api_service.dart';
 import '../services/organization_api_service.dart';
 import '../services/pomodoro_api_service.dart';
+import '../services/report_api_service.dart';
+import '../services/sprint_api_service.dart';
 import '../services/team_api_service.dart';
 
 /// API config — override for production base URL.
@@ -125,6 +128,20 @@ final modeApiProvider = Provider<ModeApiService>(
 
 final pomodoroApiProvider = Provider<PomodoroApiService>(
   (ref) => PomodoroApiService(ref.watch(apiClientProvider)),
+);
+
+// Phase 7: Sprints, Goals, Reports
+
+final sprintApiProvider = Provider<SprintApiService>(
+  (ref) => SprintApiService(ref.watch(apiClientProvider)),
+);
+
+final goalApiProvider = Provider<GoalApiService>(
+  (ref) => GoalApiService(ref.watch(apiClientProvider)),
+);
+
+final reportApiProvider = Provider<ReportApiService>(
+  (ref) => ReportApiService(ref.watch(apiClientProvider)),
 );
 
 // v2: Organizations (multi-tenant)

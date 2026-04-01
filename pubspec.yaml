@@ -19,6 +19,8 @@ workspace:
   - packages/feature_settings
   - packages/feature_team
   - packages/feature_widgets
+  - packages/feature_goals
+  - packages/feature_sprints
   - packages/feature_todos
   - packages/service_api
   - packages/service_auth

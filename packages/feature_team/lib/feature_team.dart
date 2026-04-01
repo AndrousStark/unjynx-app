@@ -11,6 +11,7 @@ export 'src/domain/models/team_report.dart';
 
 // Presentation
 export 'src/presentation/pages/async_standup_page.dart';
+export 'src/presentation/pages/org_reports_page.dart';
 export 'src/presentation/pages/shared_project_page.dart';
 export 'src/presentation/pages/team_dashboard_page.dart';
 export 'src/presentation/pages/team_members_page.dart';

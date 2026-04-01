@@ -1,6 +1,7 @@
 import 'package:feature_ai/feature_ai.dart';
 import 'package:feature_billing/feature_billing.dart';
 import 'package:feature_gamification/feature_gamification.dart';
+import 'package:feature_goals/feature_goals.dart';
 import 'package:feature_home/feature_home.dart';
 import 'package:feature_import_export/feature_import_export.dart';
 import 'package:feature_notifications/feature_notifications.dart';
@@ -8,6 +9,7 @@ import 'package:feature_onboarding/feature_onboarding.dart';
 import 'package:feature_profile/feature_profile.dart';
 import 'package:feature_projects/feature_projects.dart';
 import 'package:feature_settings/feature_settings.dart';
+import 'package:feature_sprints/feature_sprints.dart';
 import 'package:feature_team/feature_team.dart';
 import 'package:feature_todos/todo_plugin.dart';
 import 'package:feature_widgets/feature_widgets.dart';
@@ -135,7 +137,9 @@ Future<void> configureDependencies() async {
     ..registerSingleton<NotificationPlugin>(NotificationPlugin())
     ..registerSingleton<GamificationPlugin>(GamificationPlugin())
     ..registerSingleton<BillingPlugin>(BillingPlugin())
-    ..registerSingleton<AiPlugin>(AiPlugin());
+    ..registerSingleton<AiPlugin>(AiPlugin())
+    ..registerSingleton<SprintPlugin>(SprintPlugin())
+    ..registerSingleton<GoalPlugin>(GoalPlugin());
 
   // Incomplete features — gated behind compile-time flags
   if (AppConfig.featureTeam) {
