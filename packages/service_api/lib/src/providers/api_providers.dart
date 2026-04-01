@@ -21,6 +21,7 @@ import '../services/sync_api_service.dart';
 import '../services/task_api_service.dart';
 import '../services/mode_api_service.dart';
 import '../services/organization_api_service.dart';
+import '../services/pomodoro_api_service.dart';
 import '../services/team_api_service.dart';
 
 /// API config — override for production base URL.
@@ -118,6 +119,12 @@ final aiApiProvider = Provider<AiApiService>(
 
 final modeApiProvider = Provider<ModeApiService>(
   (ref) => ModeApiService(ref.watch(apiClientProvider)),
+);
+
+// Phase 6: Pomodoro
+
+final pomodoroApiProvider = Provider<PomodoroApiService>(
+  (ref) => PomodoroApiService(ref.watch(apiClientProvider)),
 );
 
 // v2: Organizations (multi-tenant)

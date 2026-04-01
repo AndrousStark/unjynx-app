@@ -2,6 +2,7 @@
 library feature_team;
 
 // Domain models
+export 'src/domain/models/organization.dart';
 export 'src/domain/models/standup_entry.dart';
 export 'src/domain/models/team.dart';
 export 'src/domain/models/team_invite.dart';

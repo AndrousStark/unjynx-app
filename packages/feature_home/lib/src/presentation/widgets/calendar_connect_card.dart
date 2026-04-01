@@ -166,8 +166,11 @@ class _CalendarConnectCardState extends ConsumerState<CalendarConnectCard> {
                 child: _ProviderChip(
                   label: 'Google',
                   icon: Icons.calendar_today_rounded,
-                  isLoading: _isLoading,
-                  onTap: _handleGoogleConnect,
+                  isLoading: false,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    context.push('/calendar/connect/google');
+                  },
                 ),
               ),
               const SizedBox(width: 8),

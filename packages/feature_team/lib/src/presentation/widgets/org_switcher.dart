@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:service_auth/service_auth.dart';
+
+import '../providers/team_providers.dart';
 
 /// Compact org switcher widget for the app shell.
 ///
@@ -12,9 +17,24 @@ class OrgSwitcher extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final selectedOrgId = ref.watch(selectedOrgIdProvider);
+    final orgsAsync = ref.watch(organizationsProvider);
 
-    // TODO: Wire to selectedOrgIdProvider + organizations list
-    // For now, show placeholder that will be connected to providers
+    // Resolve current org name + plan from the loaded list.
+    final currentOrg = orgsAsync.whenData((orgs) {
+      if (selectedOrgId == null) return null;
+      try {
+        return orgs.firstWhere((o) => o.id == selectedOrgId);
+      } catch (_) {
+        return null;
+      }
+    });
+
+    final orgName = currentOrg.value?.name ?? 'Personal';
+    final orgPlan = currentOrg.value?.planLabel ?? 'Free plan';
+    final orgInitial = currentOrg.value?.name[0].toUpperCase() ?? 'P';
+    final isPersonal = selectedOrgId == null;
+
     return GestureDetector(
       onTap: () => _showOrgPicker(context, ref),
       child: Container(
@@ -38,32 +58,35 @@ class OrgSwitcher extends ConsumerWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    colorScheme.primary,
-                    colorScheme.tertiary,
-                  ],
+                  colors: [colorScheme.primary, colorScheme.tertiary],
                 ),
               ),
-              child: const Center(
-                child: Text(
-                  'U',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              child: Center(
+                child: isPersonal
+                    ? const Icon(
+                        Icons.person_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      )
+                    : Text(
+                        orgInitial,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
             const SizedBox(width: 10),
-            // Org name
+            // Org name + plan
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Personal',
+                    orgName,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -71,7 +94,7 @@ class OrgSwitcher extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    'Free plan',
+                    orgPlan,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       fontSize: 10,
@@ -95,6 +118,8 @@ class OrgSwitcher extends ConsumerWidget {
   void _showOrgPicker(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final selectedOrgId = ref.read(selectedOrgIdProvider);
+    final orgs = ref.read(organizationsProvider).value ?? [];
 
     showModalBottomSheet(
       context: context,
@@ -102,7 +127,7 @@ class OrgSwitcher extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
@@ -134,25 +159,39 @@ class OrgSwitcher extends ConsumerWidget {
                 name: 'Personal',
                 plan: 'Free',
                 isPersonal: true,
-                isSelected: true, // TODO: compare with selectedOrgId
+                isSelected: selectedOrgId == null,
                 onTap: () {
-                  // TODO: switchOrganization(ref, null);
-                  Navigator.pop(context);
+                  HapticFeedback.selectionClick();
+                  switchOrganization(ref, null);
+                  Navigator.pop(sheetContext);
                 },
               ),
 
               const SizedBox(height: 8),
 
-              // TODO: List all user orgs from organizationsProvider
-              // For now, show "Create organization" CTA
+              // User's organizations
+              for (final org in orgs) ...[
+                _OrgListItem(
+                  name: org.name,
+                  plan: org.planLabel,
+                  isPersonal: false,
+                  isSelected: selectedOrgId == org.id,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    switchOrganization(ref, org.id);
+                    Navigator.pop(sheetContext);
+                  },
+                ),
+                const SizedBox(height: 4),
+              ],
 
               const Divider(height: 24),
 
               // Create org button
               ListTile(
                 onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Navigate to create org page
+                  Navigator.pop(sheetContext);
+                  GoRouter.of(context).push('/org-onboarding');
                 },
                 leading: Container(
                   width: 36,
@@ -247,7 +286,11 @@ class _OrgListItem extends StatelessWidget {
         ),
       ),
       trailing: isSelected
-          ? Icon(Icons.check_circle_rounded, size: 20, color: colorScheme.primary)
+          ? Icon(
+              Icons.check_circle_rounded,
+              size: 20,
+              color: colorScheme.primary,
+            )
           : null,
       contentPadding: EdgeInsets.zero,
       dense: true,

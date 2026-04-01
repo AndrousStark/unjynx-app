@@ -149,6 +149,20 @@ GoRouter createAppRouter(
       builder: (context, state) => const TimeBlockingPage(),
     ),
 
+    // Calendar connect pages (full-screen, outside shell)
+    GoRoute(
+      path: '/calendar/connect/google',
+      builder: (context, state) => const GoogleCalendarConnectPage(),
+    ),
+    GoRoute(
+      path: '/calendar/connect/apple',
+      builder: (context, state) => const AppleCalendarConnectPage(),
+    ),
+    GoRoute(
+      path: '/calendar/connect/outlook',
+      builder: (context, state) => const OutlookConnectPage(),
+    ),
+
     // Weekly Review (full-screen, outside shell)
     GoRoute(
       path: '/weekly-review',

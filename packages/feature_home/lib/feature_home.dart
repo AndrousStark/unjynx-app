@@ -20,6 +20,7 @@ export 'src/presentation/pages/category_selector_page.dart';
 export 'src/presentation/pages/content_feed_page.dart';
 export 'src/presentation/pages/evening_review_page.dart';
 export 'src/presentation/pages/ghost_mode_page.dart';
+export 'src/presentation/pages/google_calendar_connect_page.dart';
 export 'src/presentation/pages/home_page.dart';
 export 'src/presentation/pages/outlook_connect_page.dart';
 export 'src/presentation/pages/morning_ritual_page.dart';

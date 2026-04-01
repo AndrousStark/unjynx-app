@@ -517,14 +517,24 @@ Future<void> Function({
       debugPrint('[PomodoroSave] local save failed: $e');
     }
 
-    // 2. Push to backend API (progress snapshot includes pomodoro data).
-    final api = _tryReadSync(ref, progressApiProvider);
-    if (api == null) return;
+    // 2. Push to dedicated Pomodoro API endpoint.
+    final pomodoroApi = _tryReadSync(ref, pomodoroApiProvider);
+    if (pomodoroApi != null) {
+      try {
+        await pomodoroApi.completeSession();
+      } on DioException {
+        // Swallow — sync engine will reconcile later.
+      }
+    }
 
-    try {
-      await api.saveSnapshot();
-    } on DioException {
-      // Swallow — sync engine will reconcile later.
+    // 3. Also save progress snapshot for rings/heatmap.
+    final progressApi = _tryReadSync(ref, progressApiProvider);
+    if (progressApi != null) {
+      try {
+        await progressApi.saveSnapshot();
+      } on DioException {
+        // Swallow — sync engine will reconcile later.
+      }
     }
   };
 }

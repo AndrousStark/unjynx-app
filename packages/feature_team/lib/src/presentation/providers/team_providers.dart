@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:service_api/service_api.dart';
 
+import '../../domain/models/organization.dart';
 import '../../domain/models/standup_entry.dart';
 import '../../domain/models/team.dart';
 import '../../domain/models/team_invite.dart';
@@ -23,6 +24,48 @@ T? _tryRead<T>(Ref ref, Provider<T> provider) {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Organizations
+// ---------------------------------------------------------------------------
+
+/// Fetches the user's organizations from the API.
+///
+/// Returns an empty list when the API is unavailable or on network error.
+class OrganizationsNotifier extends AsyncNotifier<List<Organization>> {
+  @override
+  Future<List<Organization>> build() async {
+    final api = _tryRead(ref, organizationApiProvider);
+    if (api == null) return const [];
+
+    try {
+      final response = await api.getOrganizations();
+      if (response.success && response.data != null) {
+        final orgs = response.data!
+            .map((e) => Organization.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return List.unmodifiable(orgs);
+      }
+    } on DioException {
+      // Network error — return empty list rather than crashing.
+    } on ApiException {
+      // API error — return empty list rather than crashing.
+    }
+
+    return const [];
+  }
+
+  /// Force-refresh the organizations list from the API.
+  Future<void> refresh() async {
+    ref.invalidateSelf();
+  }
+}
+
+/// All organizations the current user belongs to.
+final organizationsProvider =
+    AsyncNotifierProvider<OrganizationsNotifier, List<Organization>>(
+  OrganizationsNotifier.new,
+);
 
 // ---------------------------------------------------------------------------
 // Team

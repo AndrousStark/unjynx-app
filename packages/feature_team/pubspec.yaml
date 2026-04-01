@@ -20,6 +20,8 @@ dependencies:
 
   service_api:
     path: ../service_api
+  service_auth:
+    path: ../service_auth
   unjynx_core:
     path: ../core
 
