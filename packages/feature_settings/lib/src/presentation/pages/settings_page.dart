@@ -148,7 +148,6 @@ class _IndustryModeSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
     final vocab = ref.watch(vocabularyProvider);
 
     // Determine current mode from cached slug.

@@ -206,7 +206,7 @@ final scheduleResultProvider =
       );
     }
 
-    final data = response.data! as Map<String, dynamic>;
+    final data = response.data!;
     final scheduleList = data['schedule'] as List<dynamic>? ?? [];
 
     final slots = scheduleList.map((item) {
@@ -310,7 +310,7 @@ final aiInsightsProvider =
     if (energyResp != null &&
         energyResp.success &&
         energyResp.data != null) {
-      final energyData = energyResp.data! as Map<String, dynamic>;
+      final energyData = energyResp.data!;
       final forecastList =
           energyData['forecast'] as List<dynamic>? ?? [];
       for (final item in forecastList) {
@@ -324,7 +324,7 @@ final aiInsightsProvider =
     if (patternsResp != null &&
         patternsResp.success &&
         patternsResp.data != null) {
-      final patternsData = patternsResp.data! as Map<String, dynamic>;
+      final patternsData = patternsResp.data!;
       final rawPatterns =
           patternsData['patterns'] as List<dynamic>? ?? [];
       for (final item in rawPatterns) {
@@ -338,8 +338,7 @@ final aiInsightsProvider =
     if (suggestionsResp != null &&
         suggestionsResp.success &&
         suggestionsResp.data != null) {
-      final suggestionsData =
-          suggestionsResp.data! as Map<String, dynamic>;
+      final suggestionsData = suggestionsResp.data!;
       final rawTasks =
           suggestionsData['rankedTasks'] as List<dynamic>? ?? [];
       for (final item in rawTasks) {

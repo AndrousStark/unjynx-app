@@ -7,7 +7,6 @@ import 'package:service_api/src/api_config.dart';
 import 'package:service_api/src/api_exception.dart';
 import 'package:service_api/src/services/billing_api_service.dart';
 import 'package:test/test.dart';
-import 'package:unjynx_core/contracts/auth_port.dart';
 
 import 'api_client_test.dart';
 

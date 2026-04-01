@@ -81,7 +81,7 @@ class ChannelsNotifier extends Notifier<ChannelsState> {
     try {
       final response = await channelApi.getChannels();
       if (response.success && response.data != null) {
-        final channels = (response.data! as List<dynamic>)
+        final channels = (response.data!)
             .cast<Map<String, dynamic>>()
             .map(NotificationChannel.fromJson)
             .toList();
@@ -196,7 +196,7 @@ class PreferencesNotifier extends Notifier<NotificationPreferences> {
       final response = await notifApi.getPreferences();
       if (response.success && response.data != null) {
         final prefs = NotificationPreferences.fromJson(
-          response.data! as Map<String, dynamic>,
+          response.data!,
         );
         await repo.savePreferences(prefs);
         state = prefs;
@@ -296,7 +296,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     try {
       final response = await notifApi.getDeliveryHistory(limit: 100);
       if (response.success && response.data != null) {
-        final entries = (response.data! as List<dynamic>)
+        final entries = (response.data!)
             .cast<Map<String, dynamic>>();
         return List<Map<String, dynamic>>.unmodifiable(entries);
       }

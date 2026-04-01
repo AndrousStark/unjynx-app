@@ -5,7 +5,6 @@ import 'package:unjynx_core/events/app_events.dart';
 
 import 'lww_resolver.dart';
 import 'sync_port.dart';
-import 'sync_record.dart';
 import 'sync_status.dart';
 
 /// Offline-first sync engine with field-level Last-Write-Wins (LWW)

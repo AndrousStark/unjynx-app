@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:service_api/service_api.dart';
@@ -104,7 +103,7 @@ final plansProvider = FutureProvider<List<PlanInfo>>((ref) async {
   try {
     final response = await api.getPlans();
     if (response.success && response.data != null) {
-      return (response.data! as List)
+      return response.data!
           .cast<Map<String, dynamic>>()
           .map(PlanInfo.fromJson)
           .toList();

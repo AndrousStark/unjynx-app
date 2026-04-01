@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show Override, WidgetRef;
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:unjynx_core/contracts/auth_port.dart';
 
 import 'mock_auth_port.dart';

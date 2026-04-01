@@ -235,8 +235,8 @@ class _ModeSelectorPageState extends ConsumerState<ModeSelectorPage> {
           orElse: () => _modes.first,
         );
 
-        ref.read(vocabularyProvider.notifier).state =
-            Map<String, String>.from(selectedMode.vocabulary);
+        ref.read(vocabularyProvider.notifier).set(
+              Map<String, String>.from(selectedMode.vocabulary));
 
         // Cache to SharedPreferences for offline access.
         try {
@@ -304,7 +304,6 @@ class _ModeSelectorPageState extends ConsumerState<ModeSelectorPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
 
     return Scaffold(
       appBar: AppBar(
@@ -430,7 +429,6 @@ class _ModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final ux = context.unjynx;
     final isLight = context.isLightMode;
 
     return PressableScale(

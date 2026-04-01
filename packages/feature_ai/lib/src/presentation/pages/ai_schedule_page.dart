@@ -203,17 +203,6 @@ class _ScheduleSlotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    Color? cardColor;
-    if (isAccepted) {
-      cardColor = isLight
-          ? unjynx.successWash
-          : unjynx.success.withValues(alpha: 0.1);
-    } else if (isRejected) {
-      cardColor = isLight
-          ? const Color(0xFFFFF1F2)
-          : Colors.red.withValues(alpha: 0.08);
-    }
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       child: UnjynxSolidCard(

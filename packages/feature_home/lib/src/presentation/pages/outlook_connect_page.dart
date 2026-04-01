@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:service_api/service_api.dart';
-import 'package:unjynx_core/core.dart';
 
 /// Provider for the Outlook OAuth callback.
 ///

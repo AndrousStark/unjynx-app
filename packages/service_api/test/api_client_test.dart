@@ -283,7 +283,7 @@ void main() {
           ..close();
       });
 
-      await client.get('/tasks');
+      await client.get<dynamic>('/tasks');
       expect(capturedAuth, 'Bearer test-bearer-token');
     });
 
@@ -299,7 +299,7 @@ void main() {
           ..close();
       });
 
-      await client.get('/tasks');
+      await client.get<dynamic>('/tasks');
       expect(capturedAuth, isNull);
     });
 
@@ -314,7 +314,7 @@ void main() {
           ..close();
       });
 
-      await client.get('/tasks', queryParameters: {
+      await client.get<dynamic>('/tasks', queryParameters: {
         'page': 2,
         'limit': 10,
         'status': 'active',
@@ -336,7 +336,7 @@ void main() {
           ..close();
       });
 
-      await client.post(
+      await client.post<dynamic>(
         '/tasks',
         data: {'title': 'Test'},
         idempotencyKey: 'idem-abc-123',
@@ -357,7 +357,7 @@ void main() {
           ..close();
       });
 
-      await client.patch(
+      await client.patch<dynamic>(
         '/tasks/1',
         data: {'title': 'Updated'},
         idempotencyKey: 'idem-patch-456',
@@ -377,7 +377,7 @@ void main() {
           ..close();
       });
 
-      final response = await client.put(
+      final response = await client.put<dynamic>(
         '/content/preferences',
         data: {'category': 'motivation'},
       );
@@ -396,7 +396,7 @@ void main() {
           ..close();
       });
 
-      final response = await client.delete('/tasks/1');
+      final response = await client.delete<dynamic>('/tasks/1');
       expect(capturedMethod, 'DELETE');
       expect(response.success, isTrue);
     });
@@ -416,7 +416,7 @@ void main() {
       });
 
       try {
-        await client.get('/tasks');
+        await client.get<dynamic>('/tasks');
         fail('Expected DioException');
       } on DioException catch (e) {
         final apiError = e.error as ApiException;
@@ -440,7 +440,7 @@ void main() {
       });
 
       try {
-        await client.get('/auth/me');
+        await client.get<dynamic>('/auth/me');
         fail('Expected DioException');
       } on DioException catch (e) {
         final apiError = e.error as ApiException;
@@ -462,7 +462,7 @@ void main() {
       });
 
       try {
-        await client.get('/tasks');
+        await client.get<dynamic>('/tasks');
         fail('Expected DioException');
       } on DioException catch (e) {
         final apiError = e.error as ApiException;
@@ -484,7 +484,7 @@ void main() {
       });
 
       try {
-        await client.get('/tasks');
+        await client.get<dynamic>('/tasks');
         fail('Expected DioException');
       } on DioException catch (e) {
         final apiError = e.error as ApiException;

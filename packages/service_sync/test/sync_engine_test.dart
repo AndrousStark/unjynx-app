@@ -277,7 +277,7 @@ void main() {
       final future1 = engine.sync();
       final future2 = engine.sync();
 
-      final summary1 = await future1;
+      await future1;
       final summary2 = await future2;
 
       // Second sync should be rejected

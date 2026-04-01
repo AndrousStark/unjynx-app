@@ -7,7 +7,6 @@ import 'package:service_api/src/api_config.dart';
 import 'package:service_api/src/api_exception.dart';
 import 'package:service_api/src/services/import_export_api_service.dart';
 import 'package:test/test.dart';
-import 'package:unjynx_core/contracts/auth_port.dart';
 
 import 'api_client_test.dart';
 
@@ -84,7 +83,7 @@ void main() {
             ..write(envelope(data: {
               'rows': 5,
               'columns': ['title'],
-              'preview': [],
+              'preview': <dynamic>[],
             }))
             ..close();
         });
@@ -221,7 +220,7 @@ void main() {
             ..write(envelope(data: {
               'imported': 10,
               'skipped': 2,
-              'errors': [],
+              'errors': <dynamic>[],
             }))
             ..close();
         });
@@ -250,7 +249,7 @@ void main() {
             ..write(envelope(data: {
               'imported': 5,
               'skipped': 0,
-              'errors': [],
+              'errors': <dynamic>[],
             }))
             ..close();
         });
@@ -281,13 +280,13 @@ void main() {
             ..write(envelope(data: {
               'imported': 3,
               'skipped': 0,
-              'errors': [],
+              'errors': <dynamic>[],
             }))
             ..close();
         });
 
         await service.executeImport(
-          {'mapping': {}, 'rows': []},
+          {'mapping': <String, dynamic>{}, 'rows': <dynamic>[]},
           idempotencyKey: 'import-abc-123',
         );
 
@@ -306,12 +305,12 @@ void main() {
             ..write(envelope(data: {
               'imported': 0,
               'skipped': 0,
-              'errors': [],
+              'errors': <dynamic>[],
             }))
             ..close();
         });
 
-        await service.executeImport({'mapping': {}, 'rows': []});
+        await service.executeImport({'mapping': <String, dynamic>{}, 'rows': <dynamic>[]});
 
         expect(capturedIdempotency, isNull);
       });
@@ -361,7 +360,7 @@ void main() {
         });
 
         try {
-          await service.executeImport({'mapping': {}, 'rows': []});
+          await service.executeImport({'mapping': <String, dynamic>{}, 'rows': <dynamic>[]});
           fail('Expected DioException');
         } on DioException catch (e) {
           final apiError = e.error as ApiException;
@@ -948,7 +947,7 @@ void main() {
           req.response
             ..statusCode = 200
             ..headers.contentType = ContentType.json
-            ..write(envelope(data: {'rows': 0, 'columns': [], 'preview': []}))
+            ..write(envelope(data: {'rows': 0, 'columns': <dynamic>[], 'preview': <dynamic>[]}))
             ..close();
         });
 
