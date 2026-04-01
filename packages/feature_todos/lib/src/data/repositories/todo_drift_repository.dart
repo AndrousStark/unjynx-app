@@ -52,7 +52,12 @@ class TodoDriftRepository implements TodoRepository {
     required String title,
     String description = '',
     TodoPriority priority = TodoPriority.none,
+    TodoType taskType = TodoType.task,
+    String? orgId,
     String? projectId,
+    String? assigneeId,
+    String? sprintId,
+    int? estimatePoints,
     DateTime? dueDate,
     String? rrule,
   }) async {

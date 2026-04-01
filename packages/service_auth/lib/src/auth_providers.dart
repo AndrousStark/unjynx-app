@@ -88,7 +88,7 @@ final authNotifierProvider =
 // ── Organization Context Providers ────────────────────────────────
 
 /// Currently selected organization ID (null = personal workspace).
-final selectedOrgIdProvider = StateProvider<String?>((ref) {
+final selectedOrgIdProvider = Provider<String?>((ref) {
   final auth = ref.watch(authPortProvider);
   return auth.selectedOrgId;
 });
@@ -103,7 +103,8 @@ final isFirstLoginProvider = FutureProvider<bool>((ref) async {
 Future<void> switchOrganization(WidgetRef ref, String? orgId) async {
   final auth = ref.read(authPortProvider);
   await auth.setSelectedOrg(orgId);
-  ref.read(selectedOrgIdProvider.notifier).state = orgId;
+  // Force providers to re-read
+  ref.invalidate(selectedOrgIdProvider);
 }
 
 /// Mark onboarding as complete.

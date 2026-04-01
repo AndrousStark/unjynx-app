@@ -42,6 +42,18 @@ class FakeAuthPort implements AuthPort {
     required String idToken,
   }) async =>
       token ?? '';
+
+  @override
+  String? get selectedOrgId => null;
+
+  @override
+  Future<void> setSelectedOrg(String? orgId) async {}
+
+  @override
+  Future<bool> isFirstLogin() async => false;
+
+  @override
+  Future<void> completeOnboarding() async {}
 }
 
 /// Helper to start a local HTTP server that returns controlled responses.
