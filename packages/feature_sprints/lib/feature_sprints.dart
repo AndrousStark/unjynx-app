@@ -5,7 +5,9 @@ library;
 export 'src/domain/models/sprint.dart';
 
 // Presentation
+export 'src/presentation/pages/create_sprint_page.dart';
 export 'src/presentation/pages/sprint_board_page.dart';
+export 'src/presentation/pages/sprint_detail_page.dart';
 export 'src/presentation/pages/velocity_page.dart';
 export 'src/presentation/providers/sprint_providers.dart';
 

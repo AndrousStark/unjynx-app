@@ -5,6 +5,7 @@ library;
 export 'src/domain/models/goal.dart';
 
 // Presentation
+export 'src/presentation/pages/create_goal_page.dart';
 export 'src/presentation/pages/goal_tree_page.dart';
 export 'src/presentation/providers/goal_providers.dart';
 

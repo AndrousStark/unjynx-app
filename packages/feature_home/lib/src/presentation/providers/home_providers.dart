@@ -46,8 +46,9 @@ final homeNotificationCountProvider = Provider<int>((ref) => 0);
 ///
 /// Override in app bootstrap with computed values from todos, focus,
 /// and habits.
-final homeProgressRingsProvider =
-    FutureProvider<ProgressRingsData>((ref) async {
+final homeProgressRingsProvider = FutureProvider<ProgressRingsData>((
+  ref,
+) async {
   return const ProgressRingsData(
     tasksCompleted: 0,
     tasksTotal: 0,
@@ -235,8 +236,8 @@ class _SelectedCategoriesNotifier extends Notifier<Set<String>> {
 
 final selectedCategoriesProvider =
     NotifierProvider<_SelectedCategoriesNotifier, Set<String>>(
-  _SelectedCategoriesNotifier.new,
-);
+      _SelectedCategoriesNotifier.new,
+    );
 
 /// User's preferred content delivery time as "HH:mm".
 ///
@@ -249,8 +250,8 @@ class _ContentDeliveryTimeNotifier extends Notifier<String> {
 
 final contentDeliveryTimeProvider =
     NotifierProvider<_ContentDeliveryTimeNotifier, String>(
-  _ContentDeliveryTimeNotifier.new,
-);
+      _ContentDeliveryTimeNotifier.new,
+    );
 
 /// Recent content history (last 7 days placeholder).
 ///
@@ -270,10 +271,10 @@ final recentContentProvider = FutureProvider<List<DailyContent>>(
 /// and the new saved state. Returns the updated [DailyContent].
 final contentSaveCallbackProvider =
     Provider<Future<void> Function(String contentId, {required bool saved})>(
-  (ref) => (String contentId, {required bool saved}) async {
-    // No-op stub. Override at app bootstrap.
-  },
-);
+      (ref) => (String contentId, {required bool saved}) async {
+        // No-op stub. Override at app bootstrap.
+      },
+    );
 
 // ---------------------------------------------------------------------------
 // Ritual persistence
@@ -284,11 +285,13 @@ final contentSaveCallbackProvider =
 /// Override in app bootstrap with a real implementation backed by
 /// ContentApiService.logRitual().
 final morningRitualSaveCallbackProvider =
-    Provider<Future<void> Function({int? mood, String? gratitude, String? intention})>(
-  (ref) => ({int? mood, String? gratitude, String? intention}) async {
-    // No-op stub. Override at app bootstrap.
-  },
-);
+    Provider<
+      Future<void> Function({int? mood, String? gratitude, String? intention})
+    >(
+      (ref) => ({int? mood, String? gratitude, String? intention}) async {
+        // No-op stub. Override at app bootstrap.
+      },
+    );
 
 /// Callback to persist evening review data (reflection text).
 ///
@@ -296,10 +299,10 @@ final morningRitualSaveCallbackProvider =
 /// ContentApiService.logRitual().
 final eveningReviewSaveCallbackProvider =
     Provider<Future<void> Function({String? reflection})>(
-  (ref) => ({String? reflection}) async {
-    // No-op stub. Override at app bootstrap.
-  },
-);
+      (ref) => ({String? reflection}) async {
+        // No-op stub. Override at app bootstrap.
+      },
+    );
 
 // ---------------------------------------------------------------------------
 // Task reschedule
@@ -311,10 +314,10 @@ final eveningReviewSaveCallbackProvider =
 /// TaskApiService.updateTask() or TaskApiService.snoozeTask().
 final rescheduleTaskCallbackProvider =
     Provider<Future<void> Function(String taskId)>(
-  (ref) => (String taskId) async {
-    // No-op stub. Override at app bootstrap.
-  },
-);
+      (ref) => (String taskId) async {
+        // No-op stub. Override at app bootstrap.
+      },
+    );
 
 // ---------------------------------------------------------------------------
 // Task completion toggle
@@ -327,10 +330,10 @@ final rescheduleTaskCallbackProvider =
 /// completion state (true = completed, false = incomplete).
 final toggleTaskCompletionCallbackProvider =
     Provider<Future<void> Function(String taskId, {required bool completed})>(
-  (ref) => (String taskId, {required bool completed}) async {
-    // No-op stub. Override at app bootstrap.
-  },
-);
+      (ref) => (String taskId, {required bool completed}) async {
+        // No-op stub. Override at app bootstrap.
+      },
+    );
 
 // ---------------------------------------------------------------------------
 // Tasks
@@ -409,20 +412,23 @@ final pomodoroSettingsProvider = Provider<PomodoroSettings>(
 /// - [sessionsCompleted]: number of work sessions finished
 /// - [totalFocusSeconds]: total seconds of focused work
 /// - [taskName]: optional task the user was working on
-final pomodoroSessionSaveCallbackProvider = Provider<
-    Future<void> Function({
-      required int sessionsCompleted,
-      required int totalFocusSeconds,
-      String? taskName,
-    })>(
-  (ref) => ({
-    required int sessionsCompleted,
-    required int totalFocusSeconds,
-    String? taskName,
-  }) async {
-    // No-op stub. Override at app bootstrap.
-  },
-);
+final pomodoroSessionSaveCallbackProvider =
+    Provider<
+      Future<void> Function({
+        required int sessionsCompleted,
+        required int totalFocusSeconds,
+        String? taskName,
+      })
+    >(
+      (ref) =>
+          ({
+            required int sessionsCompleted,
+            required int totalFocusSeconds,
+            String? taskName,
+          }) async {
+            // No-op stub. Override at app bootstrap.
+          },
+    );
 
 // ---------------------------------------------------------------------------
 // Progress Hub - Activity heatmap
@@ -533,6 +539,18 @@ final weeklyInsightProvider = FutureProvider<WeeklyInsight>((ref) async {
   return const WeeklyInsight(
     text: 'Start completing tasks to see your insights here.',
   );
+});
+
+// ---------------------------------------------------------------------------
+// AI / ML — Optimal notification time
+// ---------------------------------------------------------------------------
+
+/// Best hour (0-23) to send notifications based on ML analysis.
+///
+/// Override in app bootstrap with data from the AI service
+/// (GET /ai/optimal-time).
+final optimalNotificationTimeProvider = FutureProvider<int?>((ref) async {
+  return null; // Override at bootstrap with real ML data.
 });
 
 // ---------------------------------------------------------------------------
@@ -660,47 +678,50 @@ class PersistedTimeBlock {
 ///
 /// Override in app bootstrap with a real implementation backed by the local
 /// Drift database (LocalTimeBlocks table).
-final timeBlockSaveCallbackProvider = Provider<
-    Future<void> Function({
-      required String id,
-      required String taskId,
-      required DateTime blockDate,
-      required int startHour,
-      required int startMinute,
-      required int durationMinutes,
-    })>(
-  (ref) => ({
-    required String id,
-    required String taskId,
-    required DateTime blockDate,
-    required int startHour,
-    required int startMinute,
-    required int durationMinutes,
-  }) async {
-    // No-op stub. Override at app bootstrap.
-  },
-);
+final timeBlockSaveCallbackProvider =
+    Provider<
+      Future<void> Function({
+        required String id,
+        required String taskId,
+        required DateTime blockDate,
+        required int startHour,
+        required int startMinute,
+        required int durationMinutes,
+      })
+    >(
+      (ref) =>
+          ({
+            required String id,
+            required String taskId,
+            required DateTime blockDate,
+            required int startHour,
+            required int startMinute,
+            required int durationMinutes,
+          }) async {
+            // No-op stub. Override at app bootstrap.
+          },
+    );
 
 /// Callback to remove a time block from local storage.
 ///
 /// Override in app bootstrap.
 final timeBlockRemoveCallbackProvider =
     Provider<Future<void> Function(String blockId)>(
-  (ref) => (String blockId) async {
-    // No-op stub. Override at app bootstrap.
-  },
-);
+      (ref) => (String blockId) async {
+        // No-op stub. Override at app bootstrap.
+      },
+    );
 
 /// Callback to load persisted time blocks for a given date.
 ///
 /// Override in app bootstrap.
 final timeBlockLoadCallbackProvider =
     Provider<Future<List<PersistedTimeBlock>> Function(DateTime date)>(
-  (ref) => (DateTime date) async {
-    // No-op stub. Override at app bootstrap.
-    return const <PersistedTimeBlock>[];
-  },
-);
+      (ref) => (DateTime date) async {
+        // No-op stub. Override at app bootstrap.
+        return const <PersistedTimeBlock>[];
+      },
+    );
 
 // ---------------------------------------------------------------------------
 // Ghost mode
@@ -715,8 +736,8 @@ class _GhostModeActiveNotifier extends Notifier<bool> {
 
 final ghostModeActiveProvider =
     NotifierProvider<_GhostModeActiveNotifier, bool>(
-  _GhostModeActiveNotifier.new,
-);
+      _GhostModeActiveNotifier.new,
+    );
 
 /// Sorted task list for ghost mode.
 ///
@@ -729,11 +750,11 @@ final ghostModeTasksProvider = FutureProvider<List<HomeTask>>((ref) async {
   final todayStart = DateTime(now.year, now.month, now.day);
 
   // Filter to incomplete tasks.
-  final incomplete =
-      tasks.where((t) => !t.isCompleted).toList(growable: false);
+  final incomplete = tasks.where((t) => !t.isCompleted).toList(growable: false);
 
   // Sort with a stable comparator.
-  final sorted = [...incomplete]..sort((a, b) {
+  final sorted = [...incomplete]
+    ..sort((a, b) {
       // 1. Overdue tasks first.
       final aOverdue = a.dueDate != null && a.dueDate!.isBefore(todayStart);
       final bOverdue = b.dueDate != null && b.dueDate!.isBefore(todayStart);
@@ -826,12 +847,10 @@ class CalendarTask {
 /// The [DateTime] parameter represents the month (only year and month are
 /// used). Override in app bootstrap with real data from the todo repository.
 final calendarTasksProvider =
-    FutureProvider.family<List<CalendarTask>, DateTime>(
-  (ref, month) async {
-    // Placeholder -- returns empty until wired to real data source.
-    return const <CalendarTask>[];
-  },
-);
+    FutureProvider.family<List<CalendarTask>, DateTime>((ref, month) async {
+      // Placeholder -- returns empty until wired to real data source.
+      return const <CalendarTask>[];
+    });
 
 // ---------------------------------------------------------------------------
 // Google Calendar ghost events
@@ -896,27 +915,25 @@ class CalendarGhostEvent {
 /// The [DateTime] parameter represents the month (only year and month
 /// are used). Override in app bootstrap with real CalendarApiService data.
 final calendarGhostEventsProvider =
-    FutureProvider.family<List<CalendarGhostEvent>, DateTime>(
-  (ref, month) async {
-    // Placeholder -- returns empty until wired to real data source.
-    return const <CalendarGhostEvent>[];
-  },
-);
+    FutureProvider.family<List<CalendarGhostEvent>, DateTime>((
+      ref,
+      month,
+    ) async {
+      // Placeholder -- returns empty until wired to real data source.
+      return const <CalendarGhostEvent>[];
+    });
 
 /// Whether the user's Google Calendar is connected.
 ///
 /// Override in app bootstrap with real CalendarApiService.getCalendarStatus().
-final calendarConnectedProvider = FutureProvider<bool>(
-  (ref) async => false,
-);
+final calendarConnectedProvider = FutureProvider<bool>((ref) async => false);
 
 /// List of all connected calendar providers for the current user.
 ///
 /// Each entry is a map with 'provider', 'connected', 'calendarId', and
 /// 'connectedAt' keys. Override in app bootstrap with real
 /// CalendarApiService.getProviders().
-final calendarProvidersProvider =
-    FutureProvider<List<Map<String, dynamic>>>(
+final calendarProvidersProvider = FutureProvider<List<Map<String, dynamic>>>(
   (ref) async => const <Map<String, dynamic>>[],
 );
 
@@ -924,16 +941,15 @@ final calendarProvidersProvider =
 ///
 /// Override in app bootstrap with real implementation that calls
 /// GoogleSignInHelper.getCalendarAuthCode() then CalendarApiService.connectCalendar().
-final connectCalendarCallbackProvider =
-    Provider<Future<bool> Function()>(
-  (ref) => () async => false,
+final connectCalendarCallbackProvider = Provider<Future<bool> Function()>(
+  (ref) =>
+      () async => false,
 );
 
 /// Callback to disconnect Google Calendar.
 ///
 /// Override in app bootstrap with real implementation.
-final disconnectCalendarCallbackProvider =
-    Provider<Future<void> Function()>(
+final disconnectCalendarCallbackProvider = Provider<Future<void> Function()>(
   (ref) => () async {},
 );
 
@@ -950,8 +966,8 @@ class _AmbientSoundNotifier extends Notifier<AmbientSoundState> {
 
 final ambientSoundProvider =
     NotifierProvider<_AmbientSoundNotifier, AmbientSoundState>(
-  _AmbientSoundNotifier.new,
-);
+      _AmbientSoundNotifier.new,
+    );
 
 /// Factory provider for the [AudioPlayer] instance used by the ambient
 /// sound controller. Extracted as a provider so tests can override it
@@ -970,8 +986,8 @@ final ambientAudioPlayerProvider = Provider<AudioPlayer>((ref) {
 /// seamlessly during the entire Pomodoro session.
 final ambientSoundControllerProvider =
     NotifierProvider<AmbientSoundController, AmbientSoundState>(
-  AmbientSoundController.new,
-);
+      AmbientSoundController.new,
+    );
 
 class AmbientSoundController extends Notifier<AmbientSoundState> {
   /// Currently loaded audio source, kept to avoid reloading the same

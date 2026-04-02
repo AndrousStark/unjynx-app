@@ -61,9 +61,7 @@ Future<void> bootstrap() async {
       try {
         await registry.register(plugin);
       } on Exception catch (e, stackTrace) {
-        debugPrint(
-          'Failed to register plugin "${plugin.id}": $e',
-        );
+        debugPrint('Failed to register plugin "${plugin.id}": $e');
         debugPrintStack(stackTrace: stackTrace);
       }
     }),
@@ -94,8 +92,7 @@ Future<void> bootstrap() async {
           final authApi = getIt<AuthApiService>();
           await authApi.forgotPassword(email);
         }),
-        sharedPreferencesProvider
-            .overrideWithValue(getIt<SharedPreferences>()),
+        sharedPreferencesProvider.overrideWithValue(getIt<SharedPreferences>()),
         // Wire API config from compile-time env vars
         apiConfigProvider.overrideWithValue(AppConfig.apiConfig),
         // Wire industry mode vocabulary from cache (updated async later)
@@ -135,8 +132,7 @@ Future<void> bootstrap() async {
           final modeApi = ModeApiService(apiClient);
           final response = await modeApi.getActiveMode();
           if (response.success && response.data != null) {
-            final slug =
-                (response.data!['slug'] as String?) ?? 'general';
+            final slug = (response.data!['slug'] as String?) ?? 'general';
             final vocabRaw = response.data!['vocabulary'];
             final vocab = <String, String>{};
             if (vocabRaw is Map) {
@@ -150,10 +146,7 @@ Future<void> bootstrap() async {
             final vocabEntries = vocab.entries
                 .map((e) => '${e.key}=${e.value}')
                 .join('|');
-            await prefs.setString(
-              'unjynx_active_mode_vocab',
-              vocabEntries,
-            );
+            await prefs.setString('unjynx_active_mode_vocab', vocabEntries);
           }
         } catch (e) {
           debugPrint('Mode API fetch failed, falling back to cache: $e');
@@ -167,10 +160,12 @@ Future<void> bootstrap() async {
   // Start sync manager: periodic sync (every 5 min), event-driven sync
   // (debounced 2 s after mutations), and app-resume sync. Deferred to
   // avoid blocking the first frame.
-  unawaited(Future<void>.delayed(const Duration(seconds: 2), () {
-    final syncManager = getIt<SyncManager>();
-    syncManager.start();
-  }));
+  unawaited(
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      final syncManager = getIt<SyncManager>();
+      syncManager.start();
+    }),
+  );
 
   // Initialize notification port + request permission (deferred from DI)
   unawaited(() async {
@@ -221,7 +216,8 @@ Future<void> bootstrap() async {
             final body = message.notification?.body;
             if (title != null || body != null) {
               notificationPort.schedule(
-                id: message.messageId ??
+                id:
+                    message.messageId ??
                     DateTime.now().millisecondsSinceEpoch.toString(),
                 title: title ?? 'UNJYNX',
                 body: body ?? '',

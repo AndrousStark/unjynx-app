@@ -9,6 +9,7 @@ import 'package:get_it/get_it.dart';
 import 'package:service_api/service_api.dart';
 import 'package:service_auth/service_auth.dart';
 import 'package:service_database/service_database.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -151,15 +152,17 @@ List<Override> homeApiOverrides() {
     eveningReviewSaveCallbackProvider.overrideWith(_eveningReviewCallback),
 
     // Pomodoro session save callback
-    pomodoroSessionSaveCallbackProvider
-        .overrideWith(_pomodoroSessionSaveCallback),
+    pomodoroSessionSaveCallbackProvider.overrideWith(
+      _pomodoroSessionSaveCallback,
+    ),
 
     // Reschedule task callback
     rescheduleTaskCallbackProvider.overrideWith(_rescheduleTaskCallback),
 
     // Toggle task completion callback
-    toggleTaskCompletionCallbackProvider
-        .overrideWith(_toggleTaskCompletionCallback),
+    toggleTaskCompletionCallbackProvider.overrideWith(
+      _toggleTaskCompletionCallback,
+    ),
 
     // Calendar tasks (family provider)
     calendarTasksProvider.overrideWith(_calendarTasksFromRepo),
@@ -179,13 +182,32 @@ List<Override> homeApiOverrides() {
     connectCalendarCallbackProvider.overrideWith(_connectCalendarCallback),
 
     // Disconnect calendar callback
-    disconnectCalendarCallbackProvider
-        .overrideWith(_disconnectCalendarCallback),
+    disconnectCalendarCallbackProvider.overrideWith(
+      _disconnectCalendarCallback,
+    ),
 
     // Time block persistence callbacks
     timeBlockSaveCallbackProvider.overrideWith(_timeBlockSaveCallback),
     timeBlockRemoveCallbackProvider.overrideWith(_timeBlockRemoveCallback),
     timeBlockLoadCallbackProvider.overrideWith(_timeBlockLoadCallback),
+
+    // User display name from auth profile
+    homeUserNameProvider.overrideWith(_userNameFromAuth),
+
+    // Unread notification count from API
+    homeNotificationCountProvider.overrideWith(_notificationCountFromApi),
+
+    // Calendar providers list from API
+    calendarProvidersProvider.overrideWith(_calendarProvidersFromApi),
+
+    // Weekly insight from progress API
+    weeklyInsightProvider.overrideWith(_weeklyInsightFromApi),
+
+    // Persisted pomodoro settings
+    pomodoroSettingsProvider.overrideWith(_persistedPomodoroSettings),
+
+    // Optimal notification time from AI/ML service
+    optimalNotificationTimeProvider.overrideWith(_optimalTimeFromAi),
   ];
 }
 
@@ -206,7 +228,7 @@ Future<StreakData> _streakFromApi(Ref ref) async {
         longestStreak: (d['longestStreak'] as num?)?.toInt() ?? 0,
         lastActiveDate: d['lastActiveDate'] != null
             ? (DateTime.tryParse(d['lastActiveDate'] as String) ??
-                DateTime.now())
+                  DateTime.now())
             : DateTime.now(),
       );
     }
@@ -254,8 +276,9 @@ Future<ProgressRingsData> _computeRingsFromTodos(Ref ref) async {
       return !t.dueDate!.isBefore(todayStart) && t.dueDate!.isBefore(todayEnd);
     }).toList();
 
-    final completed =
-        todayTodos.where((t) => t.status == TodoStatus.completed).length;
+    final completed = todayTodos
+        .where((t) => t.status == TodoStatus.completed)
+        .length;
 
     return ProgressRingsData(
       tasksCompleted: completed,
@@ -321,18 +344,24 @@ Future<List<HomeTask>> _upcomingTasksFromRepo(Ref ref) async {
     final result = await repo.getAll();
     final todos = result.unwrapOr(<Todo>[]);
     final now = DateTime.now();
-    final tomorrowStart =
-        DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+    final tomorrowStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).add(const Duration(days: 1));
 
     // Future tasks only (due date >= tomorrow), sorted by due date.
-    final upcoming = todos
-        .where((t) =>
-            t.status != TodoStatus.cancelled &&
-            t.status != TodoStatus.completed &&
-            t.dueDate != null &&
-            !t.dueDate!.isBefore(tomorrowStart))
-        .toList()
-      ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
+    final upcoming =
+        todos
+            .where(
+              (t) =>
+                  t.status != TodoStatus.cancelled &&
+                  t.status != TodoStatus.completed &&
+                  t.dueDate != null &&
+                  !t.dueDate!.isBefore(tomorrowStart),
+            )
+            .toList()
+          ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
 
     // Return at most 3 upcoming tasks.
     final limited = upcoming.take(3).map(_todoToHomeTask).toList();
@@ -349,8 +378,10 @@ Future<ActivityData> _heatmapFromApi(Ref ref) async {
   try {
     // Request last 90 days of heatmap data.
     final now = DateTime.now();
-    final from =
-        now.subtract(const Duration(days: 90)).toIso8601String().split('T')[0];
+    final from = now
+        .subtract(const Duration(days: 90))
+        .toIso8601String()
+        .split('T')[0];
     final to = now.toIso8601String().split('T')[0];
 
     final response = await api.getHeatmap(from: from, to: to);
@@ -406,23 +437,23 @@ Future<List<DailyContent>> _recentContentFromApi(Ref ref) async {
 
     // Limit to 7 categories max so we don't flood the backend.
     final categories = selectedCategories.take(7).toList();
-    final futures = categories.map(
-      (cat) => api.getTodayContent(category: cat),
-    );
+    final futures = categories.map((cat) => api.getTodayContent(category: cat));
     final responses = await Future.wait(futures);
 
     final contents = <DailyContent>[];
     for (final response in responses) {
       if (response.success && response.data != null) {
         final d = response.data!;
-        contents.add(DailyContent(
-          id: (d['id'] as String?) ?? '',
-          category: (d['category'] as String?) ?? '',
-          content: (d['content'] as String?) ?? '',
-          author: (d['author'] as String?) ?? '',
-          source: d['source'] as String?,
-          isSaved: (d['isSaved'] as bool?) ?? false,
-        ));
+        contents.add(
+          DailyContent(
+            id: (d['id'] as String?) ?? '',
+            category: (d['category'] as String?) ?? '',
+            content: (d['content'] as String?) ?? '',
+            author: (d['author'] as String?) ?? '',
+            source: d['source'] as String?,
+            isSaved: (d['isSaved'] as bool?) ?? false,
+          ),
+        );
       }
     }
     return List.unmodifiable(contents);
@@ -455,7 +486,7 @@ Future<void> Function(String, {required bool saved}) _contentSaveCallback(
 }
 
 Future<void> Function({int? mood, String? gratitude, String? intention})
-    _morningRitualCallback(Ref ref) {
+_morningRitualCallback(Ref ref) {
   return ({int? mood, String? gratitude, String? intention}) async {
     final api = _tryReadSync(ref, contentApiProvider);
     if (api == null) return;
@@ -493,7 +524,8 @@ Future<void> Function({
   required int sessionsCompleted,
   required int totalFocusSeconds,
   String? taskName,
-}) _pomodoroSessionSaveCallback(Ref ref) {
+})
+_pomodoroSessionSaveCallback(Ref ref) {
   return ({
     required int sessionsCompleted,
     required int totalFocusSeconds,
@@ -505,14 +537,16 @@ Future<void> Function({
     // 1. Persist to local Drift database.
     try {
       final db = GetIt.instance<AppDatabase>();
-      await db.into(db.localPomodoroSessions).insert(
-        LocalPomodoroSessionsCompanion.insert(
-          id: sessionId,
-          durationSeconds: totalFocusSeconds,
-          startedAt: now.subtract(Duration(seconds: totalFocusSeconds)),
-          completedAt: Value(now),
-        ),
-      );
+      await db
+          .into(db.localPomodoroSessions)
+          .insert(
+            LocalPomodoroSessionsCompanion.insert(
+              id: sessionId,
+              durationSeconds: totalFocusSeconds,
+              startedAt: now.subtract(Duration(seconds: totalFocusSeconds)),
+              completedAt: Value(now),
+            ),
+          );
     } catch (e) {
       debugPrint('[PomodoroSave] local save failed: $e');
     }
@@ -550,18 +584,12 @@ Future<void> Function(String) _rescheduleTaskCallback(Ref ref) {
       final repo = ref.read(todoRepositoryProvider);
       final result = await repo.getById(taskId);
       final todo = result.unwrapOr(
-        Todo(
-          id: taskId,
-          title: '',
-          createdAt: now,
-          updatedAt: now,
-        ),
+        Todo(id: taskId, title: '', createdAt: now, updatedAt: now),
       );
       if (todo.title.isNotEmpty) {
-        await repo.update(todo.copyWith(
-          dueDate: tomorrow,
-          updatedAt: DateTime.now(),
-        ));
+        await repo.update(
+          todo.copyWith(dueDate: tomorrow, updatedAt: DateTime.now()),
+        );
       }
     } catch (_) {
       // Local update failed — continue to API attempt.
@@ -572,9 +600,7 @@ Future<void> Function(String) _rescheduleTaskCallback(Ref ref) {
     if (api == null) return;
 
     try {
-      await api.updateTask(taskId, {
-        'dueDate': tomorrow.toIso8601String(),
-      });
+      await api.updateTask(taskId, {'dueDate': tomorrow.toIso8601String()});
     } on DioException {
       // Swallow — sync engine will reconcile later.
     }
@@ -582,7 +608,7 @@ Future<void> Function(String) _rescheduleTaskCallback(Ref ref) {
 }
 
 Future<void> Function(String, {required bool completed})
-    _toggleTaskCompletionCallback(Ref ref) {
+_toggleTaskCompletionCallback(Ref ref) {
   return (String taskId, {required bool completed}) async {
     // 1. Update local Drift database.
     try {
@@ -597,10 +623,12 @@ Future<void> Function(String, {required bool completed})
         ),
       );
       if (todo.title.isNotEmpty) {
-        await repo.update(todo.copyWith(
-          status: completed ? TodoStatus.completed : TodoStatus.pending,
-          updatedAt: DateTime.now(),
-        ));
+        await repo.update(
+          todo.copyWith(
+            status: completed ? TodoStatus.completed : TodoStatus.pending,
+            updatedAt: DateTime.now(),
+          ),
+        );
       }
     } catch (_) {
       // Local update failed — continue to API attempt.
@@ -634,11 +662,13 @@ Future<AiPatterns> _patternsFromMl(Ref ref) async {
     final response = await api.getPatterns();
     if (response.success && response.data != null) {
       final d = response.data!;
-      final patterns = (d['patterns'] as List<dynamic>?)
+      final patterns =
+          (d['patterns'] as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           const <Map<String, dynamic>>[];
-      final forecast = (d['forecast'] as List<dynamic>?)
+      final forecast =
+          (d['forecast'] as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           const <Map<String, dynamic>>[];
@@ -662,15 +692,18 @@ Future<EnergyForecast> _energyFromMl(Ref ref) async {
     final response = await api.getEnergyForecast();
     if (response.success && response.data != null) {
       final d = response.data!;
-      final forecast = (d['forecast'] as List<dynamic>?)
+      final forecast =
+          (d['forecast'] as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           const <Map<String, dynamic>>[];
-      final peakHours = (d['peakHours'] as List<dynamic>?)
+      final peakHours =
+          (d['peakHours'] as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           const <Map<String, dynamic>>[];
-      final lowHours = (d['lowHours'] as List<dynamic>?)
+      final lowHours =
+          (d['lowHours'] as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           const <Map<String, dynamic>>[];
@@ -695,8 +728,7 @@ Future<List<SmartSuggestion>> _suggestionsFromMl(Ref ref) async {
     final response = await api.getSuggestions(limit: 5);
     if (response.success && response.data != null) {
       final d = response.data!;
-      final ranked = (d['rankedTasks'] as List<dynamic>?) ??
-          const <dynamic>[];
+      final ranked = (d['rankedTasks'] as List<dynamic>?) ?? const <dynamic>[];
       final suggestions = ranked.map((e) {
         final item = Map<String, dynamic>.from(e as Map);
         return SmartSuggestion(
@@ -900,7 +932,8 @@ Future<void> Function({
   required int startHour,
   required int startMinute,
   required int durationMinutes,
-}) _timeBlockSaveCallback(Ref ref) {
+})
+_timeBlockSaveCallback(Ref ref) {
   return ({
     required String id,
     required String taskId,
@@ -911,16 +944,18 @@ Future<void> Function({
   }) async {
     try {
       final db = GetIt.instance<AppDatabase>();
-      await db.into(db.localTimeBlocks).insertOnConflictUpdate(
-        LocalTimeBlocksCompanion.insert(
-          id: id,
-          taskId: taskId,
-          blockDate: blockDate,
-          startHour: startHour,
-          startMinute: startMinute,
-          durationMinutes: durationMinutes,
-        ),
-      );
+      await db
+          .into(db.localTimeBlocks)
+          .insertOnConflictUpdate(
+            LocalTimeBlocksCompanion.insert(
+              id: id,
+              taskId: taskId,
+              blockDate: blockDate,
+              startHour: startHour,
+              startMinute: startMinute,
+              durationMinutes: durationMinutes,
+            ),
+          );
     } catch (e) {
       debugPrint('[TimeBlockSave] local save failed: $e');
     }
@@ -931,9 +966,9 @@ Future<void> Function(String) _timeBlockRemoveCallback(Ref ref) {
   return (String blockId) async {
     try {
       final db = GetIt.instance<AppDatabase>();
-      await (db.delete(db.localTimeBlocks)
-            ..where((t) => t.id.equals(blockId)))
-          .go();
+      await (db.delete(
+        db.localTimeBlocks,
+      )..where((t) => t.id.equals(blockId))).go();
     } catch (e) {
       debugPrint('[TimeBlockRemove] local delete failed: $e');
     }
@@ -946,22 +981,175 @@ Future<List<PersistedTimeBlock>> Function(DateTime) _timeBlockLoadCallback(
   return (DateTime date) async {
     try {
       final db = GetIt.instance<AppDatabase>();
-      final rows = await (db.select(db.localTimeBlocks)
-            ..where((t) => t.blockDate.equals(date))
-            ..orderBy([(t) => OrderingTerm.asc(t.startHour)]))
-          .get();
+      final rows =
+          await (db.select(db.localTimeBlocks)
+                ..where((t) => t.blockDate.equals(date))
+                ..orderBy([(t) => OrderingTerm.asc(t.startHour)]))
+              .get();
       return rows
-          .map((r) => PersistedTimeBlock(
-                id: r.id,
-                taskId: r.taskId,
-                startHour: r.startHour,
-                startMinute: r.startMinute,
-                durationMinutes: r.durationMinutes,
-              ))
+          .map(
+            (r) => PersistedTimeBlock(
+              id: r.id,
+              taskId: r.taskId,
+              startHour: r.startHour,
+              startMinute: r.startMinute,
+              durationMinutes: r.durationMinutes,
+            ),
+          )
           .toList();
     } catch (e) {
       debugPrint('[TimeBlockLoad] local load failed: $e');
       return const <PersistedTimeBlock>[];
     }
   };
+}
+
+// ---------------------------------------------------------------------------
+// User display name — from auth profile
+// ---------------------------------------------------------------------------
+
+String _userNameFromAuth(Ref ref) {
+  final user = ref.watch(currentUserProvider).value;
+  return user?.name ?? user?.email?.split('@').first ?? 'User';
+}
+
+// ---------------------------------------------------------------------------
+// Notification count — from API quota endpoint
+// ---------------------------------------------------------------------------
+
+int _notificationCountFromApi(Ref ref) {
+  // Use a FutureProvider internally, but expose synchronously with a default.
+  // The notification count auto-refreshes when the provider rebuilds.
+  final api = _tryRead(ref, notificationApiProvider);
+  if (api == null) return 0;
+
+  // Fire-and-forget async fetch; returns cached or 0 while loading.
+  final asyncCount = ref.watch(_notificationCountAsyncProvider);
+  return asyncCount.value ?? 0;
+}
+
+final _notificationCountAsyncProvider = FutureProvider<int>((ref) async {
+  final api = _tryRead(ref, notificationApiProvider);
+  if (api == null) return 0;
+
+  try {
+    final response = await api.getQuota();
+    if (response.success && response.data != null) {
+      return (response.data!['unreadCount'] as num?)?.toInt() ?? 0;
+    }
+  } on DioException {
+    // Swallow — return 0.
+  }
+
+  return 0;
+});
+
+// ---------------------------------------------------------------------------
+// Calendar providers — from API
+// ---------------------------------------------------------------------------
+
+Future<List<Map<String, dynamic>>> _calendarProvidersFromApi(Ref ref) async {
+  final api = _tryRead(ref, calendarApiProvider);
+  if (api == null) return const <Map<String, dynamic>>[];
+
+  try {
+    final response = await api.getProviders();
+    if (response.success && response.data != null) {
+      return List.unmodifiable(response.data!.cast<Map<String, dynamic>>());
+    }
+  } on DioException {
+    // Swallow — return empty.
+  }
+
+  return const <Map<String, dynamic>>[];
+}
+
+// ---------------------------------------------------------------------------
+// Weekly insight — from progress API insights endpoint
+// ---------------------------------------------------------------------------
+
+Future<WeeklyInsight> _weeklyInsightFromApi(Ref ref) async {
+  final api = _tryRead(ref, progressApiProvider);
+  if (api == null) {
+    // Fallback: compute from streak data.
+    final streak = await ref.watch(homeStreakProvider.future);
+    if (streak.currentStreak > 0) {
+      return WeeklyInsight(
+        text: "You're on a ${streak.currentStreak}-day streak! Keep it going.",
+        type: 'streak',
+      );
+    }
+    return const WeeklyInsight(
+      text: 'Start completing tasks to see your insights here.',
+    );
+  }
+
+  try {
+    final response = await api.getInsights();
+    if (response.success && response.data != null) {
+      final d = response.data!;
+      return WeeklyInsight(
+        text:
+            (d['summary'] as String?) ??
+            (d['insight'] as String?) ??
+            'Keep up the great work!',
+        type: (d['type'] as String?) ?? 'general',
+      );
+    }
+  } on DioException {
+    // Fallback to streak-based insight.
+  }
+
+  final streak = await ref.watch(homeStreakProvider.future);
+  if (streak.currentStreak > 0) {
+    return WeeklyInsight(
+      text: "You're on a ${streak.currentStreak}-day streak! Keep it going.",
+      type: 'streak',
+    );
+  }
+  return const WeeklyInsight(
+    text: 'Start completing tasks to see your insights here.',
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Persisted pomodoro settings — SharedPreferences backed
+// ---------------------------------------------------------------------------
+
+const _pomodoroWorkKey = 'unjynx_pomo_work';
+const _pomodoroShortKey = 'unjynx_pomo_short';
+const _pomodoroLongKey = 'unjynx_pomo_long';
+const _pomodoroSessionsKey = 'unjynx_pomo_sessions';
+
+PomodoroSettings _persistedPomodoroSettings(Ref ref) {
+  // Load persisted settings synchronously from cached SharedPreferences.
+  // SharedPreferences is already initialized in bootstrap, so getInstance()
+  // returns the cached instance synchronously via the completed future.
+  final prefs = GetIt.instance<SharedPreferences>();
+  return PomodoroSettings(
+    workMinutes: prefs.getInt(_pomodoroWorkKey) ?? 25,
+    shortBreakMinutes: prefs.getInt(_pomodoroShortKey) ?? 5,
+    longBreakMinutes: prefs.getInt(_pomodoroLongKey) ?? 15,
+    sessionsBeforeLongBreak: prefs.getInt(_pomodoroSessionsKey) ?? 4,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Optimal notification time — from AI/ML service
+// ---------------------------------------------------------------------------
+
+Future<int?> _optimalTimeFromAi(Ref ref) async {
+  final api = _tryRead(ref, aiApiProvider);
+  if (api == null) return null;
+
+  try {
+    final response = await api.getOptimalTime();
+    if (response.success && response.data != null) {
+      return (response.data!['hour'] as num?)?.toInt();
+    }
+  } on DioException {
+    // ML service unavailable — return null.
+  }
+
+  return null;
 }

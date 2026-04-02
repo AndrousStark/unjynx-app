@@ -300,14 +300,28 @@ GoRouter createAppRouter(
       builder: (context, state) => const SprintBoardPage(),
     ),
     GoRoute(
+      path: '/sprints/create',
+      builder: (context, state) => const CreateSprintPage(),
+    ),
+    GoRoute(
       path: '/sprints/velocity',
       builder: (context, state) => const VelocityPage(),
+    ),
+    GoRoute(
+      path: '/sprints/:id',
+      builder: (context, state) => SprintDetailPage(
+        sprintId: state.pathParameters['id']!,
+      ),
     ),
 
     // Goal screens (Phase 7)
     GoRoute(
       path: '/goals',
       builder: (context, state) => const GoalTreePage(),
+    ),
+    GoRoute(
+      path: '/goals/create',
+      builder: (context, state) => const CreateGoalPage(),
     ),
 
     // Org-level reports (Phase 7)
