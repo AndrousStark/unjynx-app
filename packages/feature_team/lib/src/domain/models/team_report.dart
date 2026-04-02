@@ -36,16 +36,26 @@ class TeamReport {
       period: ReportPeriod.fromString(json['period'] as String? ?? 'week'),
       completionRate: (json['completionRate'] as num?)?.toDouble() ?? 0.0,
       overdueCount: json['overdueCount'] as int? ?? 0,
-      memberStats: (json['memberStats'] as List<dynamic>?)
+      memberStats:
+          (json['memberStats'] as List<dynamic>?)
               ?.map((e) => MemberStat.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
-      projectStats: (json['projectStats'] as List<dynamic>?)
+      projectStats:
+          (json['projectStats'] as List<dynamic>?)
               ?.map((e) => ProjectStat.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'period': period.name,
+    'completionRate': completionRate,
+    'overdueCount': overdueCount,
+    'memberStats': memberStats.map((e) => e.toJson()).toList(),
+    'projectStats': projectStats.map((e) => e.toJson()).toList(),
+  };
 }
 
 /// Individual member contribution stat.
@@ -73,6 +83,14 @@ class MemberStat {
       completionRate: (json['completionRate'] as num?)?.toDouble() ?? 0.0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'userId': userId,
+    'name': name,
+    'tasksCompleted': tasksCompleted,
+    'tasksOverdue': tasksOverdue,
+    'completionRate': completionRate,
+  };
 }
 
 /// Project-level stat for team reports.
@@ -100,6 +118,13 @@ class ProjectStat {
       completedTasks: json['completedTasks'] as int? ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'projectId': projectId,
+    'name': name,
+    'totalTasks': totalTasks,
+    'completedTasks': completedTasks,
+  };
 }
 
 /// Report period enum.

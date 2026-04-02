@@ -156,6 +156,15 @@ class BurndownEntry {
       removedPoints: (json['removedPoints'] as num?)?.toInt() ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'capturedAt': capturedAt.toIso8601String(),
+    'totalPoints': totalPoints,
+    'completedPoints': completedPoints,
+    'remainingPoints': remainingPoints,
+    'addedPoints': addedPoints,
+    'removedPoints': removedPoints,
+  };
 }
 
 /// A velocity chart entry for one sprint.
@@ -187,4 +196,12 @@ class VelocityEntry {
           : null,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'committed': committed,
+    'completed': completed,
+    'startDate': startDate?.toIso8601String(),
+    'endDate': endDate?.toIso8601String(),
+  };
 }

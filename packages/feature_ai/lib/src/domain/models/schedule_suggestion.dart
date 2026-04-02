@@ -34,6 +34,30 @@ class ScheduleSlot {
     this.rejected = false,
   });
 
+  factory ScheduleSlot.fromJson(Map<String, dynamic> json) {
+    return ScheduleSlot(
+      taskId: json['taskId'] as String? ?? '',
+      taskTitle: json['taskTitle'] as String? ?? '',
+      suggestedStart: json['suggestedStart'] as String? ?? '',
+      suggestedEnd: json['suggestedEnd'] as String? ?? '',
+      reason: json['reason'] as String? ?? '',
+      accepted: json['accepted'] as bool? ?? false,
+      rejected: json['rejected'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'taskId': taskId,
+      'taskTitle': taskTitle,
+      'suggestedStart': suggestedStart,
+      'suggestedEnd': suggestedEnd,
+      'reason': reason,
+      'accepted': accepted,
+      'rejected': rejected,
+    };
+  }
+
   ScheduleSlot copyWith({
     String? taskId,
     String? taskTitle,
@@ -76,8 +100,23 @@ class ScheduleResult {
   /// AI's scheduling insights / rationale.
   final String insights;
 
-  const ScheduleResult({
-    required this.slots,
-    required this.insights,
-  });
+  const ScheduleResult({required this.slots, required this.insights});
+
+  factory ScheduleResult.fromJson(Map<String, dynamic> json) {
+    return ScheduleResult(
+      slots:
+          (json['slots'] as List<dynamic>?)
+              ?.map((e) => ScheduleSlot.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      insights: json['insights'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'slots': slots.map((e) => e.toJson()).toList(),
+      'insights': insights,
+    };
+  }
 }

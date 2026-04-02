@@ -31,6 +31,9 @@ import '../services/subtask_api_service.dart';
 import '../services/tag_api_service.dart';
 import '../services/team_api_service.dart';
 import '../services/template_api_service.dart';
+import '../services/custom_field_api_service.dart';
+import '../services/workflow_api_service.dart';
+import '../services/ai_team_api_service.dart';
 
 /// API config — override for production base URL.
 final apiConfigProvider = Provider<ApiConfig>((ref) => ApiConfig.development);
@@ -167,6 +170,20 @@ final sectionApiProvider = Provider<SectionApiService>(
 
 final templateApiProvider = Provider<TemplateApiService>(
   (ref) => TemplateApiService(ref.watch(apiClientProvider)),
+);
+
+// Sprint 3: Advanced features (custom fields, workflows, AI team)
+
+final customFieldApiProvider = Provider<CustomFieldApiService>(
+  (ref) => CustomFieldApiService(ref.watch(apiClientProvider)),
+);
+
+final workflowApiProvider = Provider<WorkflowApiService>(
+  (ref) => WorkflowApiService(ref.watch(apiClientProvider)),
+);
+
+final aiTeamApiProvider = Provider<AiTeamApiService>(
+  (ref) => AiTeamApiService(ref.watch(apiClientProvider)),
 );
 
 // v2: Organizations (multi-tenant)

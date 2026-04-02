@@ -26,6 +26,28 @@ class ChatMessage {
     this.isStreaming = false,
   });
 
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'] as String? ?? '',
+      role: json['role'] as String? ?? 'user',
+      content: json['content'] as String? ?? '',
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : DateTime.now(),
+      isStreaming: json['isStreaming'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'role': role,
+      'content': content,
+      'timestamp': timestamp.toIso8601String(),
+      'isStreaming': isStreaming,
+    };
+  }
+
   /// Create a copy with updated fields (immutable update).
   ChatMessage copyWith({
     String? id,
