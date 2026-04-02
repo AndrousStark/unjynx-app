@@ -175,7 +175,6 @@ class TemplatesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final templatesAsync = ref.watch(apiTemplatesProvider);
 
     return Scaffold(
@@ -204,6 +203,8 @@ class TemplatesPage extends ConsumerWidget {
     WidgetRef ref,
     List<TaskTemplate> templates,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     // Group templates by category
     final grouped = <String, List<TaskTemplate>>{};
     for (final t in templates) {
