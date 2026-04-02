@@ -23,14 +23,17 @@ import '../services/mode_api_service.dart';
 import '../services/goal_api_service.dart';
 import '../services/organization_api_service.dart';
 import '../services/pomodoro_api_service.dart';
+import '../services/recurring_api_service.dart';
 import '../services/report_api_service.dart';
+import '../services/section_api_service.dart';
 import '../services/sprint_api_service.dart';
+import '../services/subtask_api_service.dart';
+import '../services/tag_api_service.dart';
 import '../services/team_api_service.dart';
+import '../services/template_api_service.dart';
 
 /// API config — override for production base URL.
-final apiConfigProvider = Provider<ApiConfig>(
-  (ref) => ApiConfig.development,
-);
+final apiConfigProvider = Provider<ApiConfig>((ref) => ApiConfig.development);
 
 /// Central API client — depends on auth for token injection + org context.
 final apiClientProvider = Provider<ApiClient>((ref) {
@@ -142,6 +145,28 @@ final goalApiProvider = Provider<GoalApiService>(
 
 final reportApiProvider = Provider<ReportApiService>(
   (ref) => ReportApiService(ref.watch(apiClientProvider)),
+);
+
+// Sprint 2: Core task features (subtasks, tags, recurring, sections, templates)
+
+final subtaskApiProvider = Provider<SubtaskApiService>(
+  (ref) => SubtaskApiService(ref.watch(apiClientProvider)),
+);
+
+final tagApiProvider = Provider<TagApiService>(
+  (ref) => TagApiService(ref.watch(apiClientProvider)),
+);
+
+final recurringApiProvider = Provider<RecurringApiService>(
+  (ref) => RecurringApiService(ref.watch(apiClientProvider)),
+);
+
+final sectionApiProvider = Provider<SectionApiService>(
+  (ref) => SectionApiService(ref.watch(apiClientProvider)),
+);
+
+final templateApiProvider = Provider<TemplateApiService>(
+  (ref) => TemplateApiService(ref.watch(apiClientProvider)),
 );
 
 // v2: Organizations (multi-tenant)
