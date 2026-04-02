@@ -8,4 +8,5 @@ export 'src/domain/models/schedule_suggestion.dart';
 export 'src/presentation/pages/ai_chat_page.dart';
 export 'src/presentation/pages/ai_insights_page.dart';
 export 'src/presentation/pages/ai_schedule_page.dart';
+export 'src/presentation/pages/ai_team_page.dart';
 export 'src/presentation/providers/ai_providers.dart';

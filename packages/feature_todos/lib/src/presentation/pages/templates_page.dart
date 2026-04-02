@@ -1,10 +1,70 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:service_api/service_api.dart';
 import 'package:unjynx_core/core.dart';
 
 import '../../domain/entities/todo.dart';
 import '../providers/todo_providers.dart';
+
+// ---------------------------------------------------------------------------
+// API-backed templates provider
+// ---------------------------------------------------------------------------
+
+T? _tryRead<T>(Ref ref, Provider<T> provider) {
+  try {
+    return ref.watch(provider);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Fetches templates from the API, falling back to built-in system templates.
+final apiTemplatesProvider = FutureProvider<List<TaskTemplate>>((ref) async {
+  final api = _tryRead(ref, templateApiProvider);
+  if (api == null) return _systemTemplates;
+
+  try {
+    final response = await api.getTemplates();
+    if (response.success &&
+        response.data != null &&
+        response.data!.isNotEmpty) {
+      return response.data!.map((e) {
+        final m = e as Map<String, dynamic>;
+        final subtasksRaw = m['subtasks'];
+        final subtaskTitles = <String>[];
+        if (subtasksRaw is List) {
+          for (final s in subtasksRaw) {
+            if (s is Map) {
+              subtaskTitles.add(s['title'] as String? ?? '');
+            } else if (s is String) {
+              subtaskTitles.add(s);
+            }
+          }
+        }
+        return TaskTemplate(
+          id: m['id'] as String? ?? '',
+          name: m['title'] as String? ?? '',
+          description: m['description'] as String?,
+          category: m['category'] as String? ?? 'personal',
+          isSystem: m['isGlobal'] as bool? ?? false,
+          priority: _parsePriority(m['priority'] as String?),
+          subtasks: subtaskTitles,
+        );
+      }).toList();
+    }
+  } on DioException {
+    // API unavailable — fall back to built-in.
+  }
+
+  return _systemTemplates;
+});
+
+TodoPriority? _parsePriority(String? p) {
+  if (p == null) return null;
+  return TodoPriority.values.where((v) => v.name == p).firstOrNull;
+}
 
 /// Template data model for display (not Drift, uses JSON from templates table).
 class TaskTemplate {
@@ -116,12 +176,7 @@ class TemplatesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    // Group templates by category
-    final grouped = <String, List<TaskTemplate>>{};
-    for (final t in _systemTemplates) {
-      grouped.putIfAbsent(t.category, () => []).add(t);
-    }
+    final templatesAsync = ref.watch(apiTemplatesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -136,20 +191,35 @@ class TemplatesPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
+      body: templatesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => _buildTemplateList(context, ref, _systemTemplates),
+        data: (templates) => _buildTemplateList(context, ref, templates),
+      ),
+    );
+  }
+
+  Widget _buildTemplateList(
+    BuildContext context,
+    WidgetRef ref,
+    List<TaskTemplate> templates,
+  ) {
+    // Group templates by category
+    final grouped = <String, List<TaskTemplate>>{};
+    for (final t in templates) {
+      grouped.putIfAbsent(t.category, () => []).add(t);
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(apiTemplatesProvider),
+      child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Header
           Text(
             'Start faster with templates',
-            style: TextStyle(
-              fontSize: 15,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 15, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 20),
-
-          // Template categories
           for (final entry in grouped.entries) ...[
             _CategoryHeader(category: entry.key),
             const SizedBox(height: 8),
@@ -174,8 +244,44 @@ class TemplatesPage extends ConsumerWidget {
     TaskTemplate template,
   ) async {
     final ux = context.unjynx;
-    final createTodo = ref.read(createTodoProvider);
+    HapticFeedback.mediumImpact();
 
+    // Try API-based template usage first (creates task + subtasks server-side).
+    TemplateApiService? api;
+    try {
+      api = ref.read(templateApiProvider);
+    } catch (_) {
+      api = null;
+    }
+    if (api != null && !template.id.startsWith('sys-')) {
+      try {
+        final response = await api.useTemplate(template.id);
+        if (response.success) {
+          ref.invalidate(todoListProvider);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Created "${template.name}" with '
+                  '${template.subtasks.length} subtasks',
+                ),
+                backgroundColor: ux.success,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      } on DioException {
+        // Fall through to local creation.
+      }
+    }
+
+    // Fallback: create locally.
+    final createTodo = ref.read(createTodoProvider);
     await createTodo(
       title: template.name,
       priority: template.priority ?? TodoPriority.none,
@@ -210,10 +316,7 @@ class TemplatesPage extends ConsumerWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Text(
-            'About Templates',
-            style: TextStyle(color: cs.onSurface),
-          ),
+          title: Text('About Templates', style: TextStyle(color: cs.onSurface)),
           content: Text(
             'Templates let you quickly create tasks with predefined '
             'subtasks and settings.\n\n'
@@ -224,10 +327,7 @@ class TemplatesPage extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Got it',
-                style: TextStyle(color: cs.primary),
-              ),
+              child: Text('Got it', style: TextStyle(color: cs.primary)),
             ),
           ],
         );
@@ -276,10 +376,7 @@ class _CategoryHeader extends StatelessWidget {
 }
 
 class _TemplateCard extends StatelessWidget {
-  const _TemplateCard({
-    required this.template,
-    required this.onApply,
-  });
+  const _TemplateCard({required this.template, required this.onApply});
 
   final TaskTemplate template;
   final VoidCallback onApply;
@@ -352,8 +449,9 @@ class _TemplateCard extends StatelessWidget {
                               : ux.gold.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: ux.gold
-                                .withValues(alpha: isLight ? 0.3 : 0.4),
+                            color: ux.gold.withValues(
+                              alpha: isLight ? 0.3 : 0.4,
+                            ),
                           ),
                         ),
                         child: Text(
@@ -403,14 +501,20 @@ class _TemplateCard extends StatelessWidget {
                       Icon(
                         Icons.flag,
                         size: 14,
-                        color: unjynxPriorityColor(context, template.priority!.name),
+                        color: unjynxPriorityColor(
+                          context,
+                          template.priority!.name,
+                        ),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         template.priority!.name,
                         style: TextStyle(
                           fontSize: 12,
-                          color: unjynxPriorityColor(context, template.priority!.name),
+                          color: unjynxPriorityColor(
+                            context,
+                            template.priority!.name,
+                          ),
                         ),
                       ),
                     ],
@@ -485,8 +589,9 @@ class _TemplateCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: colorScheme.onSurfaceVariant
-                                    .withValues(alpha: isLight ? 0.3 : 0.4),
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: isLight ? 0.3 : 0.4,
+                                ),
                               ),
                             ),
                           ),
@@ -514,8 +619,7 @@ class _TemplateCard extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ux.gold,
                         // Light gold needs white text; Dark gold needs black
-                        foregroundColor:
-                            isLight ? Colors.white : Colors.black,
+                        foregroundColor: isLight ? Colors.white : Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -537,5 +641,4 @@ class _TemplateCard extends StatelessWidget {
       },
     );
   }
-
 }

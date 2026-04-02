@@ -53,9 +53,8 @@ GoRouter createAppRouter(
     // Login route (full-screen, no shell)
     GoRoute(
       path: '/login',
-      builder: (context, state) => LoginPage(
-        redirectTo: state.uri.queryParameters['redirect'],
-      ),
+      builder: (context, state) =>
+          LoginPage(redirectTo: state.uri.queryParameters['redirect']),
     ),
 
     // Forgot password route (full-screen, no shell)
@@ -65,11 +64,10 @@ GoRouter createAppRouter(
     ),
 
     // Onboarding routes (full-screen, no shell)
-    for (final route in allRoutes.where((r) => r.path.startsWith('/onboarding')))
-      GoRoute(
-        path: route.path,
-        builder: (context, state) => route.builder(),
-      ),
+    for (final route in allRoutes.where(
+      (r) => r.path.startsWith('/onboarding'),
+    ))
+      GoRoute(path: route.path, builder: (context, state) => route.builder()),
 
     // Org onboarding (industry selector — first login after signup)
     GoRoute(
@@ -98,15 +96,13 @@ GoRouter createAppRouter(
     // Detail routes (full-screen, outside shell/bottom nav)
     GoRoute(
       path: '/todos/:id',
-      builder: (context, state) => TodoDetailPage(
-        todoId: state.pathParameters['id']!,
-      ),
+      builder: (context, state) =>
+          TodoDetailPage(todoId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/projects/:id',
-      builder: (context, state) => ProjectDetailPage(
-        projectId: state.pathParameters['id']!,
-      ),
+      builder: (context, state) =>
+          ProjectDetailPage(projectId: state.pathParameters['id']!),
     ),
 
     // Kanban Board (full-screen, outside shell)
@@ -222,10 +218,7 @@ GoRouter createAppRouter(
     ),
 
     // Billing screens (M2)
-    GoRoute(
-      path: '/billing',
-      builder: (context, state) => const BillingPage(),
-    ),
+    GoRoute(path: '/billing', builder: (context, state) => const BillingPage()),
     GoRoute(
       path: '/billing/compare',
       builder: (context, state) => const PlanComparisonPage(),
@@ -257,14 +250,8 @@ GoRouter createAppRouter(
 
     // Import/Export screens — only when feature flag is enabled
     if (AppConfig.featureImportExport) ...[
-      GoRoute(
-        path: '/import',
-        builder: (context, state) => const ImportPage(),
-      ),
-      GoRoute(
-        path: '/export',
-        builder: (context, state) => const ExportPage(),
-      ),
+      GoRoute(path: '/import', builder: (context, state) => const ImportPage()),
+      GoRoute(path: '/export', builder: (context, state) => const ExportPage()),
     ],
 
     // Widget configuration — only when feature flag is enabled
@@ -281,10 +268,7 @@ GoRouter createAppRouter(
     ),
 
     // AI screens (K1-K3)
-    GoRoute(
-      path: '/ai/chat',
-      builder: (context, state) => const AiChatPage(),
-    ),
+    GoRoute(path: '/ai/chat', builder: (context, state) => const AiChatPage()),
     GoRoute(
       path: '/ai/schedule',
       builder: (context, state) => const AiSchedulePage(),
@@ -292,6 +276,21 @@ GoRouter createAppRouter(
     GoRoute(
       path: '/ai/insights',
       builder: (context, state) => const AiInsightsPage(),
+    ),
+
+    // AI Team dashboard (Sprint 4)
+    GoRoute(path: '/ai-team', builder: (context, state) => const AiTeamPage()),
+
+    // Custom fields settings (Sprint 4)
+    GoRoute(
+      path: '/settings/fields',
+      builder: (context, state) => const CustomFieldsPage(),
+    ),
+
+    // Workflow builder (Sprint 4)
+    GoRoute(
+      path: '/settings/workflows',
+      builder: (context, state) => const WorkflowBuilderPage(),
     ),
 
     // Sprint screens (Phase 7)
@@ -309,16 +308,12 @@ GoRouter createAppRouter(
     ),
     GoRoute(
       path: '/sprints/:id',
-      builder: (context, state) => SprintDetailPage(
-        sprintId: state.pathParameters['id']!,
-      ),
+      builder: (context, state) =>
+          SprintDetailPage(sprintId: state.pathParameters['id']!),
     ),
 
     // Goal screens (Phase 7)
-    GoRoute(
-      path: '/goals',
-      builder: (context, state) => const GoalTreePage(),
-    ),
+    GoRoute(path: '/goals', builder: (context, state) => const GoalTreePage()),
     GoRoute(
       path: '/goals/create',
       builder: (context, state) => const CreateGoalPage(),
@@ -334,10 +329,7 @@ GoRouter createAppRouter(
   // If no plugins registered yet, add a placeholder
   if (navRoutes.isEmpty) {
     routes.add(
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const _EmptyHomePage(),
-      ),
+      GoRoute(path: '/', builder: (context, state) => const _EmptyHomePage()),
     );
   }
 
@@ -395,7 +387,10 @@ GoRouter createAppRouter(
 
       // Org onboarding guard (third priority — after auth, before app)
       final goingToOrgOnboarding = path == '/org-onboarding';
-      if (isAuthenticated && isOrgOnboardingNeeded && !goingToOrgOnboarding && !goingToOnboarding) {
+      if (isAuthenticated &&
+          isOrgOnboardingNeeded &&
+          !goingToOrgOnboarding &&
+          !goingToOnboarding) {
         return '/org-onboarding';
       }
       if (isAuthenticated && !isOrgOnboardingNeeded && goingToOrgOnboarding) {
@@ -412,10 +407,7 @@ GoRouter createAppRouter(
 
 /// App shell with bottom navigation bar and global connection banner.
 class _AppShell extends ConsumerWidget {
-  const _AppShell({
-    required this.pluginRoutes,
-    required this.child,
-  });
+  const _AppShell({required this.pluginRoutes, required this.child});
 
   final List<PluginRoute> pluginRoutes;
   final Widget child;
@@ -486,16 +478,16 @@ class _EmptyHomePage extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               'UNJYNX',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               'Break the satisfactory.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
