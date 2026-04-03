@@ -50,6 +50,8 @@ export 'src/presentation/widgets/social_proof_counter.dart';
 export 'src/presentation/widgets/streak_at_risk_banner.dart';
 export 'src/presentation/widgets/streak_counter.dart';
 export 'src/presentation/widgets/timer_ring.dart';
+export 'src/presentation/widgets/health_insight_card.dart';
+export 'src/presentation/widgets/location_reminder_sheet.dart';
 export 'src/presentation/widgets/today_tasks_section.dart';
 export 'src/presentation/widgets/upcoming_preview.dart';
 export 'src/presentation/widgets/voice_task_button.dart';

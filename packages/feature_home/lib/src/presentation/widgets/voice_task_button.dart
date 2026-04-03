@@ -24,7 +24,6 @@ class VoiceTaskButton extends ConsumerStatefulWidget {
 class _VoiceTaskButtonState extends ConsumerState<VoiceTaskButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
-  bool _isListening = false;
 
   @override
   void initState() {

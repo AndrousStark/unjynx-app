@@ -452,8 +452,8 @@ Rate limiting on all endpoints, parameterized queries (zero SQL injection surfac
 | Phase 6: v2-AI | COMPLETE | Claude pipeline, AI chat, auto-schedule, insights, AI team dashboard |
 | Phase 7: v2-Industry | COMPLETE | Sprints, goals, org reports, industry modes, custom fields, workflows |
 | Phase 8: v2-Intelligence | COMPLETE | 4 ML models (Thompson, LinUCB, GP, Prophet), FastAPI service, Weekly Review with AI patterns/energy/suggestions. On-device inference deferred to Phase 10 |
-| Phase 9: v2-Enterprise | PARTIAL (85%) | Web client (39 pages), direct API auth, mobile messaging, wearable pomodoro + content, SSO (SAML/OIDC), SCIM 2.0 provisioning. Remaining: Siri/Google Assistant voice integration |
-| Phase 10: v2-Innovation | NOT STARTED | AR reminders, voice control, wearables, SLM |
+| Phase 9: v2-Enterprise | COMPLETE | Web client, direct API auth, mobile messaging, wearable pomodoro + content, SSO (SAML/OIDC), SCIM 2.0, Siri Shortcuts, Google Assistant actions |
+| Phase 10: v2-Innovation | PARTIAL (40%) | Voice-first task creation, location-based reminders UI, health insight card. Remaining: AR visualization, on-device SLM, RCS messaging |
 
 ---
 
