@@ -3,6 +3,7 @@ library service_auth;
 
 export 'src/api_auth_port.dart';
 export 'src/auth_providers.dart';
+export 'src/email_verification_page.dart';
 export 'src/forgot_password_page.dart';
 export 'src/forgot_password_providers.dart';
 export 'src/google_sign_in_helper.dart';

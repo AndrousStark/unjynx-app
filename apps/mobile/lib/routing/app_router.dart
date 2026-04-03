@@ -63,6 +63,21 @@ GoRouter createAppRouter(
       builder: (context, state) => const ForgotPasswordPage(),
     ),
 
+    // Email verification (shown after registration)
+    GoRoute(
+      path: '/verify-email',
+      builder: (context, state) => EmailVerificationPage(
+        email: state.uri.queryParameters['email'] ?? '',
+      ),
+    ),
+
+    // Invite accept (deep link: unjynx://invite/{code})
+    GoRoute(
+      path: '/invite/:code',
+      builder: (context, state) =>
+          InviteAcceptPage(inviteCode: state.pathParameters['code']!),
+    ),
+
     // Onboarding routes (full-screen, no shell)
     for (final route in allRoutes.where(
       (r) => r.path.startsWith('/onboarding'),

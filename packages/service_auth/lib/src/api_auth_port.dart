@@ -13,6 +13,9 @@ class ApiAuthPort implements AuthPort {
   final Dio _dio;
   final FlutterSecureStorage _storage;
 
+  /// The API base URL (e.g. https://api.unjynx.me).
+  String get apiBaseUrl => _apiBaseUrl;
+
   String? _accessToken;
   String? _refreshToken;
   DateTime? _tokenExpiry;

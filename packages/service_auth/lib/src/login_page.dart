@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:unjynx_core/core.dart';
 
 import 'api_auth_port.dart';
@@ -195,6 +196,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
       if (provider == 'google') {
         HapticFeedback.mediumImpact();
         await _handleGoogleSignIn();
+      } else if (provider == 'apple') {
+        HapticFeedback.mediumImpact();
+        await _handleAppleSignIn();
       } else {
         await ref.read(authNotifierProvider.notifier).signIn();
       }
@@ -232,10 +236,27 @@ class _LoginPageState extends ConsumerState<LoginPage>
       throw Exception('cancelled');
     }
 
-    await ref.read(authNotifierProvider.notifier).signInWithSocial(
-          provider: 'google',
-          idToken: idToken,
-        );
+    await ref
+        .read(authNotifierProvider.notifier)
+        .signInWithSocial(provider: 'google', idToken: idToken);
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+    );
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw Exception('cancelled');
+    }
+
+    await ref
+        .read(authNotifierProvider.notifier)
+        .signInWithSocial(provider: 'apple', idToken: idToken);
   }
 
   // ── Error Mapping ─────────────────────────────────────────────────
@@ -243,7 +264,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
   String _mapAuthError(Exception e) {
     final msg = e.toString().toLowerCase();
     if (msg.contains('cancelled') || msg.contains('canceled')) return '';
-    if (msg.contains('network') || msg.contains('socket') || msg.contains('connection')) {
+    if (msg.contains('network') ||
+        msg.contains('socket') ||
+        msg.contains('connection')) {
       return 'No internet connection. Check your network.';
     }
     if (msg.contains('already exists')) {
@@ -252,7 +275,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
     if (msg.contains('401') || msg.contains('unauthorized')) {
       return 'Incorrect email or password.';
     }
-    if (msg.contains('429') || msg.contains('rate') || msg.contains('too many')) {
+    if (msg.contains('429') ||
+        msg.contains('rate') ||
+        msg.contains('too many')) {
       return 'Too many attempts. Try again in a minute.';
     }
     if (msg.contains('invalid') && msg.contains('password')) {
@@ -302,7 +327,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height -
+                  minHeight:
+                      MediaQuery.of(context).size.height -
                       MediaQuery.of(context).padding.top -
                       MediaQuery.of(context).padding.bottom,
                 ),
@@ -321,8 +347,18 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         child: _authMode == _AuthMode.buttons
                             ? _buildSocialButtons(colorScheme, ux, isLight)
                             : _authMode == _AuthMode.login
-                                ? _buildEmailForm(colorScheme, ux, isLight, isRegister: false)
-                                : _buildEmailForm(colorScheme, ux, isLight, isRegister: true),
+                            ? _buildEmailForm(
+                                colorScheme,
+                                ux,
+                                isLight,
+                                isRegister: false,
+                              )
+                            : _buildEmailForm(
+                                colorScheme,
+                                ux,
+                                isLight,
+                                isRegister: true,
+                              ),
                       ),
 
                       const SizedBox(height: 16),
@@ -336,7 +372,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: colorScheme.primary.withValues(alpha: isLight ? 0.8 : 0.7),
+                              color: colorScheme.primary.withValues(
+                                alpha: isLight ? 0.8 : 0.7,
+                              ),
                             ),
                           ),
                         ),
@@ -351,7 +389,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           'Terms of Service and Privacy Policy',
                           style: TextStyle(
                             fontSize: 12,
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: isLight ? 0.55 : 0.4),
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: isLight ? 0.55 : 0.4,
+                            ),
                             height: 1.5,
                           ),
                           textAlign: TextAlign.center,
@@ -372,7 +412,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   // ── Social Buttons View ───────────────────────────────────────────
 
-  Widget _buildSocialButtons(ColorScheme colorScheme, UnjynxCustomColors ux, bool isLight) {
+  Widget _buildSocialButtons(
+    ColorScheme colorScheme,
+    UnjynxCustomColors ux,
+    bool isLight,
+  ) {
     return Column(
       key: const ValueKey('social-buttons'),
       mainAxisSize: MainAxisSize.min,
@@ -382,16 +426,35 @@ class _LoginPageState extends ConsumerState<LoginPage>
           icon: Icons.g_mobiledata,
           color: Colors.white,
           textColor: Colors.black87,
-          borderColor: isLight ? const Color(0xFF1A0533).withValues(alpha: 0.1) : null,
+          borderColor: isLight
+              ? const Color(0xFF1A0533).withValues(alpha: 0.1)
+              : null,
           onTap: () => _handleSignIn(provider: 'google'),
           isLoading: _isSigningIn && _activeProvider == 'google',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
+
+        // Apple Sign-In (iOS only — hidden on Android)
+        if (Theme.of(context).platform == TargetPlatform.iOS)
+          _SignInButton(
+            label: 'Continue with Apple',
+            icon: Icons.apple_rounded,
+            color: isLight ? Colors.black : Colors.white,
+            textColor: isLight ? Colors.white : Colors.black,
+            onTap: () => _handleSignIn(provider: 'apple'),
+            isLoading: _isSigningIn && _activeProvider == 'apple',
+          ),
+        if (Theme.of(context).platform == TargetPlatform.iOS)
+          const SizedBox(height: 12),
 
         // Divider
         Row(
           children: [
-            Expanded(child: Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3))),
+            Expanded(
+              child: Divider(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
@@ -402,7 +465,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 ),
               ),
             ),
-            Expanded(child: Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3))),
+            Expanded(
+              child: Divider(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -436,10 +503,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
               children: [
                 TextSpan(
                   text: 'Create account',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: ux.gold,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w600, color: ux.gold),
                 ),
               ],
             ),
@@ -482,7 +546,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         isLight: isLight,
                       ),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Name is required';
+                        if (v == null || v.trim().isEmpty)
+                          return 'Name is required';
                         if (v.trim().length < 2) return 'At least 2 characters';
                         return null;
                       },
@@ -504,8 +569,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       isLight: isLight,
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Email is required';
-                      if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email';
+                      if (v == null || v.trim().isEmpty)
+                        return 'Email is required';
+                      if (!v.contains('@') || !v.contains('.'))
+                        return 'Enter a valid email';
                       return null;
                     },
                   ),
@@ -522,7 +589,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     onFieldSubmitted: (_) =>
                         isRegister ? _handleRegister() : _handleEmailSignIn(),
                     decoration: _inputDecoration(
-                      hint: isRegister ? 'Create password (8+ chars)' : 'Password',
+                      hint: isRegister
+                          ? 'Create password (8+ chars)'
+                          : 'Password',
                       icon: Icons.lock_outline,
                       colorScheme: colorScheme,
                       ux: ux,
@@ -533,14 +602,19 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           setState(() => _obscurePassword = !_obscurePassword);
                         },
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
                           size: 20,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Password is required';
+                      if (v == null || v.trim().isEmpty)
+                        return 'Password is required';
                       if (v.length < 8) return 'At least 8 characters';
                       return null;
                     },
@@ -558,7 +632,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
               color: isRegister ? ux.gold : colorScheme.primary,
               textColor: Colors.white,
               onTap: isRegister ? _handleRegister : _handleEmailSignIn,
-              isLoading: _isSigningIn &&
+              isLoading:
+                  _isSigningIn &&
                   (_activeProvider == 'email' || _activeProvider == 'register'),
             ),
 
@@ -626,11 +701,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(
-        color: colorScheme.onSurfaceVariant.withValues(alpha: isLight ? 0.5 : 0.4),
+        color: colorScheme.onSurfaceVariant.withValues(
+          alpha: isLight ? 0.5 : 0.4,
+        ),
       ),
       prefixIcon: Icon(
         icon,
-        color: colorScheme.onSurfaceVariant.withValues(alpha: isLight ? 0.6 : 0.5),
+        color: colorScheme.onSurfaceVariant.withValues(
+          alpha: isLight ? 0.6 : 0.5,
+        ),
         size: 22,
       ),
       suffixIcon: suffixIcon,
