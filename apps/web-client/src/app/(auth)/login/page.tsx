@@ -119,6 +119,23 @@ export default function LoginPage() {
         <span>Continue with Google</span>
       </button>
 
+      {/* Apple Sign-In */}
+      <button
+        type="button"
+        onClick={() => {
+          setError('Apple Sign-In is available on iOS. Use Google or email on web.');
+        }}
+        className="w-full h-11 rounded-xl flex items-center justify-center gap-3
+          bg-white border border-[#dadce0] text-[#3c4043] text-sm font-medium
+          hover:bg-[#f8f9fa] transition-colors mt-3"
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M15.1 14.05c-.35.8-.52 1.16-.97 1.87-.63.99-1.52 2.23-2.62 2.24-1.23.01-1.55-.8-3.22-.79-1.67.01-2.02.81-3.25.8-1.1-.02-1.94-1.12-2.57-2.11C.93 13.46.35 10.42 1.95 8.35 3.05 6.93 4.64 6.08 6.13 6.08c1.27 0 2.07.81 3.12.81 1.02 0 1.64-.81 3.11-.81 1.33 0 2.73.72 3.82 1.97-3.36 1.84-2.81 6.63.92 8z" fill="#000"/>
+          <path d="M11.42 4.3c.5-.64.88-1.55.74-2.47-.86.06-1.87.61-2.46 1.3-.53.62-.97 1.54-.8 2.43.94.03 1.91-.53 2.52-1.26z" fill="#000"/>
+        </svg>
+        <span>Continue with Apple</span>
+      </button>
+
       {/* Divider */}
       <OrDivider />
 

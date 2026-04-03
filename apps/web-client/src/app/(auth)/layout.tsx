@@ -65,7 +65,16 @@ export default function AuthLayout({
 
       {/* ── Footer ── */}
       <p className="mt-8 text-xs text-[#6B5B8A] text-center animate-fade-in">
-        By METAminds &middot; Privacy Policy &middot; Terms of Service
+        By METAminds &middot;{' '}
+        <a href="https://unjynx.me/privacy" target="_blank" rel="noopener noreferrer"
+          className="hover:text-[#B8A9D4] transition-colors underline decoration-[#6B5B8A]/30">
+          Privacy Policy
+        </a>{' '}
+        &middot;{' '}
+        <a href="https://unjynx.me/terms" target="_blank" rel="noopener noreferrer"
+          className="hover:text-[#B8A9D4] transition-colors underline decoration-[#6B5B8A]/30">
+          Terms of Service
+        </a>
       </p>
     </div>
   );

@@ -24,35 +24,37 @@ function GoogleIcon() {
 // ─── Password requirements ──────────────────────────────────────
 
 function PasswordRequirements({ password }: { password: string }) {
-  const requirements = [
-    { label: '8+ characters', met: password.length >= 8 },
-    { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
-    { label: 'One number', met: /\d/.test(password) },
-  ];
+  const hasLength = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  const score = [hasLength, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
+
+  const label = ['', 'Weak', 'Fair', 'Good', 'Strong'][score] || '';
+  const barColor = ['', 'bg-unjynx-rose', 'bg-unjynx-amber', 'bg-blue-500', 'bg-unjynx-emerald'][score] || '';
+  const textColor = ['', 'text-unjynx-rose', 'text-unjynx-amber', 'text-blue-500', 'text-unjynx-emerald'][score] || '';
 
   if (!password) return null;
 
   return (
-    <div className="mt-2 space-y-1">
-      {requirements.map((req) => (
-        <div key={req.label} className="flex items-center gap-2 text-xs">
-          <Check
-            size={12}
+    <div className="mt-3">
+      <div className="flex gap-1">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
             className={cn(
-              'transition-colors',
-              req.met ? 'text-unjynx-emerald' : 'text-[var(--muted-foreground)]',
+              'h-1 flex-1 rounded-full transition-all duration-300',
+              i < score ? barColor : 'bg-[var(--border)]',
             )}
           />
-          <span
-            className={cn(
-              'transition-colors',
-              req.met ? 'text-unjynx-emerald' : 'text-[var(--muted-foreground)]',
-            )}
-          >
-            {req.label}
-          </span>
-        </div>
-      ))}
+        ))}
+      </div>
+      {label && (
+        <p className={cn('text-xs font-medium mt-1.5 transition-colors', textColor)}>
+          {label}
+        </p>
+      )}
     </div>
   );
 }
@@ -310,6 +312,20 @@ export default function SignupPage() {
         >
           Sign in
         </Link>
+      </p>
+
+      {/* Terms */}
+      <p className="text-xs text-[var(--muted-foreground)] text-center leading-relaxed">
+        By creating an account, you agree to our{' '}
+        <a href="https://unjynx.me/terms" target="_blank" rel="noopener noreferrer"
+          className="text-unjynx-violet/70 hover:text-unjynx-violet underline decoration-unjynx-violet/30 transition-colors">
+          Terms of Service
+        </a>{' '}
+        and{' '}
+        <a href="https://unjynx.me/privacy" target="_blank" rel="noopener noreferrer"
+          className="text-unjynx-violet/70 hover:text-unjynx-violet underline decoration-unjynx-violet/30 transition-colors">
+          Privacy Policy
+        </a>
       </p>
     </div>
   );
