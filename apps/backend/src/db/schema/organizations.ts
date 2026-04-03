@@ -61,6 +61,35 @@ export const organizations = pgTable(
       }>()
       .default({})
       .notNull(),
+    // ── Enterprise SSO ──────────────────────────────────────────────
+    /** SSO provider type (null = no SSO configured). */
+    ssoProvider: text("sso_provider").$type<"saml" | "oidc" | null>(),
+    /** Email domain for SSO (e.g. "company.com"). */
+    ssoDomain: text("sso_domain"),
+    /** Whether domain ownership has been verified. */
+    ssoDomainVerified: boolean("sso_domain_verified").default(false).notNull(),
+    /** When true, org members MUST use SSO to log in. */
+    ssoEnforced: boolean("sso_enforced").default(false).notNull(),
+    /** SAML/OIDC metadata & config. */
+    ssoMetadata: jsonb("sso_metadata")
+      .$type<{
+        metadataUrl?: string;
+        entityId?: string;
+        acsUrl?: string;
+        idpCertificate?: string;
+        nameIdFormat?: string;
+        oidcClientId?: string;
+        oidcClientSecret?: string;
+        oidcIssuer?: string;
+      }>()
+      .default({}),
+    /** SCIM 2.0 provisioning enabled. */
+    scimEnabled: boolean("scim_enabled").default(false).notNull(),
+    /** SHA-256 hash of the SCIM bearer token. */
+    scimTokenHash: text("scim_token_hash"),
+    /** Last successful SCIM sync timestamp. */
+    scimLastSync: timestamp("scim_last_sync", { withTimezone: true }),
+
     /** True = auto-created personal workspace for a user. */
     isPersonal: boolean("is_personal").default(false).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
