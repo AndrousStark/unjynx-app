@@ -9,7 +9,8 @@ import 'package:feature_todos/todo_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:service_api/service_api.dart';
-import 'package:service_auth/service_auth.dart' show forgotPasswordApiProvider;
+import 'package:service_auth/service_auth.dart'
+    show ApiAuthPort, forgotPasswordApiProvider;
 import 'package:service_database/service_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unjynx_core/core.dart';
@@ -86,13 +87,13 @@ Future<void> bootstrap() async {
         ),
         overrideProjectRepository(getIt<ProjectRepository>()),
         overrideSettingsRepository(getIt<SettingsRepository>()),
-        // To swap to ApiAuthPort (gradual rollout / feature flag):
-        //   import 'package:service_auth/service_auth.dart' show ApiAuthPort;
-        //   const useApiAuth = bool.fromEnvironment('USE_API_AUTH', defaultValue: false);
-        //   overrideAuthPort(useApiAuth
-        //     ? ApiAuthPort(apiBaseUrl: AppConfig.apiBaseUrl)
-        //     : getIt<AuthPort>()),
-        overrideAuthPort(getIt<AuthPort>()),
+        // Direct API auth (no Logto redirect). Disable with:
+        //   flutter run --dart-define=USE_API_AUTH=false
+        overrideAuthPort(
+          const bool.fromEnvironment('USE_API_AUTH', defaultValue: true)
+              ? ApiAuthPort(apiBaseUrl: AppConfig.apiBaseUrl)
+              : getIt<AuthPort>(),
+        ),
         // Wire forgot-password API call to real backend endpoint
         forgotPasswordApiProvider.overrideWithValue((email) async {
           final authApi = getIt<AuthApiService>();

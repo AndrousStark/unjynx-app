@@ -21,9 +21,9 @@ class ApiAuthPort implements AuthPort {
     required String apiBaseUrl,
     Dio? dio,
     FlutterSecureStorage? storage,
-  })  : _apiBaseUrl = apiBaseUrl,
-        _dio = dio ?? Dio(),
-        _storage = storage ?? const FlutterSecureStorage();
+  }) : _apiBaseUrl = apiBaseUrl,
+       _dio = dio ?? Dio(),
+       _storage = storage ?? const FlutterSecureStorage();
 
   // ── AuthPort Implementation ────────────────────────────────────
 
@@ -81,7 +81,7 @@ class ApiAuthPort implements AuthPort {
     final token = _accessToken;
     if (token != null) {
       try {
-        await _dio.post(
+        await _dio.post<Map<String, dynamic>>(
           '$_apiBaseUrl/api/v1/auth/logout',
           options: Options(headers: {'Authorization': 'Bearer $token'}),
         );
