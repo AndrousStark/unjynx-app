@@ -12,7 +12,7 @@
 <p align="center">
   An enterprise-grade, AI-native productivity platform with 8-channel social delivery,<br/>
   on-device ML, multi-tenant team collaboration, and full offline-first architecture.<br/>
-  Built by <strong>METAminds</strong> &mdash; 5 apps, 39 backend modules, 363 API endpoints, 88 database tables.
+  Built by <strong>METAminds</strong> &mdash; 5 apps, 36 backend modules, 31 API services, 88 database tables.
 </p>
 
 <p align="center">
@@ -449,11 +449,11 @@ Rate limiting on all endpoints, parameterized queries (zero SQL injection surfac
 | Phase 3: Channels | COMPLETE | 8 adapters, BullMQ, cron scheduler, webhooks |
 | Phase 4: Premium + Team | COMPLETE | Billing, gamification, teams, admin, dev portal |
 | Phase 5: Polish + Launch | COMPLETE | Security audit, load tests, store listings, OTA |
-| Phase 6: v2-AI | COMPLETE | Claude pipeline, AI chat, auto-schedule, insights |
-| Phase 7: v2-Industry | COMPLETE | Sprints, goals, org reports, industry modes |
-| Phase 8: v2-Intelligence | IN PROGRESS | On-device ML, energy prediction, weekly review |
-| Phase 9: v2-Enterprise | PLANNED | SSO, watch apps, web client, calendar sync |
-| Phase 10: v2-Innovation | PLANNED | AR reminders, voice control, wearables, SLM |
+| Phase 6: v2-AI | COMPLETE | Claude pipeline, AI chat, auto-schedule, insights, AI team dashboard |
+| Phase 7: v2-Industry | COMPLETE | Sprints, goals, org reports, industry modes, custom fields, workflows |
+| Phase 8: v2-Intelligence | PARTIAL (40%) | ML service shells, energy forecast provider, weekly review (mobile). Remaining: full ML model training, on-device inference |
+| Phase 9: v2-Enterprise | PARTIAL (30%) | Web client (39 pages), direct API auth, timeline/table views. Remaining: SSO, wearable full impl, messaging on mobile |
+| Phase 10: v2-Innovation | NOT STARTED | AR reminders, voice control, wearables, SLM |
 
 ---
 
@@ -462,21 +462,22 @@ Rate limiting on all endpoints, parameterized queries (zero SQL injection surfac
 ```
   5   client applications (mobile, web, admin, dev portal, landing)
   2   wearable companions (watchOS, Wear OS)
- 39   backend modules
-363   API endpoints
+ 36   backend modules
+ 31   API service classes (covering all modules)
  88   database tables
  21   Flutter packages
- 61   mobile screens
- 37   web client pages
+ 71   mobile screens/pages
+ 58   mobile routes
+ 39   web client pages
  31   admin + dev portal pages
   8   notification channels
  11   industry modes
-  4   ML models (on-device)
+  4   ML models (FastAPI microservice)
   6   AI pipeline layers
  12   Docker services
   5   CI/CD pipelines
-1,873 tests (all green)
-  0   dart analyze errors
+1,873 tests
+  0   dart analyze errors (3 intentional experimental warnings)
 ```
 
 ---
