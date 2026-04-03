@@ -66,9 +66,6 @@ class _WorkflowBuilderPageState extends ConsumerState<WorkflowBuilderPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     if (_selectedId != null) {
       return _WorkflowDetailView(
         workflowId: _selectedId!,

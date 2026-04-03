@@ -126,6 +126,15 @@ GoRouter createAppRouter(
       builder: (context, state) => const KanbanBoardPage(),
     ),
 
+    // Timeline/Gantt view (full-screen, outside shell)
+    GoRoute(
+      path: '/timeline',
+      builder: (context, state) => const TimelinePage(),
+    ),
+
+    // Spreadsheet table view (full-screen, outside shell)
+    GoRoute(path: '/table', builder: (context, state) => const TableViewPage()),
+
     // Content Feed (full-screen, outside shell)
     GoRoute(
       path: '/content',
