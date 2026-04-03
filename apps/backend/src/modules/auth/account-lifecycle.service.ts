@@ -180,7 +180,7 @@ export async function suspendAccount(
     .returning();
 
   // Suspend in Logto (fire-and-forget — DB state is authoritative)
-  await setLogtoSuspendState(profile.logtoId, true);
+  await setLogtoSuspendState(profile.logtoId ?? "", true);
 
   // Revoke all sessions
   await revokeAllSessions(userId);
@@ -246,7 +246,7 @@ export async function reactivateAccount(
     .returning();
 
   // Unsuspend in Logto
-  await setLogtoSuspendState(profile.logtoId, false);
+  await setLogtoSuspendState(profile.logtoId ?? "", false);
 
   // Audit log
   await writeAuditLog(userId, "account.reactivated", reactivatedBy, {

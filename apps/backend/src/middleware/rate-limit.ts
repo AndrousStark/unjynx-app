@@ -34,7 +34,11 @@ function resolveRateLimitTier(path: string, hasAuth: boolean): RateLimitTier {
       path.includes("/auth/refresh") ||
       path.includes("/auth/forgot-password") ||
       path.includes("/auth/reset-password") ||
-      path.includes("/auth/logout")) {
+      path.includes("/auth/logout") ||
+      path.includes("/auth/login") ||
+      path.includes("/auth/social") ||
+      path.includes("/auth/verify-email") ||
+      path.includes("/auth/resend-verification")) {
     return "auth";
   }
 

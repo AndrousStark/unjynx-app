@@ -382,6 +382,9 @@ export {
   type NewCalendarEventMapping,
 } from "./calendar-event-mapping.js";
 
+// ── Auth ─────────────────────────────────────────────────────────────
+export * from "./password-reset-tokens.js";
+
 // ── User Sessions ──────────────────────────────────────────────────
 export {
   userSessions,

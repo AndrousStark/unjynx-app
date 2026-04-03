@@ -3,8 +3,10 @@ import { adminRoleEnum } from "./enums.js";
 
 export const profiles = pgTable("profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
-  logtoId: text("logto_id").unique().notNull(),
-  email: text("email"),
+  logtoId: text("logto_id").unique(),
+  email: text("email").unique(),
+  passwordHash: text("password_hash"),
+  googleId: text("google_id").unique(),
   name: text("name"),
   avatarUrl: text("avatar_url"),
   timezone: text("timezone").default("Asia/Kolkata"),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unjynx_core/core.dart';
 
+import 'api_auth_port.dart';
 import 'auth_providers.dart';
 import 'google_sign_in_helper.dart';
 import 'mock_auth_port.dart';
@@ -65,13 +66,45 @@ class _LoginPageState extends ConsumerState<LoginPage>
       HapticFeedback.lightImpact();
       return;
     }
+    if (_isSigningIn) return;
     HapticFeedback.mediumImpact();
 
-    final auth = ref.read(authPortProvider);
-    if (auth is MockAuthPort) {
-      auth.setCredentials(email: _emailController.text.trim());
+    setState(() {
+      _isSigningIn = true;
+      _activeProvider = 'email';
+    });
+
+    try {
+      final auth = ref.read(authPortProvider);
+      if (auth is MockAuthPort) {
+        auth.setCredentials(email: _emailController.text.trim());
+        await ref.read(authNotifierProvider.notifier).signIn();
+      } else if (auth is ApiAuthPort) {
+        await auth.login(
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
+        ref.invalidate(isAuthenticatedProvider);
+        ref.invalidate(currentUserProvider);
+      } else {
+        await ref.read(authNotifierProvider.notifier).signIn();
+      }
+      if (mounted) {
+        HapticFeedback.heavyImpact();
+        context.go(widget.redirectTo ?? '/');
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        _showErrorSnackBar(_mapAuthError(e));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSigningIn = false;
+          _activeProvider = null;
+        });
+      }
     }
-    await _handleSignIn(provider: 'email');
   }
 
   // ── Registration via backend Management API ───────────────────────
@@ -94,6 +127,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
       if (auth is MockAuthPort) {
         auth.setCredentials(email: _emailController.text.trim());
         await ref.read(authNotifierProvider.notifier).signIn();
+      } else if (auth is ApiAuthPort) {
+        // Register via backend API, then sign in directly (no OIDC)
+        await _callRegisterApi();
+        await auth.login(
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
+        ref.invalidate(isAuthenticatedProvider);
+        ref.invalidate(currentUserProvider);
       } else {
         // Register via backend API, then sign in via Logto OIDC
         await _callRegisterApi();

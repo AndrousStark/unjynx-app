@@ -86,6 +86,12 @@ Future<void> bootstrap() async {
         ),
         overrideProjectRepository(getIt<ProjectRepository>()),
         overrideSettingsRepository(getIt<SettingsRepository>()),
+        // To swap to ApiAuthPort (gradual rollout / feature flag):
+        //   import 'package:service_auth/service_auth.dart' show ApiAuthPort;
+        //   const useApiAuth = bool.fromEnvironment('USE_API_AUTH', defaultValue: false);
+        //   overrideAuthPort(useApiAuth
+        //     ? ApiAuthPort(apiBaseUrl: AppConfig.apiBaseUrl)
+        //     : getIt<AuthPort>()),
         overrideAuthPort(getIt<AuthPort>()),
         // Wire forgot-password API call to real backend endpoint
         forgotPasswordApiProvider.overrideWithValue((email) async {

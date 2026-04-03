@@ -80,6 +80,37 @@ export function register(payload: RegisterPayload): Promise<{ profileId: string 
   return apiClient.post<{ profileId: string }>('/api/v1/auth/register', payload);
 }
 
+// ---------------------------------------------------------------------------
+// Direct Auth (zero-redirect)
+// ---------------------------------------------------------------------------
+
+export interface DirectLoginPayload {
+  readonly email: string;
+  readonly password: string;
+}
+
+export interface DirectAuthResult {
+  readonly accessToken: string;
+  readonly refreshToken: string;
+  readonly expiresIn: number;
+  readonly tokenType: 'Bearer';
+  readonly user: {
+    readonly id: string;
+    readonly email: string;
+    readonly name: string | null;
+    readonly avatarUrl: string | null;
+    readonly emailVerified: boolean;
+  };
+}
+
+export async function directLogin(payload: DirectLoginPayload): Promise<DirectAuthResult> {
+  return apiClient.post<DirectAuthResult>('/api/v1/auth/login', payload);
+}
+
+export async function socialLogin(provider: 'google' | 'apple', idToken: string): Promise<DirectAuthResult> {
+  return apiClient.post<DirectAuthResult>('/api/v1/auth/social', { provider, idToken });
+}
+
 export function forgotPassword(email: string): Promise<{ sent: boolean }> {
   return apiClient.post<{ sent: boolean }>('/api/v1/auth/forgot-password', { email });
 }

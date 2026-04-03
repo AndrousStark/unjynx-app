@@ -30,6 +30,13 @@ const envSchema = z.object({
   // Auth (Logto Webhook HMAC verification)
   LOGTO_WEBHOOK_SECRET: z.string().optional(),
 
+  // Auth (Self-issued JWT — RS256 keypair for direct auth tokens)
+  JWT_PRIVATE_KEY: z.string().optional(),  // PEM-encoded RS256 private key
+  JWT_PUBLIC_KEY: z.string().optional(),   // PEM-encoded RS256 public key
+
+  // Auth (Google Sign-In — for verifying native Google ID tokens)
+  GOOGLE_WEB_CLIENT_ID: z.string().optional(),
+
   // Storage (MinIO / S3)
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   S3_ACCESS_KEY: z.string().default("minioadmin"),

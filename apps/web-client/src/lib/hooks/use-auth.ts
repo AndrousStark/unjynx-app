@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCurrentUser,
   buildAuthorizationUrl,
+  directLogin as apiDirectLogin,
   apiLogout,
   storeTokens,
   clearTokens,
@@ -16,6 +17,7 @@ import {
   getStoredRefreshToken,
   refreshToken as apiRefreshToken,
   type User,
+  type DirectLoginPayload,
 } from '@/lib/api/auth';
 
 // ---------------------------------------------------------------------------
@@ -91,7 +93,19 @@ export function useAuth() {
     return () => clearInterval(interval);
   }, [attemptRefresh]);
 
-  // Login — build Logto OIDC URL and redirect
+  // Direct login — POST /auth/login (zero redirect)
+  const directLogin = useCallback(async (payload: DirectLoginPayload) => {
+    const result = await apiDirectLogin(payload);
+    storeTokens({
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiresIn: result.expiresIn,
+      tokenType: result.tokenType,
+    });
+    await refetch();
+  }, [refetch]);
+
+  // Login — build Logto OIDC URL and redirect (fallback)
   const login = useCallback(async () => {
     const redirectUri =
       typeof window !== 'undefined'
@@ -131,6 +145,7 @@ export function useAuth() {
     isLoading,
     error,
     login,
+    directLogin,
     logout,
     token,
     refetch,

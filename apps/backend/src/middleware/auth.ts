@@ -196,7 +196,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
       // Set auth context with target user's identity + actor (admin) annotation
       // Impersonation tokens have no JWT scopes — restricted by design
       c.set("auth", {
-        sub: targetProfile.logtoId,
+        sub: targetProfile.logtoId ?? targetProfile.id,
         profileId: targetProfile.id,
         email: targetProfile.email ?? undefined,
         name: targetProfile.name ?? undefined,
@@ -213,40 +213,91 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     }
   }
 
-  // ── Attempt 2: Standard Logto OIDC token (RS256 via JWKS) ────────
+  // ── Attempt 2: Try self-issued token first, then Logto OIDC ────
 
   let sub: string;
   let email: string | undefined;
   let name: string | undefined;
   let picture: string | undefined;
   let jwtScopes: readonly string[] = [];
+  let isSelfIssued = false;
 
+  // Try self-issued token (issuer = "unjynx")
   try {
-    const { payload } = await jose.jwtVerify(token, getJwks(), {
-      issuer: `${env.LOGTO_ENDPOINT}/oidc`,
-      // Audience validation: Logto tokens include the app ID as audience.
-      // If LOGTO_APP_ID is configured, enforce it; otherwise skip
-      // (backward compat for dev environments without the env var).
-      audience: env.LOGTO_APP_ID || undefined,
-    });
-    sub = payload.sub!;
-    email = payload.email as string | undefined;
-    name = payload.name as string | undefined;
-    picture = payload.picture as string | undefined;
+    const { verifyAccessToken } = await import("../modules/auth/jwt.service.js");
+    const claims = await verifyAccessToken(token);
+    sub = claims.sub;
+    email = claims.email;
+    name = claims.name;
+    jwtScopes = [];
+    isSelfIssued = true;
+  } catch {
+    // Not a self-issued token — try Logto OIDC
+    try {
+      const { payload } = await jose.jwtVerify(token, getJwks(), {
+        issuer: `${env.LOGTO_ENDPOINT}/oidc`,
+        // Audience validation: Logto tokens include the app ID as audience.
+        // If LOGTO_APP_ID is configured, enforce it; otherwise skip
+        // (backward compat for dev environments without the env var).
+        audience: env.LOGTO_APP_ID || undefined,
+      });
+      sub = payload.sub!;
+      email = payload.email as string | undefined;
+      name = payload.name as string | undefined;
+      picture = payload.picture as string | undefined;
 
-    // Extract scopes from JWT (Logto RBAC places them in the "scope" claim)
-    const scopeClaim = payload.scope as string | undefined;
-    jwtScopes = scopeClaim ? scopeClaim.split(" ").filter(Boolean) : [];
-  } catch (err) {
-    const errorMessage = (err as Error).message;
-    const errorCode = (err as { code?: string }).code;
-    // Log minimal info — never log the token itself
-    log.error({ errorMessage, errorCode }, "JWT verify failed");
-    throw new HTTPException(401, { message: "Invalid or expired token" });
+      // Extract scopes from JWT (Logto RBAC places them in the "scope" claim)
+      const scopeClaim = payload.scope as string | undefined;
+      jwtScopes = scopeClaim ? scopeClaim.split(" ").filter(Boolean) : [];
+    } catch (err) {
+      const errorMessage = (err as Error).message;
+      const errorCode = (err as { code?: string }).code;
+      // Log minimal info — never log the token itself
+      log.error({ errorMessage, errorCode }, "JWT verify failed");
+      throw new HTTPException(401, { message: "Invalid or expired token" });
+    }
   }
 
-  // Resolve logtoId -> profileId + emailVerified + adminRole (cached, upserts on first encounter)
-  const { profileId, emailVerified, adminRole } = await resolveProfile(sub, email, name, picture);
+  let profileId: string;
+  let emailVerified: boolean;
+  let adminRole: AdminRole;
+
+  if (isSelfIssued) {
+    // sub is already the profile UUID
+    const cached = profileCache.get(sub);
+    if (cached && Date.now() < cached.expiresAt) {
+      profileId = sub;
+      emailVerified = cached.emailVerified;
+      adminRole = cached.adminRole;
+    } else {
+      const [profile] = await db
+        .select({ emailVerified: profiles.emailVerified, adminRole: profiles.adminRole })
+        .from(profiles)
+        .where(eq(profiles.id, sub))
+        .limit(1);
+
+      if (!profile) {
+        throw new HTTPException(401, { message: "Profile not found" });
+      }
+
+      adminRole = (profile.adminRole as AdminRole) ?? "member";
+      emailVerified = profile.emailVerified;
+      profileId = sub;
+
+      profileCache.set(sub, {
+        profileId: sub,
+        emailVerified,
+        adminRole,
+        expiresAt: Date.now() + CACHE_TTL_MS,
+      });
+    }
+  } else {
+    // Logto token — use existing resolveProfile (handles upsert)
+    const resolved = await resolveProfile(sub, email, name, picture);
+    profileId = resolved.profileId;
+    emailVerified = resolved.emailVerified;
+    adminRole = resolved.adminRole;
+  }
 
   // ── Panic Mode Check ──────────────────────────────────────────────
   // During panic mode, only owner accounts can access the system.

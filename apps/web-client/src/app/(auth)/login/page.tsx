@@ -36,7 +36,7 @@ function OrDivider() {
 // ─── Login Page ─────────────────────────────────────────────────
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, directLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -74,14 +74,15 @@ export default function LoginPage() {
       setError(null);
 
       try {
-        // Redirect to Logto OIDC — user authenticates there
-        await login();
-      } catch {
-        setError('Sign in failed. Please try again.');
+        await directLogin({ email: email.trim(), password });
+        window.location.href = '/';
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Sign in failed. Please try again.';
+        setError(msg);
         setIsLoading(false);
       }
     },
-    [email, password, login],
+    [email, password, directLogin],
   );
 
   return (

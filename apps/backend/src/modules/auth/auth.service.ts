@@ -4,7 +4,11 @@ import { getManagementToken } from "../../utils/logto-m2m.js";
 import { logger } from "../../middleware/logger.js";
 import { clearProfileCache } from "../../middleware/auth.js";
 import * as authRepo from "./auth.repository.js";
+import * as jwtService from "./jwt.service.js";
+import * as sessionSvc from "./session.service.js";
+import { verifyGoogleIdToken } from "./google.service.js";
 import type { CallbackInput } from "./auth.schema.js";
+import IORedis from "ioredis";
 
 const log = logger.child({ module: "auth" });
 
@@ -350,6 +354,584 @@ export async function resetPassword(
   if (!response.ok) {
     throw new Error("Invalid or expired reset link");
   }
+}
+
+// ── Direct Auth (native / zero-redirect) ────────────────────────────────
+
+/**
+ * Unified auth response returned by directLogin and socialLogin.
+ */
+export interface DirectAuthResult {
+  readonly accessToken: string;
+  readonly refreshToken: string;
+  readonly expiresIn: number;
+  readonly tokenType: "Bearer";
+  readonly user: {
+    readonly id: string;
+    readonly email: string;
+    readonly name: string | null;
+    readonly avatarUrl: string | null;
+    readonly emailVerified: boolean;
+    readonly adminRole: string | null;
+  };
+}
+
+interface SessionMeta {
+  readonly userAgent?: string;
+  readonly ipAddress?: string;
+  readonly deviceType?: string;
+  readonly os?: string;
+  readonly appVersion?: string;
+}
+
+/**
+ * Direct email + password login.
+ *
+ * 1. Find user in Logto by email
+ * 2. Verify password via Management API
+ * 3. Upsert local profile
+ * 4. Issue self-signed JWT + refresh token
+ * 5. Create session record
+ */
+export async function directLogin(
+  email: string,
+  password: string,
+  meta: SessionMeta = {},
+): Promise<DirectAuthResult> {
+  // ── Dev bypass: allow test login when Logto is not running ──
+  if (env.NODE_ENV === "development") {
+    const m2mCheck = await getManagementToken();
+    if (!m2mCheck) {
+      log.warn("Logto unavailable — using dev bypass login");
+      return devBypassLogin(email, password, meta);
+    }
+  }
+
+  const m2mToken = await getManagementToken();
+  if (!m2mToken) {
+    throw new Error("Authentication service unavailable");
+  }
+
+  // 1. Find user by email in Logto
+  const searchUrl = `${env.LOGTO_ENDPOINT}/api/users?search=${encodeURIComponent(email)}`;
+  const searchRes = await fetch(searchUrl, {
+    headers: { Authorization: `Bearer ${m2mToken}` },
+  });
+
+  if (!searchRes.ok) {
+    throw new Error("Authentication service error");
+  }
+
+  const users = (await searchRes.json()) as Array<{
+    id: string;
+    primaryEmail?: string;
+    name?: string;
+    avatar?: string;
+    primaryEmailVerified?: boolean;
+  }>;
+
+  const logtoUser = users.find(
+    (u) => u.primaryEmail?.toLowerCase() === email.toLowerCase(),
+  );
+
+  if (!logtoUser) {
+    throw new Error("Invalid email or password");
+  }
+
+  // 2. Verify password via Logto Management API
+  const verifyUrl = `${env.LOGTO_ENDPOINT}/api/users/${logtoUser.id}/password/verify`;
+  const verifyRes = await fetch(verifyUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${m2mToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password }),
+  });
+
+  if (verifyRes.status === 422) {
+    throw new Error("Invalid email or password");
+  }
+
+  if (!verifyRes.ok && verifyRes.status !== 204) {
+    log.error(
+      { status: verifyRes.status, logtoUserId: logtoUser.id },
+      "Logto password verify unexpected status",
+    );
+    throw new Error("Authentication failed");
+  }
+
+  // 3. Upsert local profile
+  const profile = await authRepo.upsertProfile({
+    logtoId: logtoUser.id,
+    email: logtoUser.primaryEmail,
+    name: logtoUser.name,
+    picture: logtoUser.avatar,
+  });
+
+  // Sync email verification from Logto if needed
+  if (logtoUser.primaryEmailVerified && !profile.emailVerified) {
+    await authRepo.markEmailVerified(profile.id);
+    clearProfileCache();
+    profile.emailVerified = true;
+  }
+
+  // 4. Issue self-signed tokens
+  const accessToken = await jwtService.signAccessToken({
+    profileId: profile.id,
+    email: profile.email ?? undefined,
+    name: profile.name ?? undefined,
+    role: profile.adminRole ?? "member",
+    emailVerified: profile.emailVerified,
+  });
+
+  const refreshToken = jwtService.generateRefreshToken();
+
+  // 5. Create session
+  const tokenHash = await sessionSvc.hashToken(refreshToken);
+  await sessionSvc.createSession(profile.id, tokenHash, {
+    deviceType: meta.deviceType,
+    os: meta.os,
+    ipAddress: meta.ipAddress,
+    browser: meta.userAgent ? undefined : undefined,
+  });
+
+  log.info({ email, profileId: profile.id }, "Direct login successful");
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: 900, // 15 minutes (matches jwt.service ACCESS_TOKEN_TTL)
+    tokenType: "Bearer",
+    user: {
+      id: profile.id,
+      email: profile.email ?? email,
+      name: profile.name,
+      avatarUrl: profile.avatarUrl,
+      emailVerified: profile.emailVerified,
+      adminRole: profile.adminRole,
+    },
+  };
+}
+
+/**
+ * Native social login (Google / Apple).
+ *
+ * 1. Verify the provider's ID token
+ * 2. Check if user exists in Logto; create if not
+ * 3. Link social identity if needed
+ * 4. Upsert local profile
+ * 5. Issue self-signed JWT
+ */
+export async function socialLogin(
+  provider: "google" | "apple",
+  idToken: string,
+  meta: SessionMeta = {},
+): Promise<DirectAuthResult> {
+  // 1. Verify ID token
+  if (provider !== "google") {
+    throw new Error(`Social provider "${provider}" is not yet supported`);
+  }
+
+  const googleInfo = await verifyGoogleIdToken(idToken);
+  const { googleId, email, name, picture, emailVerified } = googleInfo;
+
+  const m2mToken = await getManagementToken();
+  if (!m2mToken) {
+    throw new Error("Authentication service unavailable");
+  }
+
+  // 2. Check if user exists in Logto
+  const searchUrl = `${env.LOGTO_ENDPOINT}/api/users?search=${encodeURIComponent(email)}`;
+  const searchRes = await fetch(searchUrl, {
+    headers: { Authorization: `Bearer ${m2mToken}` },
+  });
+
+  let logtoUserId: string;
+
+  if (searchRes.ok) {
+    const users = (await searchRes.json()) as Array<{
+      id: string;
+      primaryEmail?: string;
+      identities?: Record<string, unknown>;
+    }>;
+
+    const existing = users.find(
+      (u) => u.primaryEmail?.toLowerCase() === email.toLowerCase(),
+    );
+
+    if (existing) {
+      logtoUserId = existing.id;
+
+      // 3. Link Google identity if not already linked
+      const hasGoogle = existing.identities && "google" in existing.identities;
+      if (!hasGoogle) {
+        try {
+          const linkUrl = `${env.LOGTO_ENDPOINT}/api/users/${logtoUserId}/identities`;
+          await fetch(linkUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${m2mToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              connectorId: "google",
+              connectorData: {
+                userId: googleId,
+                rawData: { sub: googleId, email, name, picture },
+              },
+            }),
+          });
+        } catch (linkErr) {
+          log.warn({ err: linkErr }, "Failed to link Google identity — non-critical");
+        }
+      }
+    } else {
+      // 4. Create user in Logto with social identity
+      const createUrl = `${env.LOGTO_ENDPOINT}/api/users`;
+      const createRes = await fetch(createUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${m2mToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          primaryEmail: email,
+          name: name ?? undefined,
+          avatar: picture ?? undefined,
+          primaryEmailVerified: emailVerified,
+        }),
+      });
+
+      if (!createRes.ok) {
+        const errText = await createRes.text().catch(() => "");
+        log.error(
+          { status: createRes.status, error: errText },
+          "Logto user creation failed during social login",
+        );
+        throw new Error("Account creation failed — please try again");
+      }
+
+      const created = (await createRes.json()) as { id: string };
+      logtoUserId = created.id;
+    }
+  } else {
+    throw new Error("Authentication service error");
+  }
+
+  // 5. Upsert local profile
+  const profile = await authRepo.upsertProfileFromSocial({
+    logtoId: logtoUserId,
+    email,
+    name,
+    googleId,
+    avatarUrl: picture,
+  });
+
+  // 6. Issue self-signed tokens
+  const accessToken = await jwtService.signAccessToken({
+    profileId: profile.id,
+    email: profile.email ?? undefined,
+    name: profile.name ?? undefined,
+    role: profile.adminRole ?? "member",
+    emailVerified: profile.emailVerified,
+  });
+
+  const refreshToken = jwtService.generateRefreshToken();
+
+  // Create session
+  const tokenHash = await sessionSvc.hashToken(refreshToken);
+  await sessionSvc.createSession(profile.id, tokenHash, {
+    deviceType: meta.deviceType,
+    os: meta.os,
+    ipAddress: meta.ipAddress,
+  });
+
+  log.info(
+    { provider, email, profileId: profile.id },
+    "Social login successful",
+  );
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: 900,
+    tokenType: "Bearer",
+    user: {
+      id: profile.id,
+      email: profile.email ?? email,
+      name: profile.name,
+      avatarUrl: profile.avatarUrl,
+      emailVerified: profile.emailVerified,
+      adminRole: profile.adminRole,
+    },
+  };
+}
+
+// ── Email Verification OTP ──────────────────────────────────────────────
+
+let otpRedis: IORedis | null = null;
+
+function getOtpRedis(): IORedis {
+  if (!otpRedis) {
+    otpRedis = new IORedis(env.REDIS_URL, {
+      connectionName: "unjynx:email-otp",
+      lazyConnect: true,
+      enableReadyCheck: false,
+      maxRetriesPerRequest: 2,
+      retryStrategy(times: number): number | null {
+        if (times > 3) return null;
+        return Math.min(times * 100, 1000);
+      },
+    });
+    otpRedis.on("error", () => {
+      // Swallow — callers handle failures gracefully
+    });
+  }
+  return otpRedis;
+}
+
+const OTP_KEY_PREFIX = "email_otp:";
+const OTP_TTL_SECONDS = 600; // 10 minutes
+
+/**
+ * Generate a 6-digit OTP, hash it, store in Redis, and email it.
+ */
+export async function sendVerificationOtp(email: string): Promise<void> {
+  // Generate 6-digit OTP
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  const raw = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  const code = String(raw % 1000000).padStart(6, "0");
+
+  // Hash it before storing
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(code));
+  const hashHex = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  // Store in Redis with TTL
+  const redis = getOtpRedis();
+  await redis.set(`${OTP_KEY_PREFIX}${email.toLowerCase()}`, hashHex, "EX", OTP_TTL_SECONDS);
+
+  // Send via SendGrid
+  await sendOtpEmail(email, code);
+
+  log.info({ email }, "Verification OTP sent");
+}
+
+/**
+ * Verify a 6-digit OTP against the stored hash.
+ *
+ * On success: marks the email as verified in both Logto and our DB.
+ */
+export async function verifyEmailOtp(
+  email: string,
+  code: string,
+): Promise<boolean> {
+  const redis = getOtpRedis();
+  const key = `${OTP_KEY_PREFIX}${email.toLowerCase()}`;
+
+  const storedHash = await redis.get(key);
+  if (!storedHash) {
+    return false; // Expired or never sent
+  }
+
+  // Hash the provided code and compare
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(code));
+  const hashHex = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  if (hashHex !== storedHash) {
+    return false; // Wrong code
+  }
+
+  // Valid — clean up
+  await redis.del(key);
+
+  // Mark email as verified in Logto via Management API
+  try {
+    const m2mToken = await getManagementToken();
+    if (m2mToken) {
+      const searchUrl = `${env.LOGTO_ENDPOINT}/api/users?search=${encodeURIComponent(email)}`;
+      const searchRes = await fetch(searchUrl, {
+        headers: { Authorization: `Bearer ${m2mToken}` },
+      });
+
+      if (searchRes.ok) {
+        const users = (await searchRes.json()) as Array<{
+          id: string;
+          primaryEmail?: string;
+        }>;
+        const user = users.find(
+          (u) => u.primaryEmail?.toLowerCase() === email.toLowerCase(),
+        );
+
+        if (user) {
+          await fetch(`${env.LOGTO_ENDPOINT}/api/users/${user.id}`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${m2mToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ primaryEmailVerified: true }),
+          });
+        }
+      }
+    }
+  } catch (logtoErr) {
+    log.warn({ err: logtoErr }, "Failed to update Logto email verification — non-critical");
+  }
+
+  // Mark verified in our DB
+  const profile = await authRepo.findProfileByEmail(email);
+  if (profile && !profile.emailVerified) {
+    await authRepo.markEmailVerified(profile.id);
+    clearProfileCache();
+  }
+
+  log.info({ email }, "Email verified via OTP");
+  return true;
+}
+
+// ── OTP Email Helper ────────────────────────────────────────────────────
+
+async function sendOtpEmail(email: string, code: string): Promise<void> {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) {
+    log.info({ email, code }, "SendGrid not configured — OTP logged for dev");
+    return;
+  }
+
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL ?? "noreply@unjynx.me";
+  const fromName = process.env.SENDGRID_FROM_NAME ?? "UNJYNX";
+
+  try {
+    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email }] }],
+        from: { email: fromEmail, name: fromName },
+        subject: "UNJYNX — Email Verification Code",
+        content: [
+          {
+            type: "text/plain",
+            value: [
+              "Hi,",
+              "",
+              `Your UNJYNX verification code is: ${code}`,
+              "",
+              "This code expires in 10 minutes.",
+              "",
+              "If you didn't request this, please ignore this email.",
+              "",
+              "— UNJYNX Team",
+            ].join("\n"),
+          },
+          {
+            type: "text/html",
+            value: `
+              <div style="font-family: 'Outfit', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #0F0A1A; color: #F0EBF7; border-radius: 16px;">
+                <h1 style="color: #FFD700; font-size: 24px; margin-bottom: 8px;">UNJYNX</h1>
+                <p style="color: #9B8BB8; margin-bottom: 24px;">Email Verification</p>
+                <p>Your verification code is:</p>
+                <div style="background: #1E1333; border: 1px solid #6C3CE0; border-radius: 8px; padding: 16px; margin: 16px 0; text-align: center;">
+                  <code style="font-size: 32px; color: #FFD700; letter-spacing: 8px; font-weight: bold;">${code}</code>
+                </div>
+                <p style="color: #6B5B8A; font-size: 14px;">This code expires in 10 minutes.</p>
+                <p style="color: #6B5B8A; font-size: 12px; margin-top: 24px;">If you didn't request this, please ignore this email.</p>
+              </div>
+            `,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      log.warn({ status: response.status }, "OTP email send failed");
+    }
+  } catch (error) {
+    log.warn({ error }, "OTP email error");
+  }
+}
+
+// ── Dev Bypass (development only, no Logto required) ────────────────────
+
+const DEV_ACCOUNTS: Record<string, { password: string; name: string; role: "owner" | "admin" | "member" }> = {
+  "admin@unjynx.dev": { password: "admin123", name: "Dev Admin", role: "owner" },
+  "user@unjynx.dev": { password: "user123", name: "Test User", role: "member" },
+  "dev@unjynx.dev": { password: "dev123", name: "Dev Engineer", role: "admin" },
+};
+
+async function devBypassLogin(
+  email: string,
+  password: string,
+  meta: SessionMeta,
+): Promise<DirectAuthResult> {
+  const account = DEV_ACCOUNTS[email.toLowerCase()];
+  if (!account || password !== account.password) {
+    throw new Error("Invalid email or password");
+  }
+
+  // Upsert a dev profile
+  let profile = await authRepo.findProfileByEmail(email.toLowerCase());
+  if (!profile) {
+    const [created] = await (await import("../../db/index.js")).db
+      .insert((await import("../../db/schema/index.js")).profiles)
+      .values({
+        email: email.toLowerCase(),
+        name: account.name,
+        adminRole: account.role,
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: (await import("../../db/schema/index.js")).profiles.email,
+        set: { updatedAt: new Date() },
+      })
+      .returning();
+    profile = created;
+  }
+
+  const accessToken = await jwtService.signAccessToken({
+    profileId: profile.id,
+    email: profile.email ?? email.toLowerCase(),
+    name: profile.name ?? "Dev Admin",
+    role: profile.adminRole ?? "owner",
+    emailVerified: true,
+  });
+
+  const refreshToken = jwtService.generateRefreshToken();
+  const tokenHash = await sessionSvc.hashToken(refreshToken);
+  await sessionSvc.createSession(profile.id, tokenHash, {
+    deviceType: meta.deviceType,
+    os: meta.os,
+    ipAddress: meta.ipAddress,
+  });
+
+  log.info({ email }, "Dev bypass login successful");
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: 900,
+    tokenType: "Bearer",
+    user: {
+      id: profile.id,
+      email: profile.email ?? email.toLowerCase(),
+      name: profile.name,
+      avatarUrl: profile.avatarUrl,
+      emailVerified: true,
+      adminRole: profile.adminRole ?? "owner",
+    },
+  };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────

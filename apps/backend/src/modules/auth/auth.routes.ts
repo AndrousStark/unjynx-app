@@ -18,6 +18,10 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   updateProfileSchema,
+  loginSchema,
+  socialAuthSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
 } from "./auth.schema.js";
 
 export const authRoutes = new Hono();
@@ -143,6 +147,110 @@ authRoutes.post(
       const message =
         e instanceof Error ? e.message : "Password reset failed";
       return c.json(err(message), 400);
+    }
+  },
+);
+
+// ── Direct Auth (native / zero-redirect) ────────────────────────────────
+
+// POST /api/v1/auth/login - Direct email/password login
+authRoutes.post(
+  "/login",
+  zValidator("json", loginSchema),
+  async (c) => {
+    const { email, password, deviceInfo } = c.req.valid("json");
+
+    try {
+      const userAgent = c.req.header("user-agent") ?? "";
+      const ipAddress =
+        c.req.header("x-forwarded-for") ??
+        c.req.header("x-real-ip") ??
+        undefined;
+
+      const result = await authService.directLogin(email, password, {
+        userAgent,
+        ipAddress,
+        deviceType: deviceInfo?.deviceType ?? parseDeviceType(userAgent),
+        os: deviceInfo?.os ?? parseOs(userAgent),
+        appVersion: deviceInfo?.appVersion,
+      });
+
+      return c.json(ok(result));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Login failed";
+      return c.json(err(message), 401);
+    }
+  },
+);
+
+// POST /api/v1/auth/social - Native social login (Google, Apple)
+authRoutes.post(
+  "/social",
+  zValidator("json", socialAuthSchema),
+  async (c) => {
+    const { provider, idToken, deviceInfo } = c.req.valid("json");
+
+    try {
+      const userAgent = c.req.header("user-agent") ?? "";
+      const ipAddress =
+        c.req.header("x-forwarded-for") ??
+        c.req.header("x-real-ip") ??
+        undefined;
+
+      const result = await authService.socialLogin(provider, idToken, {
+        userAgent,
+        ipAddress,
+        deviceType: deviceInfo?.deviceType ?? parseDeviceType(userAgent),
+        os: deviceInfo?.os ?? parseOs(userAgent),
+        appVersion: deviceInfo?.appVersion,
+      });
+
+      return c.json(ok(result));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Social login failed";
+      return c.json(err(message), 401);
+    }
+  },
+);
+
+// POST /api/v1/auth/verify-email - Verify email with 6-digit OTP
+authRoutes.post(
+  "/verify-email",
+  zValidator("json", verifyEmailSchema),
+  async (c) => {
+    const { email, code } = c.req.valid("json");
+
+    try {
+      const verified = await authService.verifyEmailOtp(email, code);
+
+      if (!verified) {
+        return c.json(err("Invalid or expired verification code"), 400);
+      }
+
+      return c.json(ok({ verified: true }));
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Verification failed";
+      return c.json(err(message), 500);
+    }
+  },
+);
+
+// POST /api/v1/auth/resend-verification - Resend verification OTP
+authRoutes.post(
+  "/resend-verification",
+  zValidator("json", resendVerificationSchema),
+  async (c) => {
+    const { email } = c.req.valid("json");
+
+    try {
+      await authService.sendVerificationOtp(email);
+      // Always return success to prevent email enumeration
+      return c.json(ok({ sent: true }));
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Failed to send verification code";
+      return c.json(err(message), 500);
     }
   },
 );
