@@ -49,6 +49,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
       parent: _fadeController,
       curve: Curves.easeOut,
     );
+
+    // Rebuild for password strength bars
+    _passwordController.addListener(() => setState(() {}));
   }
 
   @override
@@ -261,6 +264,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   // ── Error Mapping ─────────────────────────────────────────────────
 
+  Future<void> _launchUrl(String url) async {
+    // Use url_launcher if available, otherwise show in snackbar
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(url), duration: const Duration(seconds: 4)),
+      );
+    }
+  }
+
   String _mapAuthError(Exception e) {
     final msg = e.toString().toLowerCase();
     if (msg.contains('cancelled') || msg.contains('canceled')) return '';
@@ -384,15 +396,55 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       // Terms
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          'By continuing, you agree to our\n'
-                          'Terms of Service and Privacy Policy',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: isLight ? 0.55 : 0.4,
+                        child: Text.rich(
+                          TextSpan(
+                            text: 'By continuing, you agree to our\n',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: isLight ? 0.55 : 0.4,
+                              ),
+                              height: 1.5,
                             ),
-                            height: 1.5,
+                            children: [
+                              WidgetSpan(
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      _launchUrl('https://unjynx.me/terms'),
+                                  child: Text(
+                                    'Terms of Service',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.primary.withValues(
+                                        alpha: isLight ? 0.7 : 0.6,
+                                      ),
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: colorScheme.primary
+                                          .withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const TextSpan(text: ' and '),
+                              WidgetSpan(
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      _launchUrl('https://unjynx.me/privacy'),
+                                  child: Text(
+                                    'Privacy Policy',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.primary.withValues(
+                                        alpha: isLight ? 0.7 : 0.6,
+                                      ),
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: colorScheme.primary
+                                          .withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -619,6 +671,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       return null;
                     },
                   ),
+
+                  // Password strength indicator (register only)
+                  if (isRegister) ...[
+                    const SizedBox(height: 10),
+                    _PasswordStrengthBars(
+                      password: _passwordController.text,
+                      colorScheme: colorScheme,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -812,6 +873,83 @@ class _BrandSection extends StatelessWidget {
 }
 
 // ── Sign-In Button ────────────────────────────────────────────────────
+
+/// 4-bar password strength indicator matching the HTML plan design.
+class _PasswordStrengthBars extends StatelessWidget {
+  final String password;
+  final ColorScheme colorScheme;
+
+  const _PasswordStrengthBars({
+    required this.password,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLength = password.length >= 8;
+    final hasUpper = password.contains(RegExp(r'[A-Z]'));
+    final hasNumber = password.contains(RegExp(r'[0-9]'));
+    final hasSpecial = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+
+    final score = [
+      hasLength,
+      hasUpper,
+      hasNumber,
+      hasSpecial,
+    ].where((v) => v).length;
+
+    final label = switch (score) {
+      0 => '',
+      1 => 'Weak',
+      2 => 'Fair',
+      3 => 'Good',
+      _ => 'Strong',
+    };
+
+    final barColor = switch (score) {
+      0 => colorScheme.outlineVariant,
+      1 => const Color(0xFFEF4444),
+      2 => const Color(0xFFF59E0B),
+      3 => const Color(0xFF3B82F6),
+      _ => const Color(0xFF22C55E),
+    };
+
+    if (password.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: List.generate(4, (i) {
+            return Expanded(
+              child: Container(
+                height: 4,
+                margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  color: i < score
+                      ? barColor
+                      : colorScheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+            );
+          }),
+        ),
+        if (label.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: barColor,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 class _SignInButton extends StatelessWidget {
   const _SignInButton({
