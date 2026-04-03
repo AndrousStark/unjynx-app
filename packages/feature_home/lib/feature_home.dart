@@ -52,4 +52,5 @@ export 'src/presentation/widgets/streak_counter.dart';
 export 'src/presentation/widgets/timer_ring.dart';
 export 'src/presentation/widgets/today_tasks_section.dart';
 export 'src/presentation/widgets/upcoming_preview.dart';
+export 'src/presentation/widgets/voice_task_button.dart';
 export 'src/presentation/widgets/weekly_insights_card.dart';

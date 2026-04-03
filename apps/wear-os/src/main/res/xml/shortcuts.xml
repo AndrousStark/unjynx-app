@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Google Assistant: "Create a task in UNJYNX" -->
+    <capability android:name="actions.intent.CREATE_NOTE">
+        <intent
+            android:action="com.google.android.gms.actions.CREATE_NOTE"
+            android:targetPackage="com.metaminds.unjynx.wear"
+            android:targetClass="com.metaminds.unjynx.wear.voice.VoiceActionReceiver">
+            <parameter
+                android:name="note.text"
+                android:key="android.intent.extra.NOTE_TITLE" />
+        </intent>
+    </capability>
+
+    <!-- Google Assistant: "Open my tasks in UNJYNX" -->
+    <capability android:name="actions.intent.OPEN_APP_FEATURE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.metaminds.unjynx.wear"
+            android:targetClass="com.metaminds.unjynx.wear.ui.screens.TaskListScreen">
+            <parameter
+                android:name="feature"
+                android:key="feature" />
+        </intent>
+    </capability>
+
+    <!-- Static shortcuts (pinnable to home screen) -->
+    <shortcut
+        android:shortcutId="create_task"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/shortcut_create_task"
+        android:shortcutLongLabel="@string/shortcut_create_task_long"
+        android:icon="@drawable/ic_add_task">
+        <intent
+            android:action="com.google.android.gms.actions.CREATE_NOTE"
+            android:targetPackage="com.metaminds.unjynx.wear"
+            android:targetClass="com.metaminds.unjynx.wear.voice.VoiceActionReceiver" />
+    </shortcut>
+
+</shortcuts>
