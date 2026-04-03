@@ -21,6 +21,8 @@ dependencies:
     path: ../../packages/feature_goals
   feature_home:
     path: ../../packages/feature_home
+  feature_messaging:
+    path: ../../packages/feature_messaging
   feature_import_export:
     path: ../../packages/feature_import_export
   feature_notifications:

@@ -4,6 +4,7 @@ import 'package:feature_gamification/feature_gamification.dart';
 import 'package:feature_goals/feature_goals.dart';
 import 'package:feature_home/feature_home.dart';
 import 'package:feature_import_export/feature_import_export.dart';
+import 'package:feature_messaging/feature_messaging.dart';
 import 'package:feature_notifications/feature_notifications.dart';
 import 'package:feature_onboarding/feature_onboarding.dart';
 import 'package:feature_profile/feature_profile.dart';
@@ -43,16 +44,14 @@ Future<void> configureDependencies() async {
   final eventBus = EventBus();
   getIt
     ..registerSingleton<EventBus>(eventBus)
-    ..registerSingleton<PluginRegistry>(
-      PluginRegistry(eventBus: eventBus),
-    );
+    ..registerSingleton<PluginRegistry>(PluginRegistry(eventBus: eventBus));
 
   // 2. Infrastructure — run critical async init in parallel.
   // NotificationPort is deferred (not needed for first frame).
   final dbPort = DriftDatabasePort();
 
   final results = await Future.wait([
-    dbPort.initialize(),            // [0]
+    dbPort.initialize(), // [0]
     SharedPreferences.getInstance(), // [1]
   ]);
 
@@ -100,10 +99,18 @@ Future<void> configureDependencies() async {
 
   // Feature datasources + repositories (offline-first with real API sync)
   final todoDatasource = TodoDriftDatasource(getIt<AppDatabase>());
-  final todoRepository = TodoSyncRepository(todoDatasource, taskApi, eventBus: eventBus);
+  final todoRepository = TodoSyncRepository(
+    todoDatasource,
+    taskApi,
+    eventBus: eventBus,
+  );
 
   final projectDatasource = ProjectDriftDatasource(getIt<AppDatabase>());
-  final projectRepository = ProjectSyncRepository(projectDatasource, projectApi, eventBus: eventBus);
+  final projectRepository = ProjectSyncRepository(
+    projectDatasource,
+    projectApi,
+    eventBus: eventBus,
+  );
 
   // Sync infrastructure — local + remote adapters for the SyncEngine
   final syncLocal = DriftSyncLocalAdapter(dbPort.db, prefs);
@@ -124,7 +131,6 @@ Future<void> configureDependencies() async {
   getIt
     ..registerSingleton<TodoRepository>(todoRepository)
     ..registerSingleton<ProjectRepository>(projectRepository)
-
     // 5. Plugins
     ..registerSingleton<OnboardingPlugin>(OnboardingPlugin())
     ..registerSingleton<TodoPlugin>(TodoPlugin())
@@ -139,7 +145,8 @@ Future<void> configureDependencies() async {
     ..registerSingleton<BillingPlugin>(BillingPlugin())
     ..registerSingleton<AiPlugin>(AiPlugin())
     ..registerSingleton<SprintPlugin>(SprintPlugin())
-    ..registerSingleton<GoalPlugin>(GoalPlugin());
+    ..registerSingleton<GoalPlugin>(GoalPlugin())
+    ..registerSingleton<MessagingPlugin>(MessagingPlugin());
 
   // Incomplete features — gated behind compile-time flags
   if (AppConfig.featureTeam) {
@@ -155,15 +162,13 @@ Future<void> configureDependencies() async {
 
 /// Nav-visible plugins in display order.
 List<UnjynxPlugin> get allPlugins => [
-      getIt<HomePlugin>(),
-      getIt<TodoPlugin>(),
-      getIt<ProjectPlugin>(),
-      getIt<CalendarPlugin>(),
-      getIt<ProfilePlugin>(),
-      getIt<SettingsPlugin>(),
-    ];
+  getIt<HomePlugin>(),
+  getIt<TodoPlugin>(),
+  getIt<ProjectPlugin>(),
+  getIt<CalendarPlugin>(),
+  getIt<ProfilePlugin>(),
+  getIt<SettingsPlugin>(),
+];
 
 /// Utility plugins (registered to PluginRegistry but hidden from bottom nav).
-List<UnjynxPlugin> get utilityPlugins => [
-      getIt<OnboardingPlugin>(),
-    ];
+List<UnjynxPlugin> get utilityPlugins => [getIt<OnboardingPlugin>()];

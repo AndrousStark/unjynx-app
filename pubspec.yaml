@@ -12,6 +12,7 @@ workspace:
   - packages/feature_gamification
   - packages/feature_home
   - packages/feature_import_export
+  - packages/feature_messaging
   - packages/feature_notifications
   - packages/feature_onboarding
   - packages/feature_profile

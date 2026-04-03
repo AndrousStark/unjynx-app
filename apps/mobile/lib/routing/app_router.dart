@@ -2,6 +2,7 @@ import 'package:feature_ai/feature_ai.dart';
 import 'package:feature_billing/feature_billing.dart';
 import 'package:feature_gamification/feature_gamification.dart';
 import 'package:feature_goals/feature_goals.dart';
+import 'package:feature_messaging/feature_messaging.dart';
 import 'package:feature_home/feature_home.dart';
 import 'package:feature_import_export/feature_import_export.dart';
 import 'package:feature_notifications/feature_notifications.dart';
@@ -300,6 +301,17 @@ GoRouter createAppRouter(
     GoRoute(
       path: '/ai/insights',
       builder: (context, state) => const AiInsightsPage(),
+    ),
+
+    // Messaging (Phase 9)
+    GoRoute(
+      path: '/messaging',
+      builder: (context, state) => const ChannelListPage(),
+    ),
+    GoRoute(
+      path: '/messaging/:channelId',
+      builder: (context, state) =>
+          ChatPage(channelId: state.pathParameters['channelId']!),
     ),
 
     // AI Team dashboard (Sprint 4)

@@ -21,6 +21,7 @@ import '../services/sync_api_service.dart';
 import '../services/task_api_service.dart';
 import '../services/mode_api_service.dart';
 import '../services/goal_api_service.dart';
+import '../services/messaging_api_service.dart';
 import '../services/organization_api_service.dart';
 import '../services/pomodoro_api_service.dart';
 import '../services/recurring_api_service.dart';
@@ -148,6 +149,12 @@ final goalApiProvider = Provider<GoalApiService>(
 
 final reportApiProvider = Provider<ReportApiService>(
   (ref) => ReportApiService(ref.watch(apiClientProvider)),
+);
+
+// Phase 9: Messaging
+
+final messagingApiProvider = Provider<MessagingApiService>(
+  (ref) => MessagingApiService(ref.watch(apiClientProvider)),
 );
 
 // Sprint 2: Core task features (subtasks, tags, recurring, sections, templates)
