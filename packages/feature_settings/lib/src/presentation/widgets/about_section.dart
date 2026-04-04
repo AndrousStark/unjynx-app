@@ -70,6 +70,18 @@ class AboutSection extends StatelessWidget {
             context: context,
             applicationName: 'UNJYNX',
             applicationVersion: '0.5.0',
+            applicationIcon: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/images/logo-icon.png',
+                  package: 'core',
+                  width: 56,
+                  height: 56,
+                ),
+              ),
+            ),
             );
           },
         ),

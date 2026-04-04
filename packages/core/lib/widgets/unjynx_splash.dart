@@ -62,27 +62,32 @@ class _UnjynxSplashState extends State<UnjynxSplash>
             AnimatedBuilder(
               animation: _pulse,
               builder: (context, child) => Container(
-                width: 80,
-                height: 80,
+                width: 96,
+                height: 96,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [violetColor, goldColor],
-                  ),
+                  borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
                       color: goldColor.withValues(alpha: 0.3 * _pulse.value),
-                      blurRadius: 24 * _pulse.value,
-                      spreadRadius: 4 * _pulse.value,
+                      blurRadius: 28 * _pulse.value,
+                      spreadRadius: 6 * _pulse.value,
+                    ),
+                    BoxShadow(
+                      color: violetColor.withValues(alpha: 0.15 * _pulse.value),
+                      blurRadius: 40 * _pulse.value,
+                      spreadRadius: 8 * _pulse.value,
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.bolt_rounded,
-                  size: 40,
-                  color: isLight ? Colors.white : UnjynxDarkColors.background,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/images/logo-icon.png',
+                    package: 'core',
+                    width: 96,
+                    height: 96,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             ),

@@ -82,6 +82,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     OnboardingSlide(
                       icon: Icons.bolt_rounded,
                       iconColor: ux.gold,
+                      customIcon: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Image.asset(
+                          'assets/images/logo-icon.png',
+                          package: 'core',
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                       title: 'Break the Satisfactory',
                       subtitle:
                           'UNJYNX is not just another TODO app. '

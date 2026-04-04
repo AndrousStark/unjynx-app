@@ -74,33 +74,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onCollapse }) => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          gap: 8,
           borderBottom: "1px solid #2D2640",
+          padding: collapsed ? "0 8px" : "0 16px",
         }}
       >
-        <Typography.Title
-          level={4}
-          style={{
-            margin: 0,
-            color: COLORS.gold,
-            fontFamily: "'Inter', sans-serif",
-            fontWeight: 700,
-            letterSpacing: 2,
-          }}
-        >
-          {collapsed ? "U" : "UNJYNX"}
-        </Typography.Title>
-        {!collapsed && (
-          <Typography.Text
+        {collapsed ? (
+          <img
+            src="/logo-icon.png"
+            alt="UNJYNX"
             style={{
-              color: COLORS.violet,
-              fontSize: 10,
-              marginLeft: 8,
-              textTransform: "uppercase",
-              letterSpacing: 1,
+              height: 32,
+              width: 32,
+              objectFit: "contain",
+              filter: "drop-shadow(0 2px 6px rgba(108, 92, 231, 0.4))",
             }}
-          >
-            DEV
-          </Typography.Text>
+          />
+        ) : (
+          <>
+            <img
+              src="/logo-dark.png"
+              alt="UNJYNX"
+              style={{
+                height: 34,
+                width: "auto",
+                objectFit: "contain",
+                filter: "drop-shadow(0 2px 8px rgba(108, 92, 231, 0.3))",
+              }}
+            />
+            <Typography.Text
+              style={{
+                color: COLORS.violet,
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}
+            >
+              DEV
+            </Typography.Text>
+          </>
         )}
       </div>
 

@@ -830,22 +830,25 @@ class _BrandSection extends StatelessWidget {
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: isLight ? ux.goldWash : ux.gold.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: ux.gold.withValues(alpha: isLight ? 0.2 : 0.3),
-            ),
-            boxShadow: isLight
-                ? [
-                    BoxShadow(
-                      color: ux.gold.withValues(alpha: 0.15),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
+            boxShadow: [
+              BoxShadow(
+                color: ux.gold.withValues(alpha: 0.2),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
           ),
-          child: Icon(Icons.bolt_rounded, size: 44, color: ux.gold),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              'assets/images/logo-icon.png',
+              package: 'core',
+              width: 80,
+              height: 80,
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
         const SizedBox(height: 24),
         Text(

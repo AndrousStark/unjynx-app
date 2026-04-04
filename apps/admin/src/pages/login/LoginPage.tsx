@@ -42,6 +42,17 @@ export const LoginPage: React.FC = () => {
         styles={{ body: { padding: 40 } }}
       >
         <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <img
+            src="/logo-icon.png"
+            alt="UNJYNX"
+            style={{
+              width: 64,
+              height: 64,
+              objectFit: "contain",
+              marginBottom: 12,
+              filter: "drop-shadow(0 4px 12px rgba(108, 92, 231, 0.3))",
+            }}
+          />
           <Title
             level={2}
             style={{

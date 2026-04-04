@@ -25,3 +25,9 @@ dev_dependencies:
   freezed: ^3.2.5
   json_serializable: ^6.13.0
   very_good_analysis: ^7.0.0
+
+flutter:
+  assets:
+    - assets/images/logo-icon.png
+    - assets/images/logo-light.png
+    - assets/images/logo-dark.png

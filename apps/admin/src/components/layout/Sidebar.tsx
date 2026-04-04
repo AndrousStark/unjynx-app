@@ -73,18 +73,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onCollapse }) => {
           alignItems: "center",
           justifyContent: "center",
           borderBottom: `1px solid ${BRAND_COLORS.violet}33`,
+          padding: collapsed ? "0 8px" : "0 16px",
         }}
       >
-        <span
-          style={{
-            color: BRAND_COLORS.gold,
-            fontSize: collapsed ? 16 : 22,
-            fontWeight: 700,
-            letterSpacing: 2,
-          }}
-        >
-          {collapsed ? "UJ" : "UNJYNX"}
-        </span>
+        {collapsed ? (
+          <img
+            src="/logo-icon.png"
+            alt="UNJYNX"
+            style={{
+              height: 32,
+              width: 32,
+              objectFit: "contain",
+              filter: "drop-shadow(0 2px 6px rgba(108, 92, 231, 0.4))",
+            }}
+          />
+        ) : (
+          <img
+            src="/logo-dark.png"
+            alt="UNJYNX"
+            style={{
+              height: 36,
+              width: "auto",
+              objectFit: "contain",
+              filter: "drop-shadow(0 2px 8px rgba(108, 92, 231, 0.3))",
+            }}
+          />
+        )}
       </div>
 
       <Menu

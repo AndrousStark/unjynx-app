@@ -8,6 +8,7 @@ class OnboardingSlide extends StatelessWidget {
     required this.iconColor,
     required this.title,
     required this.subtitle,
+    this.customIcon,
     super.key,
   });
 
@@ -15,6 +16,8 @@ class OnboardingSlide extends StatelessWidget {
   final Color iconColor;
   final String title;
   final String subtitle;
+  /// Optional custom widget (e.g. logo image) that replaces the default icon.
+  final Widget? customIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +50,7 @@ class OnboardingSlide extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(icon, size: 56, color: iconColor),
+            child: customIcon ?? Icon(icon, size: 56, color: iconColor),
           ),
           const SizedBox(height: 48),
 
